@@ -1,0 +1,36 @@
+import { useEffect, useState } from "react";
+import { getTasks } from "../services/api.js";
+
+import TaskCard from "../components/TaskCard.jsx";
+
+export default function Tasks() {
+  const [tasks, setTasks] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    async function loadTask() {
+      try {
+        const data = await getTasks();
+        setTasks(data);
+      } catch (err) {
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadTask();
+  }, []);
+
+  if (loading) return <p>loading...</p>;
+  if (error) return <p style={{ color: "red" }}>{error}</p>;
+
+  return (
+    <>
+      <h1>Tasks Page</h1>
+        {tasks.map((task) => (
+            <TaskCard key={task._id} task={task} />
+        ))}
+    </>
+  );
+}
