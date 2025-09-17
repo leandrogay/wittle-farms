@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { getTasks } from "../services/api.js";
 
-import TaskCard from "../components/TaskCard.jsx";
+import MiniTaskCard from "../components/ui/MiniTaskCard.jsx";
+import TaskCard from "../components/ui/TaskCard.jsx";
 
 export default function Tasks() {
   const [tasks, setTasks] = useState([]);
@@ -28,6 +29,9 @@ export default function Tasks() {
   return (
     <>
       <h1>Tasks Page</h1>
+        {tasks.map((task) => (
+            <MiniTaskCard key={task._id} task={task} />
+        ))}
         {tasks.map((task) => (
             <TaskCard key={task._id} task={task} />
         ))}

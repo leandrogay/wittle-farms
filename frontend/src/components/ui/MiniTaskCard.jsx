@@ -1,4 +1,6 @@
-export default function TaskCard({ task }) {
+import dayjs from "dayjs";
+
+export default function MiniTaskCard({ task }) {
   return (
     <div className="shadow-md rounded-xl border m-5 p-5">
       <h2 className="text-xl font-bold text-gray-800">Title: {task.title}</h2>
@@ -8,7 +10,7 @@ export default function TaskCard({ task }) {
           {task.priority}
         </span>
         <span className="px-3 py-1 rounded-full bg-gray-100 text-gray-700 font-medium">
-          Deadline: {task.deadline}
+          Deadline: {dayjs(task.deadline).format('dddd, MMMM D, YYYY h:mm A')}
         </span>
       </div>
     </div>

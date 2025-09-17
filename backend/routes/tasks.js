@@ -19,21 +19,6 @@ router.post('/', async (req, res) => {
   }
 });
 
-// // POST /api/tasks
-// router.post('/', async (req, res) => {
-//   try {
-//     const doc = await Task.create(req.body);
-//     const task = await Task.findById(doc._id)
-//       .populate('assignedTeamMembers','name email')
-//       .populate('createdBy','name email')
-//       .populate('assignedProject','name');
-//     res.status(201).json(task);
-//   } catch (e) {
-//     console.error(e);
-//     res.status(400).json({ error: e.message });
-//   }
-// });
-
 // GET /api/tasks
 router.get('/', async (req, res) => {
   const { status, assignedProject, assignee, createdBy } = req.query;
