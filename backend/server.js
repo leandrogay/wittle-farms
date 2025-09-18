@@ -4,6 +4,8 @@ dotenv.config({ path: './config/secrets.env' });
 import cors from 'cors';
 import express from 'express';
 import mongoose from 'mongoose';
+import userRouter from './routes/users.js';
+import projectRouter from './routes/projects.js';
 import tasksRouter from './routes/tasks.js';
 
 const app = express();
@@ -14,6 +16,8 @@ app.use(cors());
 app.use(express.json());
 
 // Routes
+app.use('/api/users', userRouter);
+app.use('/api/projects', projectRouter);
 app.use('/api/tasks', tasksRouter);
 
 // Debug: confirm env loaded

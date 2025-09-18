@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import mongoose from 'mongoose';
 import Task from '../models/Task.js';
 
 const router = Router();
@@ -22,18 +23,18 @@ router.post('/', async (req, res) => {
   }
 });
 
-/**
+/*
  * READ All Tasks (with optional filters)
- * GET /api/tasks
+ * GET /api/tasks?assignee=USER_ID
  */
 router.get('/', async (req, res) => {
   try {
     const { status, assignedProject, assignee, createdBy } = req.query;
     const filter = {};
     if (status) filter.status = status;
-    if (assignedProject) filter.assignedProject = assignedProject;
-    if (createdBy) filter.createdBy = createdBy;
-    if (assignee) filter.assignedTeamMembers = assignee;
+    if (assignedProject) filter.assignedProject = new mongoose.Types.ObjectId(assignedProject);
+    if (createdBy) filter.createdBy = new mongoose.Types.ObjectId(createdBy);
+    if (assignee) filter.assignedTeamMembers = new mongoose.Types.ObjectId(assignee);
 
     const tasks = await Task.find(filter)
       .sort({ deadline: 1, createdAt: -1 })
@@ -48,7 +49,7 @@ router.get('/', async (req, res) => {
   }
 });
 
-/**
+/*
  * READ Single Task
  * GET /api/tasks/:id
  */
@@ -57,7 +58,8 @@ router.get('/:id', async (req, res) => {
     const task = await Task.findById(req.params.id)
       .populate('assignedTeamMembers', 'name email')
       .populate('createdBy', 'name email')
-      .populate('assignedProject', 'name');
+      .populate('assignedProject', 'name')
+      .lean();
 
     if (!task) return res.status(404).json({ error: 'Task not found' });
 
@@ -67,7 +69,7 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-/**
+/*
  * UPDATE Task
  * PUT /api/tasks/:id
  */
@@ -90,7 +92,7 @@ router.put('/:id', async (req, res) => {
   }
 });
 
-/**
+/*
  * DELETE Task
  * DELETE /api/tasks/:id
  */
