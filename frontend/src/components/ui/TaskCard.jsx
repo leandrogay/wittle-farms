@@ -3,7 +3,7 @@ import dayjs from "dayjs";
 export default function TaskCard({ task }) {
   return (
     <div className="shadow-md rounded-xl border m-5 p-5">
-      <p className="text-gray-400">Project: {task.assignedProject}</p>
+      <p className="text-gray-400">Project: {task.assignedProject.name}</p>
       <h2 className="text-xl font-bold text-gray-800">Title: {task.title}</h2>
       <p>Description: {task.description}</p>
       <p>Notes: {task.notes}</p>
@@ -20,7 +20,7 @@ export default function TaskCard({ task }) {
         <ul>
           {task.assignedTeamMembers.map((teamMembers) => (
             <li key={teamMembers._id}>
-              {teamMembers}
+              {teamMembers.name}
             </li>
           ))}
         </ul>
