@@ -1,0 +1,92 @@
+# -------------------------------
+# Node.js dependencies
+# -------------------------------
+node_modules/
+
+# -------------------------------
+# Environment variables
+# -------------------------------
+*.env
+*.env.local
+*.env.development.local
+*.env.test.local
+*.env.production.local
+
+# -------------------------------
+# Logs
+# -------------------------------
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# -------------------------------
+# Build output / caches
+# -------------------------------
+# React / Vite / CRA
+dist/
+build/
+.cache/
+.tmp/
+
+# Next.js / Vercel (in case of migration)
+.next/
+out/
+
+# Tailwind CSS JIT cache
+.tailwindcache/
+
+# Coverage reports
+coverage/
+*.lcov
+
+# -------------------------------
+# Runtime data
+# -------------------------------
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# -------------------------------
+# OS-specific files
+# -------------------------------
+.DS_Store
+Thumbs.db
+
+# -------------------------------
+# IDE/editor files
+# -------------------------------
+.vscode/*
+!.vscode/extensions.json
+.idea
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# -------------------------------
+# Database
+# -------------------------------
+# MongoDB database files (if running locally)
+data/
+*.ns
+*.wt
+*.log
+
+# -------------------------------
+# Miscellaneous
+# -------------------------------
+*.tgz
+*.zip
+*.tar
+*.gz
+
+# Optional: lockfiles (uncomment if you don’t want them tracked)
+# package-lock.json
+# yarn.lock
+# pnpm-lock.yaml
