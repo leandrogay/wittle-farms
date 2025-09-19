@@ -28,6 +28,7 @@ export default function TaskCard({ task }) {
       <div>
         <p>Updated at: {dayjs(task.updatedAt).format('dddd, MMMM D, YYYY h:mm A')}</p>
         <p>Created at: {dayjs(task.createdAt).format('dddd, MMMM D, YYYY h:mm A')}</p>
+        <p>Created by: {task.createdBy.name}</p>
       </div>
     </div>
   );
