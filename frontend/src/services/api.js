@@ -9,8 +9,8 @@ export async function getTasks() {
   return res.json();
 }
 
+// (Manager's Side) Get all projects and taskings
 export async function getManagerProjects() {
-  // Expected backend: GET /api/projects?role=manager or /api/projects/owned
   const res = await fetch(`${API_BASE}/api/projects`, { credentials: "include" });
   if (!res.ok) throw new Error("Failed to fetch projects");
   return res.json();

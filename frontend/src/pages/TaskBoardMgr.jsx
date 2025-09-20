@@ -1,11 +1,10 @@
-// TaskBoardMgr.jsx
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import dayjs from "dayjs";
 import { getManagerProjects, getProjectTasks } from "../services/api.js";
 import TaskCard from "../components/ui/TaskCard.jsx";
 
-/* ================= Modal ================= */
+// Modal component
 function Modal({ open, onClose, title, children }) {
   const dialogRef = useRef(null);
 
@@ -63,7 +62,6 @@ function Modal({ open, onClose, title, children }) {
   );
 }
 
-/* ================= Project Picker ================= */
 function ProjectPicker({ projects, valueId, onChange }) {
   const [open, setOpen] = useState(false);
   const current = projects.find((p) => p._id === valueId);
@@ -105,7 +103,6 @@ function ProjectPicker({ projects, valueId, onChange }) {
   );
 }
 
-/* ================= Mini Task Tile (opens modal) ================= */
 function SquareTaskTile({ task, onOpen }) {
   const deadline = task?.deadline ? dayjs(task.deadline).format("DD MMM YYYY") : "No deadline";
 
@@ -133,7 +130,6 @@ function SquareTaskTile({ task, onOpen }) {
   );
 }
 
-/* ================= Page ================= */
 export default function TaskBoardMgr() {
   const [projects, setProjects] = useState([]);
   const [projLoading, setProjLoading] = useState(true);
