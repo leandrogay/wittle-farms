@@ -12,6 +12,7 @@ export default function Header() {
     <nav style={{ marginBottom: "1rem" }}>
       <NavLink to="/" style={linkStyle} end>Home</NavLink>
       <NavLink to="/tasks" style={linkStyle}>Tasks</NavLink>
+      <NavLink to="/TaskBoardMgr" style={linkStyle}>TaskBoard (Mgr)</NavLink>
     </nav>
   )
 }

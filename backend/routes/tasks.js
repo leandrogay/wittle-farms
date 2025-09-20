@@ -108,4 +108,18 @@ router.delete('/:id', async (req, res) => {
   }
 });
 
+// GET /api/tasks?project=<projectId>
+router.get("/", async (req, res, next) => {
+  try {
+    const { project } = req.query;
+    const filter = project ? { assignedProject: project } : {};
+    const tasks = await Task.find(filter)
+      .populate("assignedProject")       // optional
+      .populate("assignedTeamMembers");  // optional
+    res.json(tasks);
+  } catch (e) {
+    next(e);
+  }
+});
+
 export default router;
