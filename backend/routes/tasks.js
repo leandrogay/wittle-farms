@@ -108,18 +108,39 @@ router.delete('/:id', async (req, res) => {
   }
 });
 
-// GET /api/tasks?project=<projectId>
-router.get("/", async (req, res, next) => {
+/*
+* GET /api/tasks?project=<projectId>
+*/
+router.get('/', async (req, res) => {
   try {
     const { project } = req.query;
-    const filter = project ? { assignedProject: project } : {};
+    const filter = {};
+
+    if (project) {
+
+      const oid = mongoose.isValidObjectId(project)
+        ? new mongoose.Types.ObjectId(project)
+        : null;
+
+      filter.$or = [
+        { assignedProject: oid },                
+        { 'assignedProject._id': oid },         
+        { 'assignedProject._id': project }        
+      ].filter(Boolean);
+    }
+
     const tasks = await Task.find(filter)
-      .populate("assignedProject")       // optional
-      .populate("assignedTeamMembers");  // optional
+      .sort({ createdAt: -1 })
+      .populate('createdBy', 'name email')
+      .populate('assignedTeamMembers', 'name email')
+      .populate('assignedProject', 'name')
+      .lean();
+
     res.json(tasks);
   } catch (e) {
-    next(e);
+    res.status(500).json({ error: e.message });
   }
 });
+
 
 export default router;

@@ -86,9 +86,8 @@ function ProjectPicker({ projects, valueId, onChange }) {
           {projects.map((p) => (
             <button
               key={p._id}
-              className={`w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-gray-100 ${
-                p._id === valueId ? "bg-indigo-50 font-semibold" : ""
-              }`}
+              className={`w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-gray-100 ${p._id === valueId ? "bg-indigo-50 font-semibold" : ""
+                }`}
               onClick={() => {
                 onChange(p._id);
                 setOpen(false);
@@ -118,6 +117,24 @@ function SquareTaskTile({ task, onOpen }) {
           <div className="text-base sm:text-lg font-semibold line-clamp-2 hover:underline">
             {task.title || "Untitled task"}
           </div>
+          
+          Status: <div
+            className={`text-base sm:text-lg font-semibold line-clamp-2
+              ${task.status === 'To Do' ? 'text-gray-500'
+                : task.status === 'In Progress' ? 'text-blue-500'
+                  : task.status === 'Completed' ? 'text-green-500'
+                    : ''}`}
+          >
+            {task.status}
+          </div>
+
+          Priority: <div>
+            {task.priority === 'Low' && <span className="text-green-600 font-semibold">Low</span>}
+            {task.priority === 'Medium' && <span className="text-yellow-600 font-semibold">Medium</span>}
+            {task.priority === 'High' && <span className="text-red-600 font-semibold">High</span>}
+            {!['Low', 'Medium', 'High'].includes(task.priority) && <span className="text-gray-600 font-semibold">None</span>}
+          </div>
+          
         </div>
 
         <div className="mt-2">
