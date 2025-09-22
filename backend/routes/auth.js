@@ -1,11 +1,12 @@
 import dotenv from "dotenv";
-dotenv.config({ path: "./config/secrets.env" });
-import express from "express";
+import { Router } from 'express';
 import jwt from "jsonwebtoken";
 import nodemailer from "nodemailer";
 import User from "../models/User.js";
 
-const router = express.Router();
+dotenv.config({ path: "./config/secrets.env" });
+
+const router = Router();
 const JWT_SECRET = process.env.JWT_SECRET ?? "dev_secret_change_me";
 const JWT_EXPIRES_IN = "1h";
 
