@@ -65,6 +65,39 @@ router.get('/:id', async (req, res) => {
   }
 });
 
+
+/**
+ * READ Project with User
+ * GET /api/projects/user/:id
+ */
+router.get('/user/:userId', async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    // Validate ObjectId
+    if (!mongoose.isValidObjectId(userId)) {
+      return res.status(400).json({ error: 'Invalid user id' });
+    }
+
+    const filter = {
+      $or: [{ createdBy: userId }, { teamMembers: userId }]
+    };
+
+    const projects = await Project.find(filter)
+      // .populate('createdBy', 'name email')
+      // .populate('teamMembers', 'name email')
+      .lean();
+
+    if (!projects || projects.length === 0) {
+      return res.status(404).json({ error: 'No projects found for this user' });
+    }
+
+    return res.json(projects);
+  } catch (e) {
+    return res.status(500).json({ error: e.message });
+  }
+});
+
 /**
  * UPDATE Project
  * PUT /api/projects/:id

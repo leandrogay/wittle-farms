@@ -8,6 +8,15 @@ export async function getTasks() {
   return res.json();
 }
 
+export async function getProjectNamesByUserId(userId) {
+  const res = await fetch(`${API_BASE}/api/projects/user/${userId}`);
+  if (!res.ok) {
+    throw new Error("Failed to fetch projects");
+  }
+  const projects = await res.json();
+  return projects.map(p => p.name);
+}
+
 export async function getManagerProjects() {
   const res = await fetch(`${API_BASE}/api/projects`, { credentials: "include" });
   if (!res.ok) throw new Error(await res.text().catch(() => "Failed to fetch projects"));
