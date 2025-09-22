@@ -5,6 +5,7 @@ export const STATUS = ['Not Started', 'In Progress', 'Done'];
 export const PRIORITY = ['Low', 'Medium', 'High'];
 
 const TaskSchema = new Schema({
+  assignedProject: { type: Types.ObjectId, ref: 'Project', default: null, index: true },
   title: { type: String, required: true, trim: true, maxlength: 200 },
   description: { type: String, default: '' },
   notes: { type: String, default: '' },
@@ -17,12 +18,9 @@ const TaskSchema = new Schema({
 
   createdBy: { type: Types.ObjectId, ref: 'User', required: true, index: true },
 
-  assignedProject: { type: Types.ObjectId, ref: 'Project', default: null, index: true },
-  // assignedProject: { type: String, required: true },
-
-  // reference Attachment documents (metadata only; file bytes live in GridFS)
-  // attachments: [{ type: Types.ObjectId, ref: 'Attachment', index: true }]
-}, { timestamps: true });
+  attachments: [{ type: Types.ObjectId, ref: 'Attachment', index: true }]
+},
+  { timestamps: true });
 
 TaskSchema.index({ assignedProject: 1, status: 1, priority: 1, deadline: 1 });
 
