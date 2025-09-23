@@ -1,4 +1,4 @@
-import {Outlet} from "react-router-dom";
+import { Outlet } from "react-router-dom";
 import Header from "./components/layout/Header.jsx";
 import { useEffect } from "react";
 import { getMe, getSession } from "./services/api";
@@ -16,13 +16,14 @@ function App() {
       } catch (err) {
         console.warn("No active session:", err.message);
       }
-    })();
+    });
   }, []);
+
   return (
-    <>
+    <div className="bg-zinc-200">
       <Header />
       <Outlet />
-    </>
+    </div>
   );
 }
 

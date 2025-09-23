@@ -1,6 +1,118 @@
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:3000";
-
 const TOKEN_KEY = "auth_token";
+
+/*
+*
+* Helper functions
+*
+*/
+
+async function jsonOrText(res) {
+  const text = await res.text();
+  try {
+    return JSON.parse(text);
+  } catch {
+    return { message: text };
+  }
+}
+
+function toFormDataIfFiles(obj) {
+  if (!obj.attachments || obj.attachments.length === 0) {
+    return JSON.stringify(obj); // fallback to JSON
+  }
+
+  const fd = new FormData();
+  Object.entries(obj).forEach(([key, value]) => {
+    if (key === "attachments") {
+      Array.from(value).forEach(file => fd.append("attachments", file));
+    } else if (Array.isArray(value)) {
+      value.forEach(v => fd.append(key, v));
+    } else {
+      fd.append(key, value);
+    }
+  });
+  return fd;
+}
+
+
+/*
+*
+* Data CRUD APIs
+*
+*/
+
+export async function createTask(formData) {
+  try {
+    const body = toFormDataIfFiles(formData);
+    const isFormData = body instanceof FormData;
+
+    const res = await fetch(`${API_BASE}/api/tasks`, {
+      method: "POST",
+      headers: isFormData ? {} : { "Content-Type": "application/json" },
+      body: isFormData ? body : body,
+    });
+    
+    if (!res.ok) throw new Error("Failed to create task");
+    return await res.json();
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }
+}
+
+export async function getTasks() {
+  const res = await fetch(`${API_BASE}/api/tasks`);
+  if (!res.ok) {
+    throw new Error("Failed to fetch tasks");
+  }
+  return res.json();
+}
+
+export async function getProjectsByUserId(userId) {
+  const res = await fetch(`${API_BASE}/api/projects/user/${userId}`);
+  if (!res.ok) {
+    throw new Error("Failed to fetch projects");
+  }
+  const projects = await res.json();
+  return projects.map(p => ({
+    _id: p._id,
+    name: p.name
+  }));
+}
+
+export async function getProjectTasks(projectId) {
+  if (!projectId) return [];
+
+  const url = `${API_BASE}/api/tasks?project=${encodeURIComponent(projectId)}`;
+  const res = await fetch(url, { credentials: "include" });
+  if (!res.ok) throw new Error("Failed to fetch tasks");
+
+  const tasks = await res.json();
+  const pid = String(projectId);
+  return (Array.isArray(tasks) ? tasks : []).filter(t => {
+    const ap = t.assignedProject;
+    const id = typeof ap === 'string' ? ap : ap?._id;
+    return String(id) === pid;
+  });
+}
+
+export async function getManagerProjects() {
+  const res = await fetch(`${API_BASE}/api/projects`, { credentials: "include" });
+  if (!res.ok) throw new Error(await res.text().catch(() => "Failed to fetch projects"));
+  const projects = await res.json();
+  return Array.isArray(projects)
+    ? projects.map(p => ({ ...p, name: p?.name ?? "Untitled Project" }))
+    : [];
+}
+
+
+
+/*
+*
+* Auth APIs
+*
+*/
 
 function getToken() {
   return localStorage.getItem(TOKEN_KEY);
@@ -32,57 +144,6 @@ export async function getMe() {
   return res.json();
 }
 
-export async function getTasks() {
-  const res = await fetch(`${API_BASE}/api/tasks`);
-  if (!res.ok) {
-    throw new Error("Failed to fetch tasks");
-  }
-  return res.json();
-}
-
-export async function getProjectNamesByUserId(userId) {
-  const res = await fetch(`${API_BASE}/api/projects/user/${userId}`);
-  if (!res.ok) {
-    throw new Error("Failed to fetch projects");
-  }
-  const projects = await res.json();
-  return projects.map(p => p.name);
-}
-
-export async function getManagerProjects() {
-  const res = await fetch(`${API_BASE}/api/projects`, { credentials: "include" });
-  if (!res.ok) throw new Error(await res.text().catch(() => "Failed to fetch projects"));
-  const projects = await res.json();
-  return Array.isArray(projects)
-    ? projects.map(p => ({ ...p, name: p?.name ?? "Untitled Project" }))
-    : [];
-}
-
-export async function getProjectTasks(projectId) {
-  if (!projectId) return [];
-
-  const url = `${API_BASE}/api/tasks?project=${encodeURIComponent(projectId)}`;
-  const res = await fetch(url, { credentials: "include" });
-  if (!res.ok) throw new Error("Failed to fetch tasks");
-
-  const tasks = await res.json();
-  const pid = String(projectId);
-  return (Array.isArray(tasks) ? tasks : []).filter(t => {
-    const ap = t.assignedProject;
-    const id = typeof ap === 'string' ? ap : ap?._id;
-    return String(id) === pid;
-  });
-}
-
-async function jsonOrText(res) {
-  const text = await res.text();
-  try {
-    return JSON.parse(text);
-  } catch {
-    return { message: text };
-  }
-}
-
 export async function registerUser(payload) {
   const res = await fetch(`${API_BASE}/api/auth/register`, {
     method: "POST",
@@ -95,7 +156,6 @@ export async function registerUser(payload) {
   if (!res.ok) throw new Error(data.message || "Registration failed");
   return data;
 }
-
 
 export async function loginUser(email, password) {
   const res = await fetch(`${API_BASE}/api/auth/login`, {
@@ -139,4 +199,3 @@ export async function logoutUser() {
   }
   return res.json();
 }
-

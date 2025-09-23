@@ -1,7 +1,7 @@
 import mongoose from 'mongoose';
 const { Schema, model, Types } = mongoose;
 
-export const STATUS = ['Not Started', 'In Progress', 'Done'];
+export const STATUS = ['To Do', 'In Progress', 'Done'];
 export const PRIORITY = ['Low', 'Medium', 'High'];
 
 const TaskSchema = new Schema({
