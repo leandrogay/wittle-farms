@@ -1,5 +1,37 @@
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:3000";
 
+const TOKEN_KEY = "auth_token";
+
+function getToken() {
+  return localStorage.getItem(TOKEN_KEY);
+}
+function setToken(t) {
+  if (t) localStorage.setItem(TOKEN_KEY, t);
+}
+function clearToken() {
+  localStorage.removeItem(TOKEN_KEY);
+}
+function authHeaders() {
+  const t = getToken();
+  return t ? { Authorization: `Bearer ${t}` } : {};
+}
+
+export async function getSession() {
+  const res = await fetch(`${API_BASE}/api/auth/session`, {
+    headers: { ...authHeaders() },
+  });
+  if (!res.ok) throw new Error("Not authenticated");
+  return res.json();
+}
+
+export async function getMe() {
+  const res = await fetch(`${API_BASE}/api/auth/me`, {
+    headers: { ...authHeaders() },
+  });
+  if (!res.ok) throw new Error("Not authenticated");
+  return res.json();
+}
+
 export async function getTasks() {
   const res = await fetch(`${API_BASE}/api/tasks`);
   if (!res.ok) {

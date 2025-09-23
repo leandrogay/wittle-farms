@@ -167,4 +167,39 @@ router.post("/logout", (req, res) => {
   res.json({ message: "Logged out successfully" });
 });
 
+// Get the full current user (DB-backed)
+router.get("/me", verifyAuth, async (req, res) => {
+  try {
+    const user = await User.findById(req.userId)
+      .select("-password -otp -otpExpires -failedLoginAttempts -lockUntil")
+      .lean();
+
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    return res.json({
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        createdAt: user.createdAt,
+        updatedAt: user.updatedAt,
+      },
+    });
+  } catch (err) {
+    console.error("ME error:", err);
+    return res.status(500).json({ message: "Server error" });
+  }
+});
+
+router.get("/session", verifyAuth, (req, res) => {
+  return res.json({
+    session: {
+      userId: req.userId,
+      role: req.userRole,
+    },
+  });
+});
+
+
 export default router;
