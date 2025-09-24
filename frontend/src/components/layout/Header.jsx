@@ -3,7 +3,7 @@ import { useAuth } from "../../context/AuthContext.jsx";
 
 export default function Header() {
   const navigate = useNavigate();
-  const { user, logout } = useAuth(); // { name, role } set by AuthProvider
+  const { user, logout } = useAuth(); 
 
   const linkStyle = ({ isActive }) => ({
     margin: "0 8px",
@@ -13,18 +13,16 @@ export default function Header() {
   });
 
   const handleLogout = () => {
-    // clear any legacy token if you still use it
     localStorage.removeItem("auth_token");
-    logout();                         // clear user in context/localStorage
+    logout();                         
     navigate("/login", { replace: true });
   };
 
   return (
     <nav style={{ marginBottom: "1rem", display: "flex", alignItems: "center" }}>
       <div>
-        <NavLink to="/" style={linkStyle} end>Home</NavLink>
+        <NavLink to="/home" style={linkStyle} end>Home</NavLink>
 
-        {/* Only show links allowed by role */}
         {user?.role === "Staff" && (
           <NavLink to="/tasks" style={linkStyle}>Tasks</NavLink>
         )}
