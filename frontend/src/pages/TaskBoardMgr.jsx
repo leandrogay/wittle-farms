@@ -4,7 +4,6 @@ import dayjs from "dayjs";
 import { getManagerProjects, getProjectTasks } from "../services/api.js";
 import TaskCard from "../components/ui/TaskCard.jsx";
 
-// Modal component
 function Modal({ open, onClose, title, children }) {
   const dialogRef = useRef(null);
 
@@ -86,8 +85,9 @@ function ProjectPicker({ projects, valueId, onChange }) {
           {projects.map((p) => (
             <button
               key={p._id}
-              className={`w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-gray-100 ${p._id === valueId ? "bg-indigo-50 font-semibold" : ""
-                }`}
+              className={`w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-gray-100 ${
+                p._id === valueId ? "bg-indigo-50 font-semibold" : ""
+              }`}
               onClick={() => {
                 onChange(p._id);
                 setOpen(false);
@@ -105,6 +105,16 @@ function ProjectPicker({ projects, valueId, onChange }) {
 function SquareTaskTile({ task, onOpen }) {
   const deadline = task?.deadline ? dayjs(task.deadline).format("DD MMM YYYY") : "No deadline";
 
+  const status = normalizeStatus(task.status);
+  const statusClass =
+    status === "To Do"
+      ? "text-gray-500"
+      : status === "In Progress"
+      ? "text-blue-500"
+      : status === "Done"
+      ? "text-green-500"
+      : "";
+
   return (
     <article className="border rounded-2xl shadow-sm bg-white overflow-hidden transition hover:shadow-md">
       <button
@@ -117,24 +127,27 @@ function SquareTaskTile({ task, onOpen }) {
           <div className="text-base sm:text-lg font-semibold line-clamp-2 hover:underline">
             {task.title || "Untitled task"}
           </div>
-          
-          Status: <div
-            className={`text-base sm:text-lg font-semibold line-clamp-2
-              ${task.status === 'To Do' ? 'text-gray-500'
-                : task.status === 'In Progress' ? 'text-blue-500'
-                  : task.status === 'Completed' ? 'text-green-500'
-                    : ''}`}
-          >
-            {task.status}
+
+          <div className="text-sm">
+            <div className="font-medium">Status:</div>
+            <div className={`text-base sm:text-lg font-semibold line-clamp-2 ${statusClass}`}>
+              {task.status}
+            </div>
           </div>
 
-          Priority: <div>
-            {task.priority === 'Low' && <span className="text-green-600 font-semibold">Low</span>}
-            {task.priority === 'Medium' && <span className="text-yellow-600 font-semibold">Medium</span>}
-            {task.priority === 'High' && <span className="text-red-600 font-semibold">High</span>}
-            {!['Low', 'Medium', 'High'].includes(task.priority) && <span className="text-gray-600 font-semibold">None</span>}
+          <div className="text-sm">
+            <div className="font-medium">Priority:</div>
+            <div>
+              {task.priority === "Low" && <span className="text-green-600 font-semibold">Low</span>}
+              {task.priority === "Medium" && (
+                <span className="text-yellow-600 font-semibold">Medium</span>
+              )}
+              {task.priority === "High" && <span className="text-red-600 font-semibold">High</span>}
+              {!["Low", "Medium", "High"].includes(task.priority) && (
+                <span className="text-gray-600 font-semibold">None</span>
+              )}
+            </div>
           </div>
-          
         </div>
 
         <div className="mt-2">
@@ -160,7 +173,9 @@ export default function TaskBoardMgr() {
 
   const [activeTask, setActiveTask] = useState(null);
 
-  // Load projects
+  const [statusFilter, setStatusFilter] = useState("All");
+  const [priorityFilter, setPriorityFilter] = useState("All");
+
   useEffect(() => {
     (async () => {
       try {
@@ -177,7 +192,6 @@ export default function TaskBoardMgr() {
     })();
   }, []);
 
-  // Load tasks when project changes
   useEffect(() => {
     if (!selectedProjectId) return;
     setTasksLoading(true);
@@ -196,6 +210,7 @@ export default function TaskBoardMgr() {
     })();
   }, [selectedProjectId]);
 
+  // sort by deadline
   const sortedTasks = useMemo(() => {
     return [...tasks].sort((a, b) => {
       const ad = a?.deadline ? new Date(a.deadline).getTime() : Infinity;
@@ -204,36 +219,113 @@ export default function TaskBoardMgr() {
     });
   }, [tasks]);
 
+  // apply filters (task matches if task OR any subtask matches)
+  const filteredTasks = useMemo(() => {
+    const statusOK = (st) =>
+      statusFilter === "All" || normalizeStatus(st) === statusFilter;
+    const priorityOK = (pr) =>
+      priorityFilter === "All" || (pr ?? "None") === priorityFilter;
+
+    return sortedTasks.filter((t) => {
+      const taskMatch = statusOK(t.status) && priorityOK(t.priority);
+      const subMatch = (t.subtasks ?? []).some(
+        (s) => statusOK(s.status) && priorityOK(s.priority)
+      );
+      return taskMatch || subMatch;
+    });
+  }, [sortedTasks, statusFilter, priorityFilter]);
+
+  const statusOptions = useMemo(() => {
+    const set = new Set(["To Do", "In Progress", "Done"]);
+    tasks.forEach((t) => {
+      set.add(normalizeStatus(t.status));
+      (t.subtasks ?? []).forEach((s) => set.add(normalizeStatus(s.status)));
+    });
+    return ["All", ...Array.from(set).filter(Boolean)];
+  }, [tasks]);
+
+  const priorityOptions = useMemo(() => {
+    const set = new Set(["Low", "Medium", "High"]);
+    tasks.forEach((t) => set.add(t.priority ?? "None"));
+    tasks.forEach((t) =>
+      (t.subtasks ?? []).forEach((s) => set.add(s.priority ?? "None"))
+    );
+    return ["All", ...Array.from(set)];
+  }, [tasks]);
+
   if (projLoading) return <p className="p-4 text-gray-600">Loading projects…</p>;
   if (projError) return <p className="p-4 text-red-600">{projError}</p>;
 
   return (
     <section className="p-4 space-y-6">
-      <header className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+      <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="text-2xl font-semibold">Taskboard (Manager)</h1>
-        <ProjectPicker
-          projects={projects}
-          valueId={selectedProjectId}
-          onChange={setSelectedProjectId}
-        />
-      </header>
 
-      {/* Tasks area */}
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+          <ProjectPicker
+            projects={projects}
+            valueId={selectedProjectId}
+            onChange={setSelectedProjectId}
+          />
+          <div className="flex flex-wrap items-center gap-3">
+            <label className="text-sm text-gray-600">
+              Status:
+              <select
+                className="ml-2 rounded-lg border px-2 py-1 text-sm"
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+              >
+                {statusOptions.map((opt) => (
+                  <option key={opt} value={opt}>
+                    {opt}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="text-sm text-gray-600">
+              Priority:
+              <select
+                className="ml-2 rounded-lg border px-2 py-1 text-sm"
+                value={priorityFilter}
+                onChange={(e) => setPriorityFilter(e.target.value)}
+              >
+                {priorityOptions.map((opt) => (
+                  <option key={opt} value={opt}>
+                    {opt}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            {(statusFilter !== "All" || priorityFilter !== "All") && (
+              <button
+                className="rounded-lg border px-2.5 py-1 text-sm hover:bg-gray-50"
+                onClick={() => {
+                  setStatusFilter("All");
+                  setPriorityFilter("All");
+                }}
+              >
+                Clear
+              </button>
+            )}
+          </div>
+        </div>
+      </header>
       {tasksLoading && <p className="text-gray-600">Loading tasks…</p>}
       {tasksError && <p className="text-red-600">{tasksError}</p>}
 
       {!tasksLoading && !tasksError && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {sortedTasks.map((task) => (
+          {filteredTasks.map((task) => (
             <SquareTaskTile key={task._id} task={task} onOpen={setActiveTask} />
           ))}
-          {sortedTasks.length === 0 && (
-            <p className="col-span-full text-gray-500">No tasks for this project.</p>
+          {filteredTasks.length === 0 && (
+            <p className="col-span-full text-gray-500">No tasks match the filters.</p>
           )}
         </div>
       )}
 
-      {/* Modal for active task */}
       <Modal
         open={!!activeTask}
         onClose={() => setActiveTask(null)}
@@ -243,11 +335,6 @@ export default function TaskBoardMgr() {
           <div className="space-y-3">
             <TaskCard task={activeTask} />
             <div className="pt-2 flex flex-wrap gap-2">
-              <button className="rounded-lg border px-3 py-2 text-sm">Edit</button>
-              <button className="rounded-lg border px-3 py-2 text-sm">Move</button>
-              <button className="rounded-lg border px-3 py-2 text-sm text-red-700 border-red-200 bg-red-50">
-                Delete
-              </button>
             </div>
           </div>
         )}
@@ -256,4 +343,15 @@ export default function TaskBoardMgr() {
   );
 }
 
-
+/* ---------------- helpers ---------------- */
+function normalizeStatus(raw) {
+  const s = String(raw || "").trim().toLowerCase();
+  if (!s) return "";
+  if (s === "todo" || s === "to do") return "To Do";
+  if (s === "inprogress" || s === "in progress") return "In Progress";
+  if (s === "done" || s === "completed" || s === "complete") return "Done";
+  return s
+    .split(" ")
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(" ");
+}
