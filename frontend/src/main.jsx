@@ -1,6 +1,6 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import "./index.css";
 
 import App from "./App.jsx";
@@ -10,25 +10,51 @@ import TaskBoardMgr from "./pages/TaskBoardMgr.jsx";
 import Login from "./pages/Login.jsx";
 import Register from "./pages/Register.jsx";
 
-import ProtectedRoute from "./components/layout/ProtectedRoute.jsx";
+import { AuthProvider } from "./context/AuthContext.jsx";
+import RequireAuth from "./components/auth/RequireAuth.jsx";
+import RequireRole from "./components/auth/RequireRole.jsx";
+import RoleRedirect from "./components/auth/RoleRedirect.jsx";
+
+function Unauthorized() {
+  return (
+    <div className="p-6">
+      <h1 className="text-xl font-semibold">Unauthorized</h1>
+      <p className="mt-2 text-gray-600">You don’t have access to this page.</p>
+    </div>
+  );
+}
 
 createRoot(document.getElementById("root")).render(
   <StrictMode>
-    <BrowserRouter>
-      <Routes>
+    <AuthProvider>
+      <BrowserRouter>
+        <Routes>
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
+          <Route path="/unauthorized" element={<Unauthorized />} />
 
-        <Route element={<App />}>
-          <Route element={<ProtectedRoute />}>
-            <Route index element={<Home />} />
-            <Route path="tasks" element={<Tasks />} />
-            <Route path="TaskBoardMgr" element={<TaskBoardMgr />} />
+          <Route element={<App />}>
+            {/* Auth-protected area */}
+            <Route element={<RequireAuth />}>
+              {/* Landing: send user to the correct page by role */}
+              <Route index element={<RoleRedirect />} />
+
+              <Route path="home" element={<Home />} />
+
+              <Route element={<RequireRole roles={["Staff"]} />}>
+                <Route path="tasks" element={<Tasks />} />
+              </Route>
+
+              <Route element={<RequireRole roles={["Manager"]} />}>
+                <Route path="taskboard-mgr" element={<TaskBoardMgr />} />
+              </Route>
+            </Route>
           </Route>
-        </Route>
 
-        <Route path="*" element={<Login />} />
-      </Routes>
-    </BrowserRouter>
+          {/* Fallback */}
+          <Route path="*" element={<Navigate to="/login" replace />} />
+        </Routes>
+      </BrowserRouter>
+    </AuthProvider>
   </StrictMode>
 );

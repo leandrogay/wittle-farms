@@ -1,7 +1,9 @@
 import { NavLink, useNavigate } from "react-router-dom";
+import { useAuth } from "../../context/AuthContext.jsx";
 
 export default function Header() {
   const navigate = useNavigate();
+  const { user, logout } = useAuth(); // { name, role } set by AuthProvider
 
   const linkStyle = ({ isActive }) => ({
     margin: "0 8px",
@@ -11,28 +13,27 @@ export default function Header() {
   });
 
   const handleLogout = () => {
+    // clear any legacy token if you still use it
     localStorage.removeItem("auth_token");
+    logout();                         // clear user in context/localStorage
     navigate("/login", { replace: true });
   };
 
   return (
-    <nav
-      style={{
-        marginBottom: "1rem",
-        display: "flex",
-        alignItems: "center",
-      }}
-    >
+    <nav style={{ marginBottom: "1rem", display: "flex", alignItems: "center" }}>
       <div>
-        <NavLink to="/" style={linkStyle} end>
-          Home
-        </NavLink>
-        <NavLink to="/tasks" style={linkStyle}>
-          Tasks
-        </NavLink>
-        <NavLink to="/TaskBoardMgr" style={linkStyle}>
-          TaskBoard (Mgr)
-        </NavLink>
+        <NavLink to="/" style={linkStyle} end>Home</NavLink>
+
+        {/* Only show links allowed by role */}
+        {user?.role === "Staff" && (
+          <NavLink to="/tasks" style={linkStyle}>Tasks</NavLink>
+        )}
+
+        {user?.role === "Manager" && (
+          <NavLink to="/taskboard-mgr" style={linkStyle}>
+            TaskBoard (Mgr)
+          </NavLink>
+        )}
       </div>
 
       <button
