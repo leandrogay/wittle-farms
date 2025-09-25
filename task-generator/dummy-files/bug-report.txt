@@ -1,0 +1,21 @@
+Bug Report: Coffee Machine API Error 418
+==========================================
+
+Priority: CRITICAL (affects developer survival)
+
+Description:
+The office coffee machine is returning HTTP 418 "I'm a teapot" errors when attempting to brew coffee.
+
+Steps to Reproduce:
+1. Be extremely tired from late-night coding session
+2. Approach coffee machine with desperate hope
+3. Insert money and press "Large Coffee" button
+4. Receive error message instead of life-saving caffeine
+
+Expected Result: Hot, delicious coffee
+Actual Result: Existential crisis and HTTP error
+
+Impact: Developer productivity down 90%, morale at historic low
+Workaround: Emergency trip to nearest coffee shop
+
+Please fix ASAP before Monday morning standup!
