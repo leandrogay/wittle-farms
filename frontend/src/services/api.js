@@ -37,7 +37,7 @@ function toFormDataIfFiles(obj) {
 
 /*
 *
-* Data CRUD APIs
+* Data CRUD API functions
 *
 */
 
@@ -51,8 +51,13 @@ export async function createTask(formData) {
       headers: isFormData ? {} : { "Content-Type": "application/json" },
       body: isFormData ? body : body,
     });
-    
-    if (!res.ok) throw new Error("Failed to create task");
+
+    // const data = await jsonOrText(res);
+
+    if (!res.ok) {
+      // console.log("[Create Task Error]", res.status, data);
+      throw new Error("Failed to create task");
+    }
     return await res.json();
 
   } catch (err) {

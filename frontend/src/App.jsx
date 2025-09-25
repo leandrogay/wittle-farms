@@ -26,7 +26,7 @@ export default function App() {
         setBootLoading(false);
       }
     })();
-  }, [login, logout]);
+  }, []);
 
   if (bootLoading) {
     return (

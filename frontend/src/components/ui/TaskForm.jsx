@@ -1,28 +1,30 @@
 import { useEffect, useState } from "react";
 import { getProjectsByUserId, createTask } from "../../services/api.js";
+import { useAuth } from "../../context/AuthContext.jsx";
 
 export default function TaskForm({ onCancel }) {
   const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const { user } = useAuth();
 
   const [formData, setFormData] = useState({
-    assignedProject: "",
     title: "",
     description: "",
     notes: "",
+    assignedProject: "",
     assignedTeamMembers: [],
     status: "To Do",
     priority: "Low",
     deadline: new Date(),
-    createdBy: "68d105001122a3d207eacebc", // TODO: replace with session/user context
+    createdBy: user.id,
     attachments: [],
   });
 
   useEffect(() => {
     async function loadProjects() {
       try {
-        const data = await getProjectsByUserId("68d105001122a3d207eacebc"); // TODO: replace with session/user context
+        const data = await getProjectsByUserId(user.id);
         setProjects(Array.isArray(data) ? data : []);
       } catch (err) {
         setError(err.message);
@@ -46,6 +48,7 @@ export default function TaskForm({ onCancel }) {
     } else {
       setFormData(prev => ({ ...prev, [name]: value }));
     }
+
   }
 
   async function handleSubmit(e) {
@@ -64,7 +67,7 @@ export default function TaskForm({ onCancel }) {
 
   return (
     <form onSubmit={handleSubmit} className="p-6 max-w-4xl">
-      <h2 className="text-xl font-semibold mb-6">Create New Task</h2>
+      <h2 className="text-xl font-semibold mb-4">Create New Task</h2>
 
       {error && <p className="text-red-500 mb-4">{error}</p>}
 
@@ -218,7 +221,7 @@ export default function TaskForm({ onCancel }) {
           </div>
 
           {/* Created / Updated (static placeholder for now) */}
-          <div className="col-start-5 row-start-6">
+          {/* <div className="col-start-5 row-start-6">
             <div className="shadow-sm rounded-xl p-3 border border-gray-200">
               <p className="text-sm text-gray-600">
                 Created at: <span className="font-medium">—</span>
@@ -227,7 +230,8 @@ export default function TaskForm({ onCancel }) {
                 Updated at: <span className="font-medium">—</span>
               </p>
             </div>
-          </div>
+          </div> */}
+
         </div>
       )}
 
