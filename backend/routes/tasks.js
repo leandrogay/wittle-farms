@@ -51,7 +51,7 @@ router.post('/', upload.array('attachments'), async (req, res) => {
         }
       }
     }
-    
+
     const task = await Task.create({
       title,
       description,
@@ -140,60 +140,6 @@ router.get('/:id', async (req, res) => {
 });
 
 /*
-* READ Task by ProjectId
-* GET /api/tasks?project=<projectId>
-*/
-// router.get('/:projectId', async (req, res) => {
-//   try {
-//     const { project } = req.query;
-//     const filter = {};
-
-//     if (project) {
-
-//       const oid = mongoose.isValidObjectId(project)
-//         ? new mongoose.Types.ObjectId(project)
-//         : null;
-
-//       filter.$or = [
-//         { assignedProject: oid },
-//         { 'assignedProject._id': oid },
-//         { 'assignedProject._id': project }
-//       ].filter(Boolean);
-//     }
-
-//     const tasks = await Task.find(filter)
-//       .sort({ createdAt: -1 })
-//       .populate('createdBy', 'name email')
-//       .populate('assignedTeamMembers', 'name email')
-//       .populate('assignedProject', 'name')
-//       .lean();
-
-//     res.json(tasks);
-//   } catch (e) {
-//     res.status(500).json({ error: e.message });
-//   }
-// });
-
-/*
-* READ/DOWNLOAD attachement by TaskId & AttachmentId
-* GET /api/tasks/:taskId/attachments/:attachmentId
-*/
-router.get("/:taskId/attachments/:attachmentId", async (req, res) => {
-  try {
-    const attachment = await Attachment.findById(req.params.attachmentId);
-    if (!attachment) return res.status(404).json({ error: "File not found" });
-
-    res.set("Content-Type", attachment.mimetype);
-    res.set("Content-Disposition", `attachment; filename="${attachment.filename}"`);
-    res.send(attachment.data);
-  } catch (e) {
-    res.status(500).json({ error: e.message });
-  }
-});
-
-
-
-/*
  * UPDATE Task
  * PUT /api/tasks/:id
  */
@@ -227,6 +173,34 @@ router.delete('/:id', async (req, res) => {
     if (!task) return res.status(404).json({ error: 'Task not found' });
 
     res.json({ message: 'Task deleted successfully' });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+
+
+/*
+* READ/DOWNLOAD attachement by TaskId & AttachmentId
+* GET /api/tasks/:taskId/attachments/:attachmentId
+*/
+router.get("/:taskId/attachments/:attachmentId", async (req, res) => {
+  try {
+    const attachment = await Attachment.findById(req.params.attachmentId);
+    if (!attachment) return res.status(404).json({ error: "File not found" });
+
+    res.set("Content-Type", attachment.mimetype);
+    res.set("Content-Disposition", `attachment; filename="${attachment.filename}"`);
+    res.send(attachment.data);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+router.delete("/attachments/drop", async (req, res) => {
+  try {
+    await Attachment.deleteMany({});
+    res.json({ message: 'All attachments deleted successfully' });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
