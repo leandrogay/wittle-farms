@@ -1,11 +1,29 @@
+// TaskForm.jsx
 import { useEffect, useState } from "react";
-import { getProjectsByUserId, createTask } from "../../services/api.js";
+import {
+  getProjectsByUserId,
+  getTeamMembersByProjectId,
+  createTask,
+} from "../../services/api.js";
 import { useAuth } from "../../context/AuthContext.jsx";
+
+// --- Dayjs setup (SG-local handling) ---
+import dayjs from "dayjs";
+import utc from "dayjs/plugin/utc";
+import timezone from "dayjs/plugin/timezone";
+import customParseFormat from "dayjs/plugin/customParseFormat";
+
+dayjs.extend(utc);
+dayjs.extend(timezone);
+dayjs.extend(customParseFormat);
+dayjs.tz.setDefault("Asia/Singapore"); // interpret/format times in SG by default
 
 export default function TaskForm({ onCancel }) {
   const [projects, setProjects] = useState([]);
+  const [teamMembers, setTeamMembers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [showAssigneeDropdown, setShowAssigneeDropdown] = useState(false);
   const { user } = useAuth();
 
   const [formData, setFormData] = useState({
@@ -16,7 +34,8 @@ export default function TaskForm({ onCancel }) {
     assignedTeamMembers: [],
     status: "To Do",
     priority: "Low",
-    deadline: new Date(),
+    // IMPORTANT: datetime-local expects local string; we render in SG local.
+    deadline: dayjs().tz().format("YYYY-MM-DDTHH:mm"),
     createdBy: user.id,
     attachments: [],
   });
@@ -32,225 +51,454 @@ export default function TaskForm({ onCancel }) {
         setLoading(false);
       }
     }
+    async function loadTeamMembers() {
+      try {
+        // If you actually need project-specific members, call this after selecting a project.
+        // Keeping your original call:
+        const data = await getTeamMembersByProjectId(user.id);
+        setTeamMembers(Array.isArray(data) ? data : []);
+      } catch (err) {
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
+    }
     loadProjects();
-  }, []);
+    loadTeamMembers();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user.id]);
 
   function handleChange(e) {
-    const { name, value, files, options, type, multiple } = e.target;
+    const { name, value, files, options, type } = e.target;
 
     if (type === "file") {
-      setFormData(prev => ({ ...prev, [name]: files }));
+      setFormData((prev) => ({ ...prev, [name]: files }));
     } else if (type === "select-multiple") {
       const selectedValues = Array.from(options)
-        .filter(option => option.selected)
-        .map(option => option.value);
-      setFormData(prev => ({ ...prev, [name]: selectedValues }));
+        .filter((option) => option.selected)
+        .map((option) => option.value);
+      setFormData((prev) => ({ ...prev, [name]: selectedValues }));
     } else {
-      setFormData(prev => ({ ...prev, [name]: value }));
+      setFormData((prev) => ({ ...prev, [name]: value }));
     }
+  }
 
+  // Remove attachment from selected list
+  function removeAttachment(fileIndex) {
+    if (formData.attachments) {
+      const filesArray = Array.from(formData.attachments);
+      filesArray.splice(fileIndex, 1);
+
+      const dt = new DataTransfer();
+      filesArray.forEach((file) => dt.items.add(file));
+
+      setFormData((prev) => ({
+        ...prev,
+        attachments: dt.files,
+      }));
+    }
+  }
+
+  // Handle assignee selection with checkboxes
+  function handleAssigneeToggle(memberId) {
+    setFormData((prev) => ({
+      ...prev,
+      assignedTeamMembers: prev.assignedTeamMembers.includes(memberId)
+        ? prev.assignedTeamMembers.filter((id) => id !== memberId)
+        : [...prev.assignedTeamMembers, memberId],
+    }));
+  }
+
+  // Remove assignee from selected list
+  function removeAssignee(memberId) {
+    setFormData((prev) => ({
+      ...prev,
+      assignedTeamMembers: prev.assignedTeamMembers.filter((id) => id !== memberId),
+    }));
+  }
+
+  // Get selected team member names for display
+  function getSelectedTeamMemberNames() {
+    return teamMembers
+      .filter((tm) => formData.assignedTeamMembers.includes(tm._id))
+      .map((tm) => tm.name);
   }
 
   async function handleSubmit(e) {
     e.preventDefault();
 
     try {
-      const data = await createTask(formData);
+      // Convert SG-local "YYYY-MM-DDTHH:mm" into an absolute ISO timestamp for backend
+      const deadlineIso = dayjs
+        .tz(formData.deadline, "YYYY-MM-DDTHH:mm", "Asia/Singapore")
+        .toISOString();
+
+      const payload = {
+        ...formData,
+        deadline: deadlineIso,
+      };
+
+      const data = await createTask(payload);
       console.log("Task created:", data);
-      alert("Task created successfully!"); // TODO: Potentially improve with Toast
+      alert("Task created successfully!");
       onCancel();
     } catch (err) {
       alert("Error creating task: " + err.message);
     }
+  }
 
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (!event.target.closest(".assignee-dropdown-container")) {
+        setShowAssigneeDropdown(false);
+      }
+    }
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="flex flex-col items-center gap-3">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+          <p className="text-gray-600">Loading form...</p>
+        </div>
+      </div>
+    );
   }
 
   return (
-    <form onSubmit={handleSubmit} className="p-6 max-w-4xl">
-      <h2 className="text-xl font-semibold mb-4">Create New Task</h2>
-
-      {error && <p className="text-red-500 mb-4">{error}</p>}
-
-      {loading ? (
-        <p>Loading projects...</p>
-      ) : (
-        <div className="grid grid-cols-5 grid-rows-6 gap-5">
-          {/* Title + Description */}
-          <div className="col-span-4 row-span-4 flex flex-col">
-            <div className="mb-3">
-              <label className="block mb-1 text-sm font-medium">Title</label>
-              <input
-                type="text"
-                name="title"
-                value={formData.title}
-                onChange={handleChange}
-                placeholder="Enter task title"
-                className="w-full rounded-lg border border-gray-300 p-2"
-                required
-              />
-            </div>
-
-            <div className="flex-1 flex flex-col">
-              <label className="block mb-1 text-sm font-medium">
-                Description
-              </label>
-              <textarea
-                name="description"
-                value={formData.description}
-                onChange={handleChange}
-                placeholder="Task details"
-                className="w-full flex-1 rounded-lg border border-gray-300 p-2 resize-none"
-              />
-            </div>
-          </div>
-
-          {/* Notes */}
-          <div className="col-span-4 col-start-1 row-start-5">
-            <label className="block mb-2 text-sm font-medium">Notes</label>
-            <textarea
-              name="notes"
-              rows={2}
-              value={formData.notes}
-              onChange={handleChange}
-              className="w-full rounded-lg border border-gray-300 p-2 resize-none"
-            />
-          </div>
-
-          {/* Attachments */}
-          <div className="col-span-4 col-start-1 row-start-6">
-            <label className="block mb-2 text-sm font-medium text-gray-700">
-              Attachments
-            </label>
-            <input
-              type="file"
-              name="attachments"
-              multiple
-              onChange={handleChange}
-              className="w-full text-sm text-blue-700 border border-gray-300 rounded-md p-2 bg-white 
-                         file:border-0 file:bg-blue-600 file:text-white file:rounded-md 
-                         file:px-3 file:py-1 file:mr-3 hover:file:bg-blue-700 transition"
-            />
-            {formData.attachments &&
-              Array.from(formData.attachments).map((file, idx) => (
-                <span
-                  key={idx}
-                  className="inline-block bg-gray-100 text-gray-800 text-xs px-2 py-1 rounded-md mr-2 mt-2"
-                >
-                  {file.name}
-                </span>
-              ))}
-          </div>
-
-          {/* Project */}
-          <div className="col-start-5 row-start-1">
-            <label className="block mb-1 text-sm font-medium">Project</label>
-            <select
-              name="assignedProject"
-              value={formData.assignedProject}
-              onChange={handleChange}
-              className="w-full rounded-lg border border-gray-300 p-2"
-              required
-              disabled={projects.length === 0}
-            >
-              <option value="">
-                {projects.length
-                  ? "Select a project"
-                  : "No projects found"}
-              </option>
-              {projects.map((p, idx) => (
-                <option key={p._id || idx} value={p._id}>
-                  {p.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Assignee */}
-          <div className="row-span-2 col-start-5 row-start-2">
-            <label className="block mb-2 text-sm font-medium">Assignee</label>
-            <input
-              type="text"
-              name="assignee"
-              value={formData.assignee}
-              onChange={handleChange}
-              placeholder="e.g., user email or name"
-              className="w-full rounded-lg border border-gray-300 p-2"
-            />
-            {/* TODO: Implement as per project */}
-            {/* <select
-              name="assignedTeamMembers"
-              value={formData.assignedTeamMembers}
-              onChange={handleChange}
-              multiple
-              className="w-full rounded-lg border border-gray-300 p-2"
-            >
-              {users.map(u => (
-                <option key={u._id} value={u._id}>{u.name}</option>
-              ))}
-            </select> */}
-          </div>
-
-          {/* Status */}
-          <div className="col-start-5 row-start-4">
-            <label className="block mb-2 text-sm font-medium">Status</label>
-            <select
-              name="status"
-              value={formData.status}
-              onChange={handleChange}
-              className="w-full rounded-lg border border-gray-300 p-2"
-            >
-              <option>To Do</option>
-              <option>In Progress</option>
-              <option>Done</option>
-            </select>
-          </div>
-
-          {/* Priority */}
-          <div className="col-start-5 row-start-5">
-            <label className="block mb-2 text-sm font-medium">Priority</label>
-            <select
-              name="priority"
-              value={formData.priority}
-              onChange={handleChange}
-              className="w-full rounded-lg border border-gray-300 p-2"
-            >
-              <option>Low</option>
-              <option>Medium</option>
-              <option>High</option>
-            </select>
-          </div>
-
-          {/* Created / Updated (static placeholder for now) */}
-          {/* <div className="col-start-5 row-start-6">
-            <div className="shadow-sm rounded-xl p-3 border border-gray-200">
-              <p className="text-sm text-gray-600">
-                Created at: <span className="font-medium">—</span>
-              </p>
-              <p className="text-sm text-gray-600">
-                Updated at: <span className="font-medium">—</span>
-              </p>
-            </div>
-          </div> */}
-
+    <div className="w-[800px] max-h-[90vh] overflow-hidden mx-auto">
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 flex flex-col max-h-[90vh] w-full">
+        <div className="p-4 border-b border-gray-100 flex-shrink-0">
+          <h2 className="text-xl font-bold text-gray-900">Create New Task</h2>
+          <p className="text-gray-600 text-sm mt-1">
+            Fill in the details to create a new task
+          </p>
         </div>
-      )}
 
-      {/* Footer with Cancel + Save */}
-      <div className="mt-6 flex justify-end gap-3">
-        <button
-          type="button"
-          onClick={onCancel}
-          className="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300"
-        >
-          Cancel
-        </button>
-        <button
-          type="submit"
-          className="px-5 py-2 bg-blue-600 text-white rounded-lg shadow hover:bg-blue-700"
-        >
-          Save Task
-        </button>
+        {error && (
+          <div className="p-4 bg-red-50 border-l-4 border-red-400">
+            <p className="text-red-700">{error}</p>
+          </div>
+        )}
+
+        <div className="flex-1 overflow-y-auto">
+          <form onSubmit={handleSubmit} className="p-4">
+            {/* Main Content Area */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 w-full">
+              {/* Left Column - Main Task Details */}
+              <div className="lg:col-span-2 space-y-4 min-w-0">
+                {/* Title */}
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">
+                    Task Title *
+                  </label>
+                  <input
+                    type="text"
+                    name="title"
+                    value={formData.title}
+                    onChange={handleChange}
+                    placeholder="Enter a clear, descriptive title"
+                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                    required
+                  />
+                </div>
+
+                {/* Description */}
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">
+                    Description
+                  </label>
+                  <textarea
+                    name="description"
+                    value={formData.description}
+                    onChange={handleChange}
+                    rows={4}
+                    placeholder="Describe the task in detail..."
+                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none transition-all"
+                  />
+                </div>
+
+                {/* Notes */}
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">
+                    Additional Notes
+                  </label>
+                  <textarea
+                    name="notes"
+                    rows={2}
+                    value={formData.notes}
+                    onChange={handleChange}
+                    placeholder="Any additional information or context..."
+                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none transition-all"
+                  />
+                </div>
+
+                {/* Attachments */}
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">
+                    Attachments
+                  </label>
+                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-3 hover:border-gray-400 transition-colors">
+                    <input
+                      type="file"
+                      name="attachments"
+                      multiple
+                      onChange={handleChange}
+                      className="w-full text-xs text-gray-600
+                                 file:mr-3 file:py-1 file:px-3
+                                 file:rounded-full file:border-0
+                                 file:text-xs file:font-medium
+                                 file:bg-blue-50 file:text-blue-700
+                                 hover:file:bg-blue-100 file:cursor-pointer"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      Upload files, images, or documents
+                    </p>
+                  </div>
+
+                  {formData.attachments && formData.attachments.length > 0 && (
+                    <div className="mt-2 flex flex-wrap gap-1 max-h-20 overflow-y-auto">
+                      {Array.from(formData.attachments).map((file, idx) => (
+                        <div
+                          key={idx}
+                          className="flex items-center bg-gray-50 text-gray-700 text-xs px-2 py-1 rounded-full border group hover:bg-gray-100 transition-colors"
+                        >
+                          <svg
+                            className="w-3 h-3 mr-1 text-gray-400"
+                            fill="currentColor"
+                            viewBox="0 0 20 20"
+                          >
+                            <path
+                              fillRule="evenodd"
+                              d="M8 4a3 3 0 00-3 3v4a5 5 0 0010 0V7a1 1 0 112 0v4a7 7 0 11-14 0V7a5 5 0 0110 0v4a3 3 0 11-6 0V7a1 1 0 012 0v4a1 1 0 102 0V7a3 3 0 00-3-3z"
+                              clipRule="evenodd"
+                            />
+                          </svg>
+                          <span className="truncate max-w-[80px]">{file.name}</span>
+                          <button
+                            type="button"
+                            onClick={() => removeAttachment(idx)}
+                            className="ml-1 text-gray-400 hover:text-red-500 font-bold transition-colors text-sm"
+                            title="Remove file"
+                          >
+                            ×
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Right Column - Task Properties - Fixed Width */}
+              <div className="space-y-4 w-full max-w-[250px]">
+                {/* Project Selection */}
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">
+                    Project *
+                  </label>
+                  <select
+                    name="assignedProject"
+                    value={formData.assignedProject}
+                    onChange={handleChange}
+                    className="w-full max-w-[250px] px-3 py-2 text-sm border border-gray-300 rounded-lg bg-white hover:bg-gray-50 flex justify-between items-center focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                    required
+                    disabled={projects.length === 0}
+                  >
+                    <option value="">
+                      {projects.length ? "Select a project" : "No projects found"}
+                    </option>
+                    {projects.map((p, idx) => (
+                      <option key={p._id || idx} value={p._id}>
+                        {p.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Assignees */}
+                <div className="assignee-dropdown-container relative">
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">
+                    Assignees
+                  </label>
+
+                  {/* Selected assignees display - Absolute fixed width container */}
+                  {formData.assignedTeamMembers.length > 0 && (
+                    <div className="mb-2 w-[250px] overflow-hidden">
+                      <div className="grid grid-cols-2 gap-1 max-h-20 overflow-y-auto">
+                        {getSelectedTeamMemberNames().map((name, idx) => (
+                          <div
+                            key={idx}
+                            className="flex items-center bg-blue-100 text-blue-800 text-xs px-1 py-1 rounded-full min-w-0 max-w-[120px]"
+                          >
+                            <div className="w-3 h-3 bg-blue-200 rounded-full mr-1 flex items-center justify-center text-xs font-medium shrink-0">
+                              {name.charAt(0).toUpperCase()}
+                            </div>
+                            <span className="truncate text-xs min-w-0 flex-1">
+                              {name}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                removeAssignee(formData.assignedTeamMembers[idx])
+                              }
+                              className="ml-1 text-blue-600 hover:text-blue-800 font-bold text-xs shrink-0 w-3 h-3 flex items-center justify-center"
+                            >
+                              ×
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Dropdown button */}
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setShowAssigneeDropdown(!showAssigneeDropdown)
+                    }
+                    className="w-full max-w-[250px] px-3 py-2 text-sm border border-gray-300 rounded-lg bg-white hover:bg-gray-50 flex justify-between items-center focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                  >
+                    <span className="text-gray-600 truncate min-w-0 flex-1">
+                      {formData.assignedTeamMembers.length > 0
+                        ? `${formData.assignedTeamMembers.length} selected`
+                        : "Select team members"}
+                    </span>
+                    <svg
+                      className="w-4 h-4 transition-transform text-gray-400 shrink-0 ml-2"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d={
+                          showAssigneeDropdown
+                            ? "M19 15l-7-7-7 7"
+                            : "M19 9l-7 7-7-7"
+                        }
+                      />
+                    </svg>
+                  </button>
+
+                  {/* Dropdown content */}
+                  {showAssigneeDropdown && (
+                    <div className="absolute z-20 w-[250px] mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                      {teamMembers.length === 0 ? (
+                        <div className="p-3 text-gray-500 text-center text-sm">
+                          No team members found
+                        </div>
+                      ) : (
+                        <div className="p-1">
+                          {teamMembers.map((tm) => (
+                            <label
+                              key={tm._id}
+                              className="flex items-center p-2 hover:bg-gray-50 cursor-pointer rounded-md transition-colors min-w-0"
+                            >
+                              <input
+                                type="checkbox"
+                                checked={formData.assignedTeamMembers.includes(
+                                  tm._id
+                                )}
+                                onChange={() => handleAssigneeToggle(tm._id)}
+                                className="mr-2 w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 shrink-0"
+                              />
+                              <div className="flex items-center min-w-0 flex-1">
+                                <div className="w-6 h-6 bg-gray-200 rounded-full mr-2 flex items-center justify-center text-xs font-medium text-gray-600 shrink-0">
+                                  {tm.name.charAt(0).toUpperCase()}
+                                </div>
+                                <span className="text-sm font-medium text-gray-700 truncate min-w-0">
+                                  {tm.name}
+                                </span>
+                              </div>
+                            </label>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* Status and Priority - Stacked */}
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-1">
+                      Status
+                    </label>
+                    <select
+                      name="status"
+                      value={formData.status}
+                      onChange={handleChange}
+                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                    >
+                      <option value="To Do">📋 To Do</option>
+                      <option value="In Progress">🔄 In Progress</option>
+                      <option value="Done">✅ Done</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-1">
+                      Priority
+                    </label>
+                    <select
+                      name="priority"
+                      value={formData.priority}
+                      onChange={handleChange}
+                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                    >
+                      <option value="Low">🟢 Low</option>
+                      <option value="Medium">🟡 Medium</option>
+                      <option value="High">🔴 High</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Deadline (SG local) */}
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">
+                    Deadline
+                  </label>
+                  <input
+                    type="datetime-local"
+                    name="deadline"
+                    value={formData.deadline}
+                    onChange={handleChange}
+                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                    // Optional: prevent past times in SG
+                    min={dayjs().tz().format("YYYY-MM-DDTHH:mm")}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Footer Actions */}
+            <div className="flex flex-col sm:flex-row justify-end gap-2 mt-4 pt-3 border-t border-gray-100">
+              <button
+                type="button"
+                onClick={onCancel}
+                className="px-4 py-2 text-sm border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium shadow-sm"
+              >
+                Create Task
+              </button>
+            </div>
+          </form>
+        </div>
       </div>
-    </form>
+    </div>
   );
 }

@@ -111,6 +111,29 @@ export async function getManagerProjects() {
     : [];
 }
 
+export async function getTeamMembersByProjectId(userId) {
+  const res = await fetch(`${API_BASE}/api/projects?teamMember=${userId}`);
+  if (!res.ok) {
+    throw new Error("Failed to fetch projects");
+  }
+  const projects = await res.json();
+
+  // Flatten all teamMembers
+  const allMembers = projects.flatMap(p => p.teamMembers || []);
+
+  // Deduplicate by _id and exclude the current userId
+  const uniqueMembers = [];
+  const seen = new Set();
+
+  for (const member of allMembers) {
+    if (!seen.has(member._id) && member._id !== userId) {
+      seen.add(member._id);
+      uniqueMembers.push(member);
+    }
+  }
+
+  return uniqueMembers;
+}
 
 
 /*
