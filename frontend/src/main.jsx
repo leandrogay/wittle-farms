@@ -9,6 +9,8 @@ import Tasks from "./pages/Tasks.jsx";
 import TaskBoardMgr from "./pages/TaskBoardMgr.jsx";
 import Login from "./pages/Login.jsx";
 import Register from "./pages/Register.jsx";
+import ForgotPassword from "./pages/ForgotPassword.jsx";
+import ResetPassword from "./pages/ResetPassword.jsx";
 
 import { AuthProvider } from "./context/AuthContext.jsx";
 import RequireAuth from "./components/auth/RequireAuth.jsx";
@@ -32,6 +34,8 @@ createRoot(document.getElementById("root")).render(
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           <Route path="/unauthorized" element={<Unauthorized />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
 
           <Route element={<App />}>
             {/* Auth-protected area */}

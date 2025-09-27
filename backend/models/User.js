@@ -10,7 +10,9 @@ const UserSchema = new Schema({
   otp: { type: String },  
   otpExpires: { type: Date },
   failedLoginAttempts: { type: Number, default: 0 },
-  lockUntil: { type: Date }
+  lockUntil: { type: Date },
+  resetToken: { type: String },
+  resetTokenExpires: { type: Date }
 }, { timestamps: true });
 
 UserSchema.pre("save", async function (next) {
