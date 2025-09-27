@@ -3,6 +3,7 @@ import { Router } from 'express';
 import jwt from "jsonwebtoken";
 import nodemailer from "nodemailer";
 import User from "../models/User.js";
+import crypto from "crypto";
 
 dotenv.config({ path: "./config/secrets.env" });
 
@@ -145,6 +146,87 @@ router.post("/verify-otp", async (req, res) => {
     });
   } catch (err) {
     console.error("VERIFY OTP error:", err);
+    return res.status(500).json({ message: "Server error" });
+  }
+});
+
+// =====================
+// Forgot / Reset Password
+// =====================
+
+// POST /api/auth/forgot-password
+router.post("/forgot-password", async (req, res) => {
+  try {
+    const { email } = req.body || {};
+    if (!email) return res.status(400).json({ message: "Email required" });
+
+    const user = await User.findOne({ email });
+    // Always respond the same to avoid account enumeration
+    if (!user) {
+      return res.json({ message: "If this email is registered, a reset link was sent." });
+    }
+
+    // Generate token & expiry
+    const token = crypto.randomBytes(32).toString("hex");
+    const expires = new Date(Date.now() + 15 * 60 * 1000); // 15 mins
+
+    // Save on user (make sure your schema has these fields)
+    user.resetToken = token;
+    user.resetTokenExpires = expires;
+    await user.save({ validateBeforeSave: false });
+
+    // Compose link
+    const frontend = process.env.FRONTEND_URL || "http://localhost:5173";
+    const link = `${frontend}/reset-password?token=${token}`;
+
+    // Send email (or just log while developing)
+    try {
+      await transporter.sendMail({
+        from: { name: "Little Farms", address: process.env.EMAIL_USER },
+        to: user.email,
+        subject: "Reset your password",
+        html: `<p>Click to reset your password:</p>
+              <p><a href="${link}">${link}</a></p>
+              <p>This link expires in 15 minutes.</p>`,
+        // Optional: prevent replies going to a monitored inbox
+        replyTo: "no-reply@wittlefarms.com",
+      });
+      console.log("[ForgotPassword] Sent link:", link);
+    } catch (mailErr) {
+      console.error("EMAIL SEND ERROR:", mailErr);
+      // Still return 200 so we don't leak deliverability info
+    }
+
+    return res.json({ message: "If this email is registered, a reset link was sent." });
+  } catch (err) {
+    console.error("FORGOT PASSWORD error:", err);
+    return res.status(500).json({ message: "Server error" });
+  }
+});
+
+// POST /api/auth/reset-password
+router.post("/reset-password", async (req, res) => {
+  try {
+    const { token, password } = req.body || {};
+    if (!token || !password) {
+      return res.status(400).json({ message: "Token and password required" });
+    }
+
+    const user = await User.findOne({
+      resetToken: token,
+      resetTokenExpires: { $gt: new Date() }, // not expired
+    });
+    if (!user) return res.status(400).json({ message: "Invalid or expired token" });
+
+    // Update password; your User model's pre-save hook should hash it
+    user.password = password;
+    user.resetToken = undefined;
+    user.resetTokenExpires = undefined;
+    await user.save();
+
+    return res.json({ message: "Password updated" });
+  } catch (err) {
+    console.error("RESET PASSWORD error:", err);
     return res.status(500).json({ message: "Server error" });
   }
 });

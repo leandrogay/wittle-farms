@@ -227,3 +227,29 @@ export async function logoutUser() {
   }
   return res.json();
 }
+
+export async function requestPasswordReset(email) {
+  const res = await fetch(`${API_BASE}/api/auth/forgot-password`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email }),
+  });
+
+  const data = await jsonOrText(res);
+
+  if (!res.ok) throw new Error(data.message || "Unable to request password reset");
+  return data;
+}
+
+export async function resetPassword(token, password) {
+  const res = await fetch(`${API_BASE}/api/auth/reset-password`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ token, password }),
+  });
+
+  const data = await jsonOrText(res);
+
+  if (!res.ok) throw new Error(data.message || "Unable to reset password");
+  return data;
+}

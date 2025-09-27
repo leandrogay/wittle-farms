@@ -110,7 +110,11 @@ export default function Login() {
                         <p className="text-xs text-gray-400 text-center">
                             After password, we'll send a 6-digit code to your email.
                         </p>
-                        <p className="text-xs text-center mt-2">Forgot email or password?</p>
+                        <p className="text-xs text-center mt-2">
+                            <Link to="/forgot-password" className="text-blue-400">
+                                Forgot password?
+                            </Link>
+                        </p>
                         <p className="text-xs text-center">
                             Don’t have an account?{" "}
                             <Link to="/register" className="text-blue-400">
