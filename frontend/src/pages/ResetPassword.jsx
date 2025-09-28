@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";   // ⬅️ added useMemo here
+import { useState, useMemo, useEffect } from "react";   // ⬅️ added useMemo here
 import { useSearchParams, Link, useNavigate } from "react-router-dom";
 import { resetPassword } from "../services/api";
 
@@ -14,7 +14,35 @@ export default function ResetPassword() {
 
   const navigate = useNavigate();
 
-  // 🔹 NEW: password strength rules (same as Register.jsx)
+  useEffect(() => {
+    if (!token) {
+      setError("Invalid or missing token.");
+      return;
+    }
+
+    (async () => {
+      try {
+        const res = await fetch(
+          `${import.meta.env.VITE_API_BASE || ""}/api/auth/check-reset-token?token=${encodeURIComponent(token)}`
+        );
+        const data = await res.json();
+
+        // Check for HTTP 410 (Gone) status or message
+        if (res.status === 410 || (data?.message || "").toLowerCase().includes("reset link expired")) {
+          navigate("/reset-link-expired");
+          return;
+        }
+        if (!res.ok) {
+          setError(data?.message || "Invalid or expired token");
+        }
+      } catch {
+        // Network errors → fall back to normal submit-time check
+      }
+    })();
+  }, [token, navigate]);
+
+
+  // NEW: password strength rules (same as Register.jsx)
   const rules = useMemo(() => {
     const hasLen = password.length >= 8;
     const hasUpper = /[A-Z]/.test(password);
@@ -76,7 +104,14 @@ export default function ResetPassword() {
       setMessage("Password updated successfully. Redirecting to login...");
       setTimeout(() => navigate("/login"), 1500);
     } catch (err) {
-      setError(err.message || "Reset failed. Try again.");
+      // setError(err.message || "Reset failed. Try again.");
+      const msg = err?.message || "Reset failed. Try again.";
+      // If backend signaled an expired token, go to the dedicated page
+      if (msg.toLowerCase().includes("reset link expired")) {
+        navigate("/reset-link-expired");
+        return;
+      }
+      setError(msg);
     } finally {
       setLoading(false);
     }

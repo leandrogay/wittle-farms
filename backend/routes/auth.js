@@ -220,11 +220,21 @@ router.post("/reset-password", async (req, res) => {
       return res.status(400).json({ message: "Token and password required" });
     }
 
-    const user = await User.findOne({
-      resetToken: token,
-      resetTokenExpires: { $gt: new Date() }, // not expired
-    });
-    if (!user) return res.status(400).json({ message: "Invalid or expired token" });
+    // const user = await User.findOne({
+    //   resetToken: token,
+    //   resetTokenExpires: { $gt: new Date() }, // not expired
+    // });
+    // if (!user) return res.status(400).json({ message: "Invalid or expired token" });
+
+    // Find by token first
+    const user = await User.findOne({ resetToken: token });
+    if (!user) {
+      return res.status(400).json({ message: "Invalid or expired token" });
+    }
+    // Now check expiry explicitly
+    if (!user.resetTokenExpires || user.resetTokenExpires < new Date()) {
+      return res.status(400).json({ message: "Reset link expired, please request again" });
+    }
 
     // 1) Disallow same as current
     if (await bcrypt.compare(password, user.password || "")) {
@@ -257,6 +267,32 @@ router.post("/reset-password", async (req, res) => {
     return res.json({ message: "Password updated" });
   } catch (err) {
     console.error("RESET PASSWORD error:", err);
+    return res.status(500).json({ message: "Server error" });
+  }
+});
+
+// GET /api/auth/check-reset-token?token=...
+router.get("/check-reset-token", async (req, res) => {
+  try {
+    const { token } = req.query || {};
+    if (!token) {
+      console.error("[check-reset-token] No token provided");
+      return res.status(400).json({ message: "Token required" });
+    }
+
+    const user = await User.findOne({ resetToken: token });
+    if (!user) {
+      console.error(`[check-reset-token] No user found for token: ${token}`);
+      return res.status(400).json({ message: "Invalid or expired token" });
+    }
+    if (!user.resetTokenExpires || user.resetTokenExpires < new Date()) {
+      console.error(`[check-reset-token] Token expired for user: ${user.email}, expires: ${user.resetTokenExpires}`);
+      return res.status(410).json({ message: "Reset link expired, please request again" });
+    }
+    // still valid
+    return res.json({ ok: true });
+  } catch (e) {
+    console.error("[check-reset-token] Internal error:", e);
     return res.status(500).json({ message: "Server error" });
   }
 });
