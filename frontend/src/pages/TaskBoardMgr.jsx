@@ -1,10 +1,10 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import dayjs from "dayjs";
 import { getManagerProjects, getProjectTasks } from "../services/api.js";
 import TaskCard from "../components/ui/TaskCard.jsx";
-import TaskFormMgr from "../components/ui/TaskFormMgr.jsx";
+import TaskForm from "../components/ui/TaskForm.jsx";
+import { useAuth } from "../context/AuthContext.jsx";
 
-/* ---------------- Project Picker ---------------- */
 function ProjectPicker({ projects, valueId, onChange }) {
   const [open, setOpen] = useState(false);
   const current = projects.find((p) => p._id === valueId);
@@ -18,13 +18,15 @@ function ProjectPicker({ projects, valueId, onChange }) {
           className="inline-flex items-center gap-2 rounded-xl border-2 border-blue-600 px-3 py-2 text-sm font-semibold"
           aria-expanded={open}
           onClick={() => setOpen((v) => !v)}
+          disabled={projects.length === 0}
+          title={projects.length === 0 ? "You haven't created any projects yet" : ""}
         >
-          {current?.name ?? "Choose project"}
+          {current?.name ?? (projects.length ? "Choose project" : "No projects")}
           <span className={`transition-transform ${open ? "rotate-180" : ""}`}>▾</span>
         </button>
       </div>
 
-      {open && (
+      {open && projects.length > 0 && (
         <div className="absolute right-0 z-40 mt-2 w-72 rounded-xl border bg-white p-1 shadow-xl">
           {projects.map((p) => (
             <button
@@ -53,9 +55,9 @@ function SquareTaskTile({ task, onOpen, section }) {
   const status = normalizeStatus(task.status);
   const statusClass =
     status === "To Do" ? "text-gray-500"
-    : status === "In Progress" ? "text-blue-500"
-    : status === "Done" ? "text-green-500"
-    : "";
+      : status === "In Progress" ? "text-blue-500"
+      : status === "Done" ? "text-green-500"
+      : "";
 
   const deadlineChip = !hasDate ? (
     <span className="inline-flex items-center rounded-lg bg-gray-50 px-2.5 py-1 text-xs font-medium text-gray-700">
@@ -92,7 +94,7 @@ function SquareTaskTile({ task, onOpen, section }) {
             {task.title || "Untitled task"}
           </div>
 
-        <div className="text-sm">
+          <div className="text-sm">
             <div className="font-medium">Status:</div>
             <div className={`text-base sm:text-lg font-semibold ${statusClass}`}>{task.status}</div>
           </div>
@@ -117,6 +119,7 @@ function SquareTaskTile({ task, onOpen, section }) {
 }
 
 export default function TaskBoardMgr() {
+  const { user, loading: authLoading } = useAuth(); 
   const [projects, setProjects] = useState([]);
   const [projLoading, setProjLoading] = useState(true);
   const [projError, setProjError] = useState(null);
@@ -132,24 +135,30 @@ export default function TaskBoardMgr() {
   const [statusFilter, setStatusFilter] = useState("All");
   const [priorityFilter, setPriorityFilter] = useState("All");
 
-  // Overlay (not modal) state
   const [showCreate, setShowCreate] = useState(false);
 
-  // ESC to close the overlay
-  useEffect(() => {
-    if (!showCreate) return;
-    const onKey = (e) => e.key === "Escape" && setShowCreate(false);
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [showCreate]);
+  const userId = user?._id ?? user?.id ?? null;
 
   useEffect(() => {
+    if (authLoading) return;
     (async () => {
       try {
         const data = await getManagerProjects();
-        setProjects(Array.isArray(data) ? data : []);
-        if (Array.isArray(data) && data.length > 0) {
-          setSelectedProjectId(data[0]._id);
+        const all = Array.isArray(data) ? data : [];
+
+        const mine = all.filter((p) => {
+          const createdBy = p?.createdBy;
+          const createdById =
+            (createdBy && (createdBy._id || createdBy.id)) || (typeof createdBy === "string" ? createdBy : null);
+          return createdById && userId && createdById === userId;
+        });
+
+        setProjects(mine);
+
+        if (mine.length > 0) {
+          setSelectedProjectId((prev) => (mine.some((p) => p._id === prev) ? prev : mine[0]._id));
+        } else {
+          setSelectedProjectId(null);
         }
       } catch (err) {
         setProjError(err?.message || "Failed to load projects");
@@ -157,7 +166,7 @@ export default function TaskBoardMgr() {
         setProjLoading(false);
       }
     })();
-  }, []);
+  }, [authLoading, userId]);
 
   const reloadTasks = async (projectId = selectedProjectId) => {
     if (!projectId) return;
@@ -265,7 +274,7 @@ export default function TaskBoardMgr() {
     return ["All", ...Array.from(set)];
   }, [tasks]);
 
-  if (projLoading) return <p className="p-4 text-gray-600">Loading projects…</p>;
+  if (authLoading || projLoading) return <p className="p-4 text-gray-600">Loading…</p>;
   if (projError) return <p className="p-4 text-red-600">{projError}</p>;
 
   const currentProjectName = projects.find((p) => p._id === selectedProjectId)?.name;
@@ -281,6 +290,7 @@ export default function TaskBoardMgr() {
             valueId={selectedProjectId}
             onChange={setSelectedProjectId}
           />
+
           <div className="flex flex-wrap items-center gap-3">
             <label className="text-sm text-gray-600">
               Status:
@@ -322,17 +332,29 @@ export default function TaskBoardMgr() {
             disabled={!selectedProjectId}
             onClick={() => setShowCreate(true)}
             className="px-4 py-2 rounded-lg text-sm font-semibold bg-blue-600 text-white shadow hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-            title={selectedProjectId ? "Create a new task in this project" : "Select a project first"}
+            title={
+              selectedProjectId
+                ? "Create a new task in this project"
+                : projects.length === 0
+                ? "You have no projects you created"
+                : "Select a project first"
+            }
           >
             + Create Task
           </button>
         </div>
       </header>
 
+      {projects.length === 0 && (
+        <div className="rounded-lg border bg-amber-50 text-amber-900 p-4">
+          You currently don’t have any projects that you created. Create one to start adding tasks.
+        </div>
+      )}
+
       {tasksLoading && <p className="text-gray-600">Loading tasks…</p>}
       {tasksError && <p className="text-red-600">{tasksError}</p>}
 
-      {!tasksLoading && !tasksError && (
+      {!tasksLoading && !tasksError && projects.length > 0 && selectedProjectId && (
         <div className="space-y-8">
           {overdue.length > 0 && (
             <>
@@ -381,7 +403,7 @@ export default function TaskBoardMgr() {
           {completed.length > 0 && (
             <>
               <div className="flex items-center gap-3">
-                <h2 className="text-lg font-semibold text-gray-700">Completed</h2>
+                <h2 className="text-lg font-semibold text-green-700">Completed</h2>
                 <div className="h-px bg-gray-200 flex-1" />
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -403,7 +425,7 @@ export default function TaskBoardMgr() {
           aria-modal="true"
           role="dialog"
         >
-          <TaskFormMgr
+          <TaskForm
             projectId={selectedProjectId}
             projectName={currentProjectName}
             onCancel={() => setShowCreate(false)}
@@ -414,6 +436,7 @@ export default function TaskBoardMgr() {
           />
         </div>
       )}
+
       {activeTask && (
         <div
           className="fixed inset-0 z-[70] grid place-items-center bg-black/50"
