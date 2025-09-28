@@ -235,10 +235,16 @@ export async function requestPasswordReset(email) {
     body: JSON.stringify({ email }),
   });
 
-  const data = await jsonOrText(res);
+  const data = await res.json().catch(() => ({}));
 
+  const emailExistsHeader = res.headers?.get?.("X-Email-Exists");
+  const emailExists =
+    emailExistsHeader === "true" ? true :
+    emailExistsHeader === "false" ? false :
+    undefined;
+  
   if (!res.ok) throw new Error(data.message || "Unable to request password reset");
-  return data;
+  return { ...data, emailExists };
 }
 
 export async function resetPassword(token, password) {
