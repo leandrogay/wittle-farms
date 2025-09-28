@@ -1,14 +1,11 @@
-// TaskForm.jsx
 import { useEffect, useState } from "react";
 import {
   getProjectsByUserId,
   getTeamMembersByProjectId,
   createTask,
-  updateTask,
 } from "../../services/api.js";
 import { useAuth } from "../../context/AuthContext.jsx";
 
-// --- Dayjs setup (SG-local handling) ---
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
 import timezone from "dayjs/plugin/timezone";
@@ -21,9 +18,11 @@ dayjs.tz.setDefault("Asia/Singapore");
 
 export default function TaskForm({
   onCancel,
+  defaultProjectId,
   onCreated,
   onUpdated,
-  task = null,
+  mode = "create",
+  defaultValues = null,
 }) {
   const [projects, setProjects] = useState([]);
   const [teamMembers, setTeamMembers] = useState([]);
@@ -31,31 +30,24 @@ export default function TaskForm({
   const [error, setError] = useState(null);
   const [showAssigneeDropdown, setShowAssigneeDropdown] = useState(false);
   const { user } = useAuth();
-  const isEdit = task !== null;
+  const isEdit = mode === "edit";
 
   const [formData, setFormData] = useState(() => {
-    if (isEdit) {
+    if (isEdit && defaultValues) {
+      // Map defaultValues to formData shape as needed
       return {
-        ...task,
-        // Handle assignedTeamMembers - extract IDs if they're populated objects
-        assignedTeamMembers: task.assignedTeamMembers?.map(member => 
-          typeof member === 'string' ? member : member._id
-        ) || [],
-        // Handle assignedProject - extract ID if it's a populated object
-        assignedProject: typeof task.assignedProject === 'string' 
-          ? task.assignedProject 
-          : task.assignedProject?._id || '',
-        deadline: task.deadline 
-          ? dayjs(task.deadline).tz().format("YYYY-MM-DDTHH:mm")
+        ...defaultValues,
+        deadline: defaultValues.deadline
+          ? dayjs(defaultValues.deadline).tz().format("YYYY-MM-DDTHH:mm")
           : dayjs().tz().format("YYYY-MM-DDTHH:mm"),
-          createdBy: user.id,
+        attachments: [], // You may want to handle existing attachments differently
       };
     }
     return {
       title: "",
       description: "",
       notes: "",
-      assignedProject: "",
+      assignedProject: defaultProjectId || "",
       assignedTeamMembers: [],
       status: "To Do",
       priority: "Low",
@@ -76,19 +68,24 @@ export default function TaskForm({
         setLoading(false);
       }
     }
+    loadProjects();
+  }, [user.id, defaultProjectId]);
+
+  useEffect(() => {
     async function loadTeamMembers() {
+      if (!formData.assignedProject) {
+        setTeamMembers([]);
+        return;
+      }
       try {
-        const data = await getTeamMembersByProjectId(user.id);
+        const data = await getTeamMembersByProjectId(formData.assignedProject);
         setTeamMembers(Array.isArray(data) ? data : []);
       } catch (err) {
         setError(err.message);
-      } finally {
-        setLoading(false);
       }
     }
-    loadProjects();
     loadTeamMembers();
-  }, [user.id]);
+  }, [formData.assignedProject]);
 
   function handleChange(e) {
     const { name, value, files, options, type } = e.target;
@@ -105,23 +102,20 @@ export default function TaskForm({
     }
   }
 
-  // Remove attachment from selected list
   function removeAttachment(fileIndex) {
-    if (formData.attachments) {
-      const filesArray = Array.from(formData.attachments);
-      filesArray.splice(fileIndex, 1);
+    if (!formData.attachments) return;
+    const filesArray = Array.from(formData.attachments);
+    filesArray.splice(fileIndex, 1);
 
-      const dt = new DataTransfer();
-      filesArray.forEach((file) => dt.items.add(file));
+    const dt = new DataTransfer();
+    filesArray.forEach((file) => dt.items.add(file));
 
-      setFormData((prev) => ({
-        ...prev,
-        attachments: dt.files,
-      }));
-    }
+    setFormData((prev) => ({
+      ...prev,
+      attachments: dt.files,
+    }));
   }
 
-  // Handle assignee selection with checkboxes
   function handleAssigneeToggle(memberId) {
     setFormData((prev) => ({
       ...prev,
@@ -131,7 +125,6 @@ export default function TaskForm({
     }));
   }
 
-  // Remove assignee from selected list
   function removeAssignee(memberId) {
     setFormData((prev) => ({
       ...prev,
@@ -141,7 +134,6 @@ export default function TaskForm({
     }));
   }
 
-  // Get selected team member names for display
   function getSelectedTeamMemberNames() {
     return teamMembers
       .filter((tm) => formData.assignedTeamMembers.includes(tm._id))
@@ -152,7 +144,6 @@ export default function TaskForm({
     e.preventDefault();
 
     try {
-      // Convert SG-local "YYYY-MM-DDTHH:mm" into an absolute ISO timestamp for backend
       const deadlineIso = dayjs
         .tz(formData.deadline, "YYYY-MM-DDTHH:mm", "Asia/Singapore")
         .toISOString();
@@ -162,30 +153,21 @@ export default function TaskForm({
         deadline: deadlineIso,
       };
 
-      console.log(payload);
-
-      if (isEdit) {
-        const data = await updateTask(task._id, payload);
+      let data;
+      if (isEdit && defaultValues && defaultValues._id) {
+        // Call your updateTask API here
+        data = await updateTask(defaultValues._id, payload);
         onUpdated?.(data);
-        console.log("Task updated:", data);
-        alert("Task updated successfully!");
       } else {
-        const data = await createTask(payload);
+        data = await createTask(payload);
         onCreated?.(data);
-        console.log("Task created:", data);
-        alert("Task created successfully!");
       }
       onCancel();
     } catch (err) {
-      if (isEdit) {
-        alert("Error updating task: " + err.message);
-      } else {
-        alert("Error creating task: " + err.message);
-      }
+      alert("Error saving task: " + err.message);
     }
   }
 
-  // Close dropdown when clicking outside
   useEffect(() => {
     function handleClickOutside(event) {
       if (!event.target.closest(".assignee-dropdown-container")) {
@@ -212,14 +194,9 @@ export default function TaskForm({
     <div className="w-[800px] max-h-[90vh] overflow-hidden mx-auto">
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 flex flex-col max-h-[90vh] w-full">
         <div className="p-4 border-b border-gray-100 flex-shrink-0">
-          <h2 className="text-xl font-bold text-gray-900">
-            {isEdit ? "Edit Task" : "Create New Task"}
-          </h2>
+          <h2 className="text-xl font-bold text-gray-900">Create New Task</h2>
           <p className="text-gray-600 text-sm mt-1">
-            {isEdit 
-              ? "Update the task details below" 
-              : "Fill in the details to create a new task"
-            }
+            Fill in the details to create a new task
           </p>
         </div>
 
@@ -231,11 +208,8 @@ export default function TaskForm({
 
         <div className="flex-1 overflow-y-auto">
           <form onSubmit={handleSubmit} className="p-4">
-            {/* Main Content Area */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 w-full">
-              {/* Left Column - Main Task Details */}
               <div className="lg:col-span-2 space-y-4 min-w-0">
-                {/* Title */}
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-1">
                     Task Title *
@@ -245,16 +219,12 @@ export default function TaskForm({
                     name="title"
                     value={formData.title}
                     onChange={handleChange}
-                    placeholder={isEdit 
-                      ? "Update task title" 
-                      : "Enter a clear, descriptive title"
-                    }
+                    placeholder="Enter a clear, descriptive title"
                     className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                     required
                   />
                 </div>
 
-                {/* Description */}
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-1">
                     Description
@@ -264,15 +234,11 @@ export default function TaskForm({
                     value={formData.description}
                     onChange={handleChange}
                     rows={4}
-                    placeholder={isEdit 
-                      ? "Update task description..." 
-                      : "Describe the task in detail..."
-                    }
+                    placeholder="Describe the task in detail..."
                     className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none transition-all"
                   />
                 </div>
 
-                {/* Notes */}
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-1">
                     Additional Notes
@@ -282,18 +248,14 @@ export default function TaskForm({
                     rows={2}
                     value={formData.notes}
                     onChange={handleChange}
-                    placeholder={isEdit 
-                      ? "Update additional notes..." 
-                      : "Any additional information or context..."
-                    }
+                    placeholder="Any additional information or context..."
                     className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none transition-all"
                   />
                 </div>
 
-                {/* Attachments */}
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-1">
-                    {isEdit ? "Update Attachments" : "Attachments"}
+                    Attachments
                   </label>
                   <div className="border-2 border-dashed border-gray-300 rounded-lg p-3 hover:border-gray-400 transition-colors">
                     <input
@@ -309,10 +271,7 @@ export default function TaskForm({
                                  hover:file:bg-blue-100 file:cursor-pointer"
                     />
                     <p className="text-xs text-gray-500 mt-1">
-                      {isEdit 
-                        ? "Upload additional files or replace existing ones" 
-                        : "Upload files, images, or documents"
-                      }
+                      Upload files, images, or documents
                     </p>
                   </div>
 
@@ -352,9 +311,7 @@ export default function TaskForm({
                 </div>
               </div>
 
-              {/* Right Column - Task Properties - Fixed Width */}
               <div className="space-y-4 w-full max-w-[250px]">
-                {/* Project Selection */}
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-1">
                     Project *
@@ -365,11 +322,10 @@ export default function TaskForm({
                     onChange={handleChange}
                     className="w-full max-w-[250px] px-3 py-2 text-sm border border-gray-300 rounded-lg bg-white hover:bg-gray-50 flex justify-between items-center focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                     required
-                    disabled={projects.length === 0}
                   >
                     <option value="">
                       {projects.length
-                        ? (isEdit ? "Change project" : "Select a project")
+                        ? "Select a project"
                         : "No projects found"}
                     </option>
                     {projects.map((p, idx) => (
@@ -380,13 +336,11 @@ export default function TaskForm({
                   </select>
                 </div>
 
-                {/* Assignees */}
                 <div className="assignee-dropdown-container relative">
                   <label className="block text-sm font-semibold text-gray-700 mb-1">
-                    {isEdit ? "Update Assignees" : "Assignees"}
+                    Assignees
                   </label>
 
-                  {/* Selected assignees display - Absolute fixed width container */}
                   {formData.assignedTeamMembers.length > 0 && (
                     <div className="mb-2 w-[250px] overflow-hidden">
                       <div className="grid grid-cols-2 gap-1 max-h-20 overflow-y-auto">
@@ -418,7 +372,6 @@ export default function TaskForm({
                     </div>
                   )}
 
-                  {/* Dropdown button */}
                   <button
                     type="button"
                     onClick={() =>
@@ -429,7 +382,7 @@ export default function TaskForm({
                     <span className="text-gray-600 truncate min-w-0 flex-1">
                       {formData.assignedTeamMembers.length > 0
                         ? `${formData.assignedTeamMembers.length} selected`
-                        : (isEdit ? "Change assignees" : "Select team members")}
+                        : "Select team members"}
                     </span>
                     <svg
                       className="w-4 h-4 transition-transform text-gray-400 shrink-0 ml-2"
@@ -450,7 +403,6 @@ export default function TaskForm({
                     </svg>
                   </button>
 
-                  {/* Dropdown content */}
                   {showAssigneeDropdown && (
                     <div className="absolute z-20 w-[250px] mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
                       {teamMembers.length === 0 ? (
@@ -488,7 +440,6 @@ export default function TaskForm({
                   )}
                 </div>
 
-                {/* Status and Priority - Stacked */}
                 <div className="space-y-3">
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-1">
@@ -500,9 +451,9 @@ export default function TaskForm({
                       onChange={handleChange}
                       className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                     >
-                      <option value="To Do">📋 To Do</option>
-                      <option value="In Progress">🔄 In Progress</option>
-                      <option value="Done">✅ Done</option>
+                      <option value="To Do">To Do</option>
+                      <option value="In Progress">In Progress</option>
+                      <option value="Done">Done</option>
                     </select>
                   </div>
 
@@ -516,17 +467,16 @@ export default function TaskForm({
                       onChange={handleChange}
                       className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                     >
-                      <option value="Low">🟢 Low</option>
-                      <option value="Medium">🟡 Medium</option>
-                      <option value="High">🔴 High</option>
+                      <option value="Low">Low</option>
+                      <option value="Medium">Medium</option>
+                      <option value="High">High</option>
                     </select>
                   </div>
                 </div>
 
-                {/* Deadline (SG local) */}
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-1">
-                    {isEdit ? "Update Deadline" : "Deadline"}
+                    Deadline
                   </label>
                   <input
                     type="datetime-local"
@@ -534,14 +484,12 @@ export default function TaskForm({
                     value={formData.deadline}
                     onChange={handleChange}
                     className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                    // Optional: prevent past times in SG
                     min={dayjs().tz().format("YYYY-MM-DDTHH:mm")}
                   />
                 </div>
               </div>
             </div>
 
-            {/* Footer Actions */}
             <div className="flex flex-col sm:flex-row justify-end gap-2 mt-4 pt-3 border-t border-gray-100">
               <button
                 type="button"
@@ -552,13 +500,9 @@ export default function TaskForm({
               </button>
               <button
                 type="submit"
-                className={`px-4 py-2 text-sm rounded-lg transition-colors font-medium shadow-sm ${
-                  isEdit 
-                    ? "bg-green-600 text-white hover:bg-green-700" 
-                    : "bg-blue-600 text-white hover:bg-blue-700"
-                }`}
+                className="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium shadow-sm"
               >
-                {isEdit ? "Save Changes" : "Create Task"}
+                Create Task
               </button>
             </div>
           </form>

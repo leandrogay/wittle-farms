@@ -3,7 +3,8 @@ import { getTasks } from "../services/api.js";
 
 import MiniTaskCard from "../components/ui/MiniTaskCard.jsx";
 import TaskCard from "../components/ui/TaskCard.jsx";
-import TaskCreationMenu from "../components/ui/TaskCreationMenu.jsx";
+import CreateTaskButton from "../components/ui/CreateTaskButton.jsx";
+// import TaskButton from "../components/ui/TaskButton.jsx";
 
 export default function Tasks() {
   const [tasks, setTasks] = useState([]);
@@ -29,12 +30,8 @@ export default function Tasks() {
 
   return (
     <>
-      {/* <TaskForm></TaskForm> */}
-      <TaskCreationMenu></TaskCreationMenu>
+      <CreateTaskButton>Create Task</CreateTaskButton>
       <h1>Tasks Page</h1>
-      {tasks.map((task) => (
-        <MiniTaskCard key={task._id} task={task} />
-      ))}
       {tasks.map((task) => (
         <TaskCard key={task._id} task={task} />
       ))}

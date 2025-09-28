@@ -2,7 +2,7 @@ import { useState } from "react";
 import TaskForm from "./TaskForm";
 import Modal from "./Modal";
 
-export default function TaskMenu() {
+export default function TaskButton({ children }) {
   const [showForm, setShowForm] = useState(false);
 
   return (
@@ -11,11 +11,11 @@ export default function TaskMenu() {
         onClick={() => setShowForm(true)}
         className="px-5 py-2 bg-blue-600 text-white rounded-lg shadow hover:bg-blue-700"
       >
-        Create New Task
+        { children }
       </button>
 
       <Modal isOpen={showForm} onClose={() => setShowForm(false)}>
-        <TaskForm onCancel={() => setShowForm(false)}/>
+        <TaskForm onCancel={() => setShowForm(false)} />
       </Modal>
     </div>
   );

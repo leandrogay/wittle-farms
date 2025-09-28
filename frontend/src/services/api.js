@@ -135,6 +135,30 @@ export async function getTeamMembersByProjectId(userId) {
   return uniqueMembers;
 }
 
+export async function updateTask(taskId, formData) {
+  try {
+    const body = toFormDataIfFiles(formData);
+    const isFormData = body instanceof FormData;
+
+    const res = await fetch(`${API_BASE}/api/tasks/${taskId}`, {
+      method: "PUT",
+      headers: isFormData ? {} : { "Content-Type": "application/json" },
+      body: isFormData ? body : body,
+    });
+
+    if (!res.ok) {
+      throw new Error("Failed to update task");
+    }
+
+    return await res.json();
+
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }
+}
+
+
 
 /*
 *
@@ -240,9 +264,9 @@ export async function requestPasswordReset(email) {
   const emailExistsHeader = res.headers?.get?.("X-Email-Exists");
   const emailExists =
     emailExistsHeader === "true" ? true :
-    emailExistsHeader === "false" ? false :
-    undefined;
-  
+      emailExistsHeader === "false" ? false :
+        undefined;
+
   if (!res.ok) throw new Error(data.message || "Unable to request password reset");
   return { ...data, emailExists };
 }

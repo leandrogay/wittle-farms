@@ -143,20 +143,97 @@ router.get('/:id', async (req, res) => {
  * UPDATE Task
  * PUT /api/tasks/:id
  */
-router.put('/:id', async (req, res) => {
+router.put('/:id', upload.array('attachments'), async (req, res) => {
   try {
+    const { title, description, notes, assignedProject, assignedTeamMembers, status, priority, deadline, createdBy } = req.body;
+
+    // Validate required fields
+    if (!title) {
+      return res.status(400).json({ error: 'Title is required' });
+    }
+    if (!assignedProject) {
+      return res.status(400).json({ error: 'Assigned project is required' });
+    }
+
+    // Validate ObjectIds
+    if (!mongoose.Types.ObjectId.isValid(assignedProject)) {
+      return res.status(400).json({ error: 'Invalid project ID' });
+    }
+    if (createdBy && !mongoose.Types.ObjectId.isValid(createdBy)) {
+      return res.status(400).json({ error: 'Invalid creator ID' });
+    }
+
+    // Process assignedTeamMembers
+    let teamMembers = [];
+    if (assignedTeamMembers.length > 0) {
+      if (typeof assignedTeamMembers === 'string') {
+        // Single member or comma-separated string
+        teamMembers = assignedTeamMembers.split(',').filter(id => id.trim());
+      } else if (Array.isArray(assignedTeamMembers)) {
+        teamMembers = assignedTeamMembers;
+      }
+
+      // Validate team member IDs
+      for (const memberId of teamMembers) {
+        if (!mongoose.Types.ObjectId.isValid(memberId)) {
+          return res.status(400).json({ error: `Invalid team member ID: ${memberId}` });
+        }
+      }
+    }
+
+    // Build update data with correct field names
+    const updateData = {
+      title,
+      description,
+      notes,
+      assignedProject, // Keep original field name
+      assignedTeamMembers: teamMembers, // Keep original field name
+      status,
+      priority,
+      deadline,
+    };
+
+    // Only include createdBy if provided (shouldn't change on updates typically)
+    if (createdBy) {
+      updateData.createdBy = createdBy;
+    }
+
     const task = await Task.findByIdAndUpdate(
       req.params.id,
-      req.body,
+      updateData,
       { new: true, runValidators: true }
-    )
-      .populate('assignedTeamMembers', 'name email')
-      .populate('createdBy', 'name email')
-      .populate('assignedProject', 'name');
+    );
 
     if (!task) return res.status(404).json({ error: 'Task not found' });
 
-    res.json(task);
+    // Handle new attachments if provided
+    if (req.files && req.files.length > 0) {
+      const newAttachments = await Promise.all(
+        req.files.map((file) => Attachment.create({
+          task: task._id,
+          filename: file.originalname,
+          mimetype: file.mimetype,
+          size: file.size,
+          data: file.buffer,
+          uploadedBy: createdBy || task.createdBy,
+        }))
+      );
+
+      // Add new attachment IDs to existing ones
+      const existingAttachmentIds = task.attachments || [];
+      const newAttachmentIds = newAttachments.map((a) => a._id);
+      task.attachments = [...existingAttachmentIds, ...newAttachmentIds];
+      await task.save();
+    }
+
+    // Return populated task
+    const populatedTask = await Task.findById(task._id)
+      .populate('assignedTeamMembers', 'name email')
+      .populate('createdBy', 'name email')
+      .populate('assignedProject', 'name')
+      .populate('attachments');
+
+    res.json(populatedTask);
   } catch (e) {
     res.status(400).json({ error: e.message });
   }

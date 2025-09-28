@@ -1,14 +1,17 @@
 import dayjs from "dayjs";
+import TaskFormButton from "./TaskFormButton";
 
 const priorityStyles = {
-  Low:    "bg-emerald-50 text-emerald-800 ring-1 ring-emerald-200",
+  Low: "bg-emerald-50 text-emerald-800 ring-1 ring-emerald-200",
   Medium: "bg-amber-50  text-amber-800  ring-1 ring-amber-200",
-  High:   "bg-red-50    text-red-800    ring-1 ring-red-200",
+  High: "bg-red-50    text-red-800    ring-1 ring-red-200",
 };
 
 function Badge({ children, className = "" }) {
   return (
-    <span className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-sm font-semibold ${className}`} >
+    <span
+      className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-sm font-semibold ${className}`}
+    >
       {children}
     </span>
   );
@@ -93,6 +96,7 @@ export default function TaskCard({ task }) {
           {task?.createdBy?.name ?? "—"}
         </p>
       </div>
+      <TaskFormButton task={task}></TaskFormButton>
     </article>
   );
 }
