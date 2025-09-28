@@ -161,10 +161,15 @@ router.post("/forgot-password", async (req, res) => {
     if (!email) return res.status(400).json({ message: "Email required" });
 
     const user = await User.findOne({ email });
+    const exposeHeader = () => {
+      res.setHeader("Access-Control-Expose-Headers","X-Email-Exists");
+    };
     // Always respond the same to avoid account enumeration
     if (!user) {
+      exposeHeader();
+      res.setHeader("X-Email-Exists", "false");
       return res.json({ message: "If this email is registered, a reset link was sent." });
-    }
+    };
 
     // Generate token & expiry
     const token = crypto.randomBytes(32).toString("hex");
@@ -197,6 +202,8 @@ router.post("/forgot-password", async (req, res) => {
       // Still return 200 so we don't leak deliverability info
     }
 
+    exposeHeader();
+    res.setHeader("X-Email-Exists", "true");
     return res.json({ message: "If this email is registered, a reset link was sent." });
   } catch (err) {
     console.error("FORGOT PASSWORD error:", err);
