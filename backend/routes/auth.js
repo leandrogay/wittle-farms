@@ -4,6 +4,7 @@ import jwt from "jsonwebtoken";
 import nodemailer from "nodemailer";
 import User from "../models/User.js";
 import crypto from "crypto";
+import bcrypt from "bcryptjs"; 
 
 dotenv.config({ path: "./config/secrets.env" });
 
@@ -219,11 +220,43 @@ router.post("/reset-password", async (req, res) => {
       return res.status(400).json({ message: "Token and password required" });
     }
 
-    const user = await User.findOne({
-      resetToken: token,
-      resetTokenExpires: { $gt: new Date() }, // not expired
-    });
-    if (!user) return res.status(400).json({ message: "Invalid or expired token" });
+    // const user = await User.findOne({
+    //   resetToken: token,
+    //   resetTokenExpires: { $gt: new Date() }, // not expired
+    // });
+    // if (!user) return res.status(400).json({ message: "Invalid or expired token" });
+
+    // Find by token first
+    const user = await User.findOne({ resetToken: token });
+    if (!user) {
+      return res.status(400).json({ message: "Invalid or expired token" });
+    }
+    // Now check expiry explicitly
+    if (!user.resetTokenExpires || user.resetTokenExpires < new Date()) {
+      return res.status(400).json({ message: "Reset link expired, please request again" });
+    }
+
+    // 1) Disallow same as current
+    if (await bcrypt.compare(password, user.password || "")) {
+      return res.status(400).json({ message: "Cannot reuse previous password" });
+    }
+
+    // 2) Disallow same as any of last N (default 5)
+    const PASSWORD_HISTORY_LIMIT = 5;
+    for (const oldHash of user.passwordHistory || []) {
+      if (await bcrypt.compare(password, oldHash)) {
+        return res.status(400).json({ message: "Cannot reuse previous password" });
+      }
+    }
+
+    // 3) Rotate: move current → history, cap at N
+    const oldHash = user.password;
+    if (oldHash) {
+      user.passwordHistory = [
+        oldHash,
+        ...(user.passwordHistory || []),
+      ].slice(0, PASSWORD_HISTORY_LIMIT);
+    }
 
     // Update password; your User model's pre-save hook should hash it
     user.password = password;
@@ -234,6 +267,32 @@ router.post("/reset-password", async (req, res) => {
     return res.json({ message: "Password updated" });
   } catch (err) {
     console.error("RESET PASSWORD error:", err);
+    return res.status(500).json({ message: "Server error" });
+  }
+});
+
+// GET /api/auth/check-reset-token?token=...
+router.get("/check-reset-token", async (req, res) => {
+  try {
+    const { token } = req.query || {};
+    if (!token) {
+      console.error("[check-reset-token] No token provided");
+      return res.status(400).json({ message: "Token required" });
+    }
+
+    const user = await User.findOne({ resetToken: token });
+    if (!user) {
+      console.error(`[check-reset-token] No user found for token: ${token}`);
+      return res.status(400).json({ message: "Invalid or expired token" });
+    }
+    if (!user.resetTokenExpires || user.resetTokenExpires < new Date()) {
+      console.error(`[check-reset-token] Token expired for user: ${user.email}, expires: ${user.resetTokenExpires}`);
+      return res.status(410).json({ message: "Reset link expired, please request again" });
+    }
+    // still valid
+    return res.json({ ok: true });
+  } catch (e) {
+    console.error("[check-reset-token] Internal error:", e);
     return res.status(500).json({ message: "Server error" });
   }
 });

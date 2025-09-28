@@ -18,9 +18,9 @@ export default function ForgotPassword() {
         const data = await requestPasswordReset(email);
         // If backend provided the hint, show explicit messages; else fall back.
         if (data.emailExists === true) {
-        setMessage("Password reset link sent to email. Please check your email.");
+        setMessage("Password reset link sent to email. Please check your email");
         } else if (data.emailExists === false) {
-        setError("Email not found.");
+        setError("Email not found");
         } else {
         // Fallback for environments not exposing the header (keeps teammates unaffected)
         setMessage(data.message || "If this email is registered, a reset link will be sent.");

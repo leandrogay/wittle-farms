@@ -7,6 +7,7 @@ const UserSchema = new Schema({
   email: { type: String, required: true, unique: true, lowercase: true },
   role: { type: String, enum: ['Manager', 'Staff'], default: 'Staff' },
   password: { type: String, required: true, minlength: 8 },
+  passwordHistory: { type: [String], default: [] },
   otp: { type: String },  
   otpExpires: { type: Date },
   failedLoginAttempts: { type: Number, default: 0 },
