@@ -3,7 +3,7 @@ import { useAuth } from "../../context/AuthContext.jsx";
 
 export default function Header() {
   const navigate = useNavigate();
-  const { user, logout } = useAuth(); 
+  const { user, logout } = useAuth();
 
   const linkStyle = ({ isActive }) => ({
     margin: "0 8px",
@@ -14,7 +14,7 @@ export default function Header() {
 
   const handleLogout = () => {
     localStorage.removeItem("auth_token");
-    logout();                         
+    logout();
     navigate("/login", { replace: true });
   };
 
@@ -24,7 +24,7 @@ export default function Header() {
         <NavLink to="/home" style={linkStyle} end>Home</NavLink>
 
         {user?.role === "Staff" && (
-          <NavLink to="/tasks" style={linkStyle}>Tasks</NavLink>
+          <NavLink to="/tasks" style={linkStyle}>My Tasks</NavLink>
         )}
 
         {user?.role === "Manager" && (

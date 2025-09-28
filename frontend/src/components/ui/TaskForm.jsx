@@ -7,7 +7,6 @@ import {
 } from "../../services/api.js";
 import { useAuth } from "../../context/AuthContext.jsx";
 
-// --- Dayjs setup (SG-local handling) ---
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
 import timezone from "dayjs/plugin/timezone";
@@ -16,9 +15,9 @@ import customParseFormat from "dayjs/plugin/customParseFormat";
 dayjs.extend(utc);
 dayjs.extend(timezone);
 dayjs.extend(customParseFormat);
-dayjs.tz.setDefault("Asia/Singapore"); // interpret/format times in SG by default
+dayjs.tz.setDefault("Asia/Singapore");
 
-export default function TaskForm({ onCancel }) {
+export default function TaskForm({ onCancel, defaultProjectId, onCreated }) {
   const [projects, setProjects] = useState([]);
   const [teamMembers, setTeamMembers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -30,11 +29,10 @@ export default function TaskForm({ onCancel }) {
     title: "",
     description: "",
     notes: "",
-    assignedProject: "",
+    assignedProject: defaultProjectId || "",
     assignedTeamMembers: [],
     status: "To Do",
     priority: "Low",
-    // IMPORTANT: datetime-local expects local string; we render in SG local.
     deadline: dayjs().tz().format("YYYY-MM-DDTHH:mm"),
     createdBy: user.id,
     attachments: [],
@@ -51,22 +49,24 @@ export default function TaskForm({ onCancel }) {
         setLoading(false);
       }
     }
+    loadProjects();
+  }, [user.id, defaultProjectId]);
+
+  useEffect(() => {
     async function loadTeamMembers() {
+      if (!formData.assignedProject) {
+        setTeamMembers([]);
+        return;
+      }
       try {
-        // If you actually need project-specific members, call this after selecting a project.
-        // Keeping your original call:
-        const data = await getTeamMembersByProjectId(user.id);
+        const data = await getTeamMembersByProjectId(formData.assignedProject);
         setTeamMembers(Array.isArray(data) ? data : []);
       } catch (err) {
         setError(err.message);
-      } finally {
-        setLoading(false);
       }
     }
-    loadProjects();
     loadTeamMembers();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user.id]);
+  }, [formData.assignedProject]);
 
   function handleChange(e) {
     const { name, value, files, options, type } = e.target;
@@ -83,23 +83,20 @@ export default function TaskForm({ onCancel }) {
     }
   }
 
-  // Remove attachment from selected list
   function removeAttachment(fileIndex) {
-    if (formData.attachments) {
-      const filesArray = Array.from(formData.attachments);
-      filesArray.splice(fileIndex, 1);
+    if (!formData.attachments) return;
+    const filesArray = Array.from(formData.attachments);
+    filesArray.splice(fileIndex, 1);
 
-      const dt = new DataTransfer();
-      filesArray.forEach((file) => dt.items.add(file));
+    const dt = new DataTransfer();
+    filesArray.forEach((file) => dt.items.add(file));
 
-      setFormData((prev) => ({
-        ...prev,
-        attachments: dt.files,
-      }));
-    }
+    setFormData((prev) => ({
+      ...prev,
+      attachments: dt.files,
+    }));
   }
 
-  // Handle assignee selection with checkboxes
   function handleAssigneeToggle(memberId) {
     setFormData((prev) => ({
       ...prev,
@@ -109,7 +106,6 @@ export default function TaskForm({ onCancel }) {
     }));
   }
 
-  // Remove assignee from selected list
   function removeAssignee(memberId) {
     setFormData((prev) => ({
       ...prev,
@@ -117,7 +113,6 @@ export default function TaskForm({ onCancel }) {
     }));
   }
 
-  // Get selected team member names for display
   function getSelectedTeamMemberNames() {
     return teamMembers
       .filter((tm) => formData.assignedTeamMembers.includes(tm._id))
@@ -128,7 +123,6 @@ export default function TaskForm({ onCancel }) {
     e.preventDefault();
 
     try {
-      // Convert SG-local "YYYY-MM-DDTHH:mm" into an absolute ISO timestamp for backend
       const deadlineIso = dayjs
         .tz(formData.deadline, "YYYY-MM-DDTHH:mm", "Asia/Singapore")
         .toISOString();
@@ -140,14 +134,13 @@ export default function TaskForm({ onCancel }) {
 
       const data = await createTask(payload);
       console.log("Task created:", data);
-      alert("Task created successfully!");
+      onCreated?.(data); 
       onCancel();
     } catch (err) {
       alert("Error creating task: " + err.message);
     }
   }
 
-  // Close dropdown when clicking outside
   useEffect(() => {
     function handleClickOutside(event) {
       if (!event.target.closest(".assignee-dropdown-container")) {
@@ -188,11 +181,8 @@ export default function TaskForm({ onCancel }) {
 
         <div className="flex-1 overflow-y-auto">
           <form onSubmit={handleSubmit} className="p-4">
-            {/* Main Content Area */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 w-full">
-              {/* Left Column - Main Task Details */}
               <div className="lg:col-span-2 space-y-4 min-w-0">
-                {/* Title */}
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-1">
                     Task Title *
@@ -208,7 +198,6 @@ export default function TaskForm({ onCancel }) {
                   />
                 </div>
 
-                {/* Description */}
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-1">
                     Description
@@ -223,7 +212,6 @@ export default function TaskForm({ onCancel }) {
                   />
                 </div>
 
-                {/* Notes */}
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-1">
                     Additional Notes
@@ -238,7 +226,6 @@ export default function TaskForm({ onCancel }) {
                   />
                 </div>
 
-                {/* Attachments */}
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-1">
                     Attachments
@@ -295,9 +282,7 @@ export default function TaskForm({ onCancel }) {
                 </div>
               </div>
 
-              {/* Right Column - Task Properties - Fixed Width */}
               <div className="space-y-4 w-full max-w-[250px]">
-                {/* Project Selection */}
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-1">
                     Project *
@@ -308,7 +293,6 @@ export default function TaskForm({ onCancel }) {
                     onChange={handleChange}
                     className="w-full max-w-[250px] px-3 py-2 text-sm border border-gray-300 rounded-lg bg-white hover:bg-gray-50 flex justify-between items-center focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                     required
-                    disabled={projects.length === 0}
                   >
                     <option value="">
                       {projects.length ? "Select a project" : "No projects found"}
@@ -321,13 +305,11 @@ export default function TaskForm({ onCancel }) {
                   </select>
                 </div>
 
-                {/* Assignees */}
                 <div className="assignee-dropdown-container relative">
                   <label className="block text-sm font-semibold text-gray-700 mb-1">
                     Assignees
                   </label>
 
-                  {/* Selected assignees display - Absolute fixed width container */}
                   {formData.assignedTeamMembers.length > 0 && (
                     <div className="mb-2 w-[250px] overflow-hidden">
                       <div className="grid grid-cols-2 gap-1 max-h-20 overflow-y-auto">
@@ -357,12 +339,9 @@ export default function TaskForm({ onCancel }) {
                     </div>
                   )}
 
-                  {/* Dropdown button */}
                   <button
                     type="button"
-                    onClick={() =>
-                      setShowAssigneeDropdown(!showAssigneeDropdown)
-                    }
+                    onClick={() => setShowAssigneeDropdown(!showAssigneeDropdown)}
                     className="w-full max-w-[250px] px-3 py-2 text-sm border border-gray-300 rounded-lg bg-white hover:bg-gray-50 flex justify-between items-center focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                   >
                     <span className="text-gray-600 truncate min-w-0 flex-1">
@@ -380,16 +359,11 @@ export default function TaskForm({ onCancel }) {
                         strokeLinecap="round"
                         strokeLinejoin="round"
                         strokeWidth={2}
-                        d={
-                          showAssigneeDropdown
-                            ? "M19 15l-7-7-7 7"
-                            : "M19 9l-7 7-7-7"
-                        }
+                        d={showAssigneeDropdown ? "M19 15l-7-7-7 7" : "M19 9l-7 7-7-7"}
                       />
                     </svg>
                   </button>
 
-                  {/* Dropdown content */}
                   {showAssigneeDropdown && (
                     <div className="absolute z-20 w-[250px] mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
                       {teamMembers.length === 0 ? (
@@ -405,9 +379,7 @@ export default function TaskForm({ onCancel }) {
                             >
                               <input
                                 type="checkbox"
-                                checked={formData.assignedTeamMembers.includes(
-                                  tm._id
-                                )}
+                                checked={formData.assignedTeamMembers.includes(tm._id)}
                                 onChange={() => handleAssigneeToggle(tm._id)}
                                 className="mr-2 w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 shrink-0"
                               />
@@ -427,7 +399,6 @@ export default function TaskForm({ onCancel }) {
                   )}
                 </div>
 
-                {/* Status and Priority - Stacked */}
                 <div className="space-y-3">
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-1">
@@ -439,9 +410,9 @@ export default function TaskForm({ onCancel }) {
                       onChange={handleChange}
                       className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                     >
-                      <option value="To Do">📋 To Do</option>
-                      <option value="In Progress">🔄 In Progress</option>
-                      <option value="Done">✅ Done</option>
+                      <option value="To Do">To Do</option>
+                      <option value="In Progress">In Progress</option>
+                      <option value="Done">Done</option>
                     </select>
                   </div>
 
@@ -455,14 +426,13 @@ export default function TaskForm({ onCancel }) {
                       onChange={handleChange}
                       className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                     >
-                      <option value="Low">🟢 Low</option>
-                      <option value="Medium">🟡 Medium</option>
-                      <option value="High">🔴 High</option>
+                      <option value="Low">Low</option>
+                      <option value="Medium">Medium</option>
+                      <option value="High">High</option>
                     </select>
                   </div>
                 </div>
 
-                {/* Deadline (SG local) */}
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-1">
                     Deadline
@@ -473,14 +443,12 @@ export default function TaskForm({ onCancel }) {
                     value={formData.deadline}
                     onChange={handleChange}
                     className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                    // Optional: prevent past times in SG
                     min={dayjs().tz().format("YYYY-MM-DDTHH:mm")}
                   />
                 </div>
               </div>
             </div>
-
-            {/* Footer Actions */}
+            
             <div className="flex flex-col sm:flex-row justify-end gap-2 mt-4 pt-3 border-t border-gray-100">
               <button
                 type="button"

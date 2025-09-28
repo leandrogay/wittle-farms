@@ -1,66 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { createPortal } from "react-dom";
 import dayjs from "dayjs";
 import { getManagerProjects, getProjectTasks } from "../services/api.js";
 import TaskCard from "../components/ui/TaskCard.jsx";
+import TaskFormMgr from "../components/ui/TaskFormMgr.jsx";
 
-function Modal({ open, onClose, title, children }) {
-  const dialogRef = useRef(null);
-
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (e) => e.key === "Escape" && onClose();
-    document.addEventListener("keydown", onKey);
-    const prev = document.activeElement;
-    dialogRef.current?.focus();
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.removeEventListener("keydown", onKey);
-      document.body.style.overflow = "";
-      prev?.focus?.();
-    };
-  }, [open, onClose]);
-
-  if (!open) return null;
-  return createPortal(
-    <div
-      className="fixed inset-0 z-50 grid place-items-center bg-black/50"
-      onMouseDown={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
-    >
-      <div
-        ref={dialogRef}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="modal-title"
-        tabIndex={-1}
-        className="w-[min(90vw,740px)] rounded-2xl bg-white shadow-2xl outline-none"
-      >
-        <div className="flex items-center justify-between border-b px-5 py-4">
-          <h2 id="modal-title" className="text-lg font-semibold">
-            {title}
-          </h2>
-          <button
-            className="rounded p-1 hover:bg-gray-100"
-            aria-label="Close"
-            onClick={onClose}
-          >
-            ✕
-          </button>
-        </div>
-        <div className="px-5 py-4">{children}</div>
-        <div className="flex justify-end gap-2 border-t px-5 py-4">
-          <button className="rounded-lg border px-3 py-2 text-sm" onClick={onClose}>
-            Close
-          </button>
-        </div>
-      </div>
-    </div>,
-    document.body
-  );
-}
-
+/* ---------------- Project Picker ---------------- */
 function ProjectPicker({ projects, valueId, onChange }) {
   const [open, setOpen] = useState(false);
   const current = projects.find((p) => p._id === valueId);
@@ -102,25 +46,45 @@ function ProjectPicker({ projects, valueId, onChange }) {
   );
 }
 
-function SquareTaskTile({ task, onOpen }) {
-  const deadline = task?.deadline ? dayjs(task.deadline).format("DD MMM YYYY") : "No deadline";
+function SquareTaskTile({ task, onOpen, section }) {
+  const hasDate = !!task?.deadline;
+  const deadlineStr = hasDate ? dayjs(task.deadline).format("DD MMM YYYY") : "No deadline";
 
   const status = normalizeStatus(task.status);
   const statusClass =
-    status === "To Do"
-      ? "text-gray-500"
-      : status === "In Progress"
-      ? "text-blue-500"
-      : status === "Done"
-      ? "text-green-500"
-      : "";
+    status === "To Do" ? "text-gray-500"
+    : status === "In Progress" ? "text-blue-500"
+    : status === "Done" ? "text-green-500"
+    : "";
+
+  const deadlineChip = !hasDate ? (
+    <span className="inline-flex items-center rounded-lg bg-gray-50 px-2.5 py-1 text-xs font-medium text-gray-700">
+      Deadline: {deadlineStr}
+    </span>
+  ) : section === "overdue" ? (
+    <span className="inline-flex items-center rounded-lg bg-red-50 px-2.5 py-1 text-xs font-medium text-red-700">
+      Deadline: {deadlineStr}
+    </span>
+  ) : section === "today" ? (
+    <span className="inline-flex items-center rounded-lg bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-700">
+      Due Today: {deadlineStr}
+    </span>
+  ) : section === "completed" ? (
+    <span className="inline-flex items-center rounded-lg bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-700">
+      Deadline: {deadlineStr}
+    </span>
+  ) : (
+    <span className="inline-flex items-center rounded-lg bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-700">
+      Deadline: {deadlineStr}
+    </span>
+  );
 
   return (
-    <article className="border rounded-2xl shadow-sm bg-white overflow-hidden transition hover:shadow-md">
+    <article className="border rounded-2xl shadow-sm bg-white overflow-hidden transition hover:shadow-md h-full">
       <button
         type="button"
         onClick={() => onOpen(task)}
-        className="w-full aspect-square p-4 flex flex-col justify-between text-left"
+        className="w-full p-4 flex flex-col justify-between text-left h-full"
         aria-label={`Open task ${task?.title ?? ""}`}
       >
         <div className="space-y-2">
@@ -128,20 +92,16 @@ function SquareTaskTile({ task, onOpen }) {
             {task.title || "Untitled task"}
           </div>
 
-          <div className="text-sm">
+        <div className="text-sm">
             <div className="font-medium">Status:</div>
-            <div className={`text-base sm:text-lg font-semibold line-clamp-2 ${statusClass}`}>
-              {task.status}
-            </div>
+            <div className={`text-base sm:text-lg font-semibold ${statusClass}`}>{task.status}</div>
           </div>
 
           <div className="text-sm">
             <div className="font-medium">Priority:</div>
             <div>
               {task.priority === "Low" && <span className="text-green-600 font-semibold">Low</span>}
-              {task.priority === "Medium" && (
-                <span className="text-yellow-600 font-semibold">Medium</span>
-              )}
+              {task.priority === "Medium" && <span className="text-yellow-600 font-semibold">Medium</span>}
               {task.priority === "High" && <span className="text-red-600 font-semibold">High</span>}
               {!["Low", "Medium", "High"].includes(task.priority) && (
                 <span className="text-gray-600 font-semibold">None</span>
@@ -150,11 +110,7 @@ function SquareTaskTile({ task, onOpen }) {
           </div>
         </div>
 
-        <div className="mt-2">
-          <span className="inline-flex items-center rounded-lg bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-700">
-            Deadline: {deadline}
-          </span>
-        </div>
+        <div className="mt-2">{deadlineChip}</div>
       </button>
     </article>
   );
@@ -176,6 +132,17 @@ export default function TaskBoardMgr() {
   const [statusFilter, setStatusFilter] = useState("All");
   const [priorityFilter, setPriorityFilter] = useState("All");
 
+  // Overlay (not modal) state
+  const [showCreate, setShowCreate] = useState(false);
+
+  // ESC to close the overlay
+  useEffect(() => {
+    if (!showCreate) return;
+    const onKey = (e) => e.key === "Escape" && setShowCreate(false);
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [showCreate]);
+
   useEffect(() => {
     (async () => {
       try {
@@ -192,25 +159,27 @@ export default function TaskBoardMgr() {
     })();
   }, []);
 
-  useEffect(() => {
-    if (!selectedProjectId) return;
+  const reloadTasks = async (projectId = selectedProjectId) => {
+    if (!projectId) return;
     setTasksLoading(true);
     setTasksError(null);
     setActiveTask(null);
+    try {
+      const data = await getProjectTasks(projectId);
+      setTasks(Array.isArray(data) ? data : []);
+    } catch (err) {
+      setTasksError(err?.message || "Failed to load tasks");
+    } finally {
+      setTasksLoading(false);
+    }
+  };
 
-    (async () => {
-      try {
-        const data = await getProjectTasks(selectedProjectId);
-        setTasks(Array.isArray(data) ? data : []);
-      } catch (err) {
-        setTasksError(err?.message || "Failed to load tasks");
-      } finally {
-        setTasksLoading(false);
-      }
-    })();
+  useEffect(() => {
+    if (!selectedProjectId) return;
+    reloadTasks(selectedProjectId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedProjectId]);
 
-  // sort by deadline
   const sortedTasks = useMemo(() => {
     return [...tasks].sort((a, b) => {
       const ad = a?.deadline ? new Date(a.deadline).getTime() : Infinity;
@@ -219,12 +188,9 @@ export default function TaskBoardMgr() {
     });
   }, [tasks]);
 
-  // apply filters (task matches if task OR any subtask matches)
   const filteredTasks = useMemo(() => {
-    const statusOK = (st) =>
-      statusFilter === "All" || normalizeStatus(st) === statusFilter;
-    const priorityOK = (pr) =>
-      priorityFilter === "All" || (pr ?? "None") === priorityFilter;
+    const statusOK = (st) => statusFilter === "All" || normalizeStatus(st) === statusFilter;
+    const priorityOK = (pr) => priorityFilter === "All" || (pr ?? "None") === priorityFilter;
 
     return sortedTasks.filter((t) => {
       const taskMatch = statusOK(t.status) && priorityOK(t.priority);
@@ -234,6 +200,54 @@ export default function TaskBoardMgr() {
       return taskMatch || subMatch;
     });
   }, [sortedTasks, statusFilter, priorityFilter]);
+
+  const today = dayjs().startOf("day");
+  const isDone = (t) => normalizeStatus(t.status) === "Done";
+  const hasDeadline = (t) => !!t?.deadline;
+  const djs = (t) => dayjs(t.deadline);
+
+  const sectionKey = (t) => {
+    if (isDone(t)) return "completed";
+    if (!hasDeadline(t)) return "upcoming";
+    if (djs(t).isBefore(today)) return "overdue";
+    if (djs(t).isSame(today, "day")) return "today";
+    return "upcoming";
+  };
+
+  const cmpClosest = (a, b) => {
+    const da = Math.abs(djs(a).diff(today, "millisecond"));
+    const db = Math.abs(djs(b).diff(today, "millisecond"));
+    return da - db;
+  };
+
+  const withNoDeadlineLast = (cmp) => (a, b) => {
+    const ad = hasDeadline(a), bd = hasDeadline(b);
+    if (ad && !bd) return -1;
+    if (!ad && bd) return 1;
+    if (!ad && !bd) return 0;
+    return cmp(a, b);
+  };
+
+  const { overdue, todayDue, upcoming, completed } = useMemo(() => {
+    const buckets = { overdue: [], today: [], upcoming: [], completed: [] };
+    for (const t of filteredTasks) {
+      buckets[sectionKey(t)].push(t);
+    }
+    buckets.overdue.sort(withNoDeadlineLast(cmpClosest));
+    buckets.today.sort(withNoDeadlineLast(cmpClosest));
+    buckets.upcoming.sort(withNoDeadlineLast(cmpClosest));
+    buckets.completed.sort((a, b) => {
+      const ad = hasDeadline(a) ? djs(a).valueOf() : -Infinity;
+      const bd = hasDeadline(b) ? djs(b).valueOf() : -Infinity;
+      return bd - ad;
+    });
+    return {
+      overdue: buckets.overdue,
+      todayDue: buckets.today,
+      upcoming: buckets.upcoming,
+      completed: buckets.completed,
+    };
+  }, [filteredTasks]);
 
   const statusOptions = useMemo(() => {
     const set = new Set(["To Do", "In Progress", "Done"]);
@@ -247,14 +261,14 @@ export default function TaskBoardMgr() {
   const priorityOptions = useMemo(() => {
     const set = new Set(["Low", "Medium", "High"]);
     tasks.forEach((t) => set.add(t.priority ?? "None"));
-    tasks.forEach((t) =>
-      (t.subtasks ?? []).forEach((s) => set.add(s.priority ?? "None"))
-    );
+    tasks.forEach((t) => (t.subtasks ?? []).forEach((s) => set.add(s.priority ?? "None")));
     return ["All", ...Array.from(set)];
   }, [tasks]);
 
   if (projLoading) return <p className="p-4 text-gray-600">Loading projects…</p>;
   if (projError) return <p className="p-4 text-red-600">{projError}</p>;
+
+  const currentProjectName = projects.find((p) => p._id === selectedProjectId)?.name;
 
   return (
     <section className="p-4 space-y-6">
@@ -276,9 +290,7 @@ export default function TaskBoardMgr() {
                 onChange={(e) => setStatusFilter(e.target.value)}
               >
                 {statusOptions.map((opt) => (
-                  <option key={opt} value={opt}>
-                    {opt}
-                  </option>
+                  <option key={opt} value={opt}>{opt}</option>
                 ))}
               </select>
             </label>
@@ -291,9 +303,7 @@ export default function TaskBoardMgr() {
                 onChange={(e) => setPriorityFilter(e.target.value)}
               >
                 {priorityOptions.map((opt) => (
-                  <option key={opt} value={opt}>
-                    {opt}
-                  </option>
+                  <option key={opt} value={opt}>{opt}</option>
                 ))}
               </select>
             </label>
@@ -301,44 +311,122 @@ export default function TaskBoardMgr() {
             {(statusFilter !== "All" || priorityFilter !== "All") && (
               <button
                 className="rounded-lg border px-2.5 py-1 text-sm hover:bg-gray-50"
-                onClick={() => {
-                  setStatusFilter("All");
-                  setPriorityFilter("All");
-                }}
+                onClick={() => { setStatusFilter("All"); setPriorityFilter("All"); }}
               >
                 Clear
               </button>
             )}
           </div>
+
+          <button
+            disabled={!selectedProjectId}
+            onClick={() => setShowCreate(true)}
+            className="px-4 py-2 rounded-lg text-sm font-semibold bg-blue-600 text-white shadow hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            title={selectedProjectId ? "Create a new task in this project" : "Select a project first"}
+          >
+            + Create Task
+          </button>
         </div>
       </header>
+
       {tasksLoading && <p className="text-gray-600">Loading tasks…</p>}
       {tasksError && <p className="text-red-600">{tasksError}</p>}
 
       {!tasksLoading && !tasksError && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredTasks.map((task) => (
-            <SquareTaskTile key={task._id} task={task} onOpen={setActiveTask} />
-          ))}
-          {filteredTasks.length === 0 && (
-            <p className="col-span-full text-gray-500">No tasks match the filters.</p>
+        <div className="space-y-8">
+          {overdue.length > 0 && (
+            <>
+              <div className="flex items-center gap-3">
+                <h2 className="text-lg font-semibold text-red-700">Overdue</h2>
+                <div className="h-px bg-red-200 flex-1" />
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {overdue.map((t) => (
+                  <SquareTaskTile key={t._id} task={t} onOpen={setActiveTask} section="overdue" />
+                ))}
+              </div>
+            </>
+          )}
+
+          {todayDue.length > 0 && (
+            <>
+              <div className="flex items-center gap-3">
+                <h2 className="text-lg font-semibold text-amber-700">Due Today</h2>
+                <div className="h-px bg-amber-200 flex-1" />
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {todayDue.map((t) => (
+                  <SquareTaskTile key={t._id} task={t} onOpen={setActiveTask} section="today" />
+                ))}
+              </div>
+            </>
+          )}
+
+          <div className="flex items-center gap-3">
+            <h2 className="text-lg font-semibold">Upcoming</h2>
+            <div className="h-px bg-gray-200 flex-1" />
+          </div>
+          {upcoming.length > 0 ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {upcoming.map((t) => (
+                <SquareTaskTile key={t._id} task={t} onOpen={setActiveTask} section="upcoming" />
+              ))}
+            </div>
+          ) : (
+            overdue.length === 0 && todayDue.length === 0 && (
+              <p className="text-gray-500">No tasks match the filters.</p>
+            )
+          )}
+
+          {completed.length > 0 && (
+            <>
+              <div className="flex items-center gap-3">
+                <h2 className="text-lg font-semibold text-gray-700">Completed</h2>
+                <div className="h-px bg-gray-200 flex-1" />
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {completed.map((t) => (
+                  <SquareTaskTile key={t._id} task={t} onOpen={setActiveTask} section="completed" />
+                ))}
+              </div>
+            </>
           )}
         </div>
       )}
 
-      <Modal
-        open={!!activeTask}
-        onClose={() => setActiveTask(null)}
-        title={activeTask?.title || "Task details"}
-      >
-        {activeTask && (
-          <div className="space-y-3">
+      {showCreate && (
+        <div
+          className="fixed inset-0 z-[60] grid place-items-center bg-black/50"
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget) setShowCreate(false);
+          }}
+          aria-modal="true"
+          role="dialog"
+        >
+          <TaskFormMgr
+            projectId={selectedProjectId}
+            projectName={currentProjectName}
+            onCancel={() => setShowCreate(false)}
+            onCreated={async () => {
+              setShowCreate(false);
+              await reloadTasks();
+            }}
+          />
+        </div>
+      )}
+      {activeTask && (
+        <div
+          className="fixed inset-0 z-[70] grid place-items-center bg-black/50"
+          onMouseDown={(e) => e.target === e.currentTarget && setActiveTask(null)}
+          aria-modal="true"
+          role="dialog"
+        >
+          <div className="w-[min(90vw,740px)] rounded-2xl bg-white shadow-2xl p-4">
+            <h2 className="text-lg font-semibold mb-3">{activeTask?.title || "Task details"}</h2>
             <TaskCard task={activeTask} />
-            <div className="pt-2 flex flex-wrap gap-2">
-            </div>
           </div>
-        )}
-      </Modal>
+        </div>
+      )}
     </section>
   );
 }

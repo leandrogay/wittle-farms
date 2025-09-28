@@ -1,51 +1,98 @@
 import dayjs from "dayjs";
 
-export default function TaskCard({ task }) {
+const priorityStyles = {
+  Low:    "bg-emerald-50 text-emerald-800 ring-1 ring-emerald-200",
+  Medium: "bg-amber-50  text-amber-800  ring-1 ring-amber-200",
+  High:   "bg-red-50    text-red-800    ring-1 ring-red-200",
+};
+
+function Badge({ children, className = "" }) {
   return (
-    <div className="shadow-md rounded-xl border m-5 p-5">
-      <p className="text-gray-400">
-        Project: {task.assignedProject?.name ?? "—"}
+    <span className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-sm font-semibold ${className}`} >
+      {children}
+    </span>
+  );
+}
+
+function FieldRow({ label, children }) {
+  return (
+    <p className="mt-1 leading-relaxed">
+      <span className="font-medium text-gray-700">{label}: </span>
+      <span className="text-gray-800">{children}</span>
+    </p>
+  );
+}
+
+export default function TaskCard({ task }) {
+  const priority = task?.priority || "No priority";
+  const pClass = priorityStyles[priority] || priorityStyles.Default;
+
+  const deadlineText = task?.deadline
+    ? dayjs(task.deadline).format("dddd, MMMM D, YYYY h:mm A")
+    : null;
+
+  return (
+    <article className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+      <p className="text-sm font-medium text-gray-400">
+        Project: {task?.assignedProject?.name ?? "—"}
       </p>
 
-      <h2 className="text-xl font-bold text-gray-800">Title: {task.title}</h2>
-      <p>Description: {task.description ?? "—"}</p>
-      <p>Notes: {task.notes ?? "—"}</p>
+      <h2 className="mt-1 text-2xl font-extrabold tracking-tight text-gray-900">
+        Title: {task?.title ?? "Untitled"}
+      </h2>
 
-      <div className="flex flex-wrap gap-2 mt-3 items-center bg-green-100">
-        <span className="px-3 py-1 rounded-full font-semibold">
-          {task.priority ?? "No priority"}
-        </span>
-        {task.deadline && (
-          <span className="px-3 py-1 rounded-full bg-gray-100 text-gray-700 font-medium">
-            Deadline: {dayjs(task.deadline).format("dddd, MMMM D, YYYY h:mm A")}
-          </span>
+      <FieldRow label="Description">{task?.description ?? "—"}</FieldRow>
+      <FieldRow label="Notes">{task?.notes ?? "—"}</FieldRow>
+
+      <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <Badge className={pClass}>
+          <span className="sr-only">Priority:</span>
+          <span className="text-sm font-bold">{priority}</span>
+        </Badge>
+
+        {deadlineText && (
+          <Badge className="bg-gray-100 text-gray-700 ring-1 ring-gray-200">
+            <span className="font-semibold">Deadline:</span>
+            <span className="font-medium">{deadlineText}</span>
+          </Badge>
         )}
       </div>
 
-      <div className="flex flex-wrap gap-2 mt-3 items-center bg-blue-100">
-        <span>Team Members: </span>
-        <ul>
-          {(task.assignedTeamMembers ?? []).map((tm) => (
-            <li key={tm?._id}>{tm?.name ?? "Unknown"}</li>
-          ))}
+      <div className="mt-5 rounded-xl bg-blue-50 ring-1 ring-blue-100">
+        <div className="px-4 py-2 text-sm font-semibold text-blue-900/80">
+          Team Members
+        </div>
+        <ul className="px-4 pb-3 text-gray-800">
+          {(task?.assignedTeamMembers ?? []).length > 0 ? (
+            (task.assignedTeamMembers ?? []).map((tm) => (
+              <li key={tm?._id} className="py-1">
+                {tm?.name ?? "Unknown"}
+              </li>
+            ))
+          ) : (
+            <li className="py-1 text-gray-500">—</li>
+          )}
         </ul>
       </div>
 
-      <div>
-        {task.updatedAt && (
+      <div className="mt-5 space-y-1 text-sm text-gray-600">
+        {task?.updatedAt && (
           <p>
-            Updated at:{" "}
+            <span className="font-medium text-gray-700">Updated at:</span>{" "}
             {dayjs(task.updatedAt).format("dddd, MMMM D, YYYY h:mm A")}
           </p>
         )}
-        {task.createdAt && (
+        {task?.createdAt && (
           <p>
-            Created at:{" "}
+            <span className="font-medium text-gray-700">Created at:</span>{" "}
             {dayjs(task.createdAt).format("dddd, MMMM D, YYYY h:mm A")}
           </p>
         )}
-        <p>Created by: {task.createdBy?.name ?? "—"}</p>
+        <p>
+          <span className="font-medium text-gray-700">Created by:</span>{" "}
+          {task?.createdBy?.name ?? "—"}
+        </p>
       </div>
-    </div>
+    </article>
   );
 }
