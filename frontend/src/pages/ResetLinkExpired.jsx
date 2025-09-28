@@ -5,7 +5,7 @@ export default function ResetLinkExpired() {
     <div className="min-h-screen bg-black text-white flex flex-col items-center justify-center px-4">
       <img src="/LF_logo.png" alt="Little Farms" className="w-20 mb-6" />
       <h1 className="text-2xl font-semibold mb-4">Reset link expired</h1>
-      <p className="text-red-400 mb-6">Your reset link has expired. Please request a new one.</p>
+      <p className="text-red-400 mb-6">Your reset link has expired. Please request a new one</p>
 
       <Link
         to="/forgot-password"
