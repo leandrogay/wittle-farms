@@ -4,6 +4,7 @@ import jwt from "jsonwebtoken";
 import nodemailer from "nodemailer";
 import User from "../models/User.js";
 import crypto from "crypto";
+import bcrypt from "bcryptjs"; 
 
 dotenv.config({ path: "./config/secrets.env" });
 
@@ -224,6 +225,28 @@ router.post("/reset-password", async (req, res) => {
       resetTokenExpires: { $gt: new Date() }, // not expired
     });
     if (!user) return res.status(400).json({ message: "Invalid or expired token" });
+
+    // 1) Disallow same as current
+    if (await bcrypt.compare(password, user.password || "")) {
+      return res.status(400).json({ message: "Cannot reuse previous password" });
+    }
+
+    // 2) Disallow same as any of last N (default 5)
+    const PASSWORD_HISTORY_LIMIT = 5;
+    for (const oldHash of user.passwordHistory || []) {
+      if (await bcrypt.compare(password, oldHash)) {
+        return res.status(400).json({ message: "Cannot reuse previous password" });
+      }
+    }
+
+    // 3) Rotate: move current → history, cap at N
+    const oldHash = user.password;
+    if (oldHash) {
+      user.passwordHistory = [
+        oldHash,
+        ...(user.passwordHistory || []),
+      ].slice(0, PASSWORD_HISTORY_LIMIT);
+    }
 
     // Update password; your User model's pre-save hook should hash it
     user.password = password;
