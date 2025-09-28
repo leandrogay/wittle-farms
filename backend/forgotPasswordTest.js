@@ -6,8 +6,8 @@ import User from "./models/User.js";  // must include .js for ESM
 
 dotenv.config({ path: "./config/secrets.env" });
 
-const TEST_EMAIL = "littlefarms.resetpw@gmail.com";
-const TEST_PASSWORD = "iloveIS212!";
+const TEST_EMAIL = process.env.FORGOTPW_TEST_EMAIL;
+const TEST_PASSWORD = process.env.FORGOTPW_TEST_PASSWORD;
 
 async function resetTestUser() {
   try {
