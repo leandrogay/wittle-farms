@@ -4,19 +4,32 @@ import Modal from "./Modal";
 
 /**
  * TaskFormButton can be used for both creating and editing a task.
- * 
-
+ *
  * @param {object} task - Task data for editing
- * @param {function} onCreated - Callback after create
- * @param {function} onUpdated - Callback after update
+ * @param {function} onTaskCreated - Callback after create
+ * @param {function} onTaskUpdated - Callback after update
  */
 export default function TaskFormButton({
-  children = "edit",
+  children = "Edit Task",
   task = null,
-  onCreated,
-  onUpdated,
+  onTaskCreated,
+  onTaskUpdated,
 }) {
   const [showForm, setShowForm] = useState(false);
+
+  const handleTaskCreated = (newTask) => {
+    setShowForm(false);
+    if (onTaskCreated) {
+      onTaskCreated(newTask);
+    }
+  };
+
+  const handleTaskUpdated = (updatedTask) => {
+    setShowForm(false);
+    if (onTaskUpdated) {
+      onTaskUpdated(updatedTask);
+    }
+  };
 
   return (
     <div className="p-6">
@@ -26,12 +39,11 @@ export default function TaskFormButton({
       >
         {children}
       </button>
-
       <Modal isOpen={showForm} onClose={() => setShowForm(false)}>
         <TaskForm
           onCancel={() => setShowForm(false)}
-          onCreated={onCreated}
-          onUpdated={onUpdated}
+          onCreated={handleTaskCreated}
+          onUpdated={handleTaskUpdated}
           task={task}
         />
       </Modal>

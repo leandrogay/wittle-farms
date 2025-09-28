@@ -1,28 +1,50 @@
 import { useEffect, useState } from "react";
 import { getTasks } from "../services/api.js";
-
-import MiniTaskCard from "../components/ui/MiniTaskCard.jsx";
 import TaskCard from "../components/ui/TaskCard.jsx";
 import CreateTaskButton from "../components/ui/CreateTaskButton.jsx";
-// import TaskButton from "../components/ui/TaskButton.jsx";
 
 export default function Tasks() {
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  useEffect(() => {
-    async function loadTask() {
-      try {
-        const data = await getTasks();
-        setTasks(data);
-      } catch (err) {
-        setError(err.message);
-      } finally {
-        setLoading(false);
-      }
+  // Load tasks from server
+  const loadTasks = async () => {
+    try {
+      setLoading(true);
+      const data = await getTasks();
+      setTasks(data);
+      setError(null);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
     }
-    loadTask();
+  };
+
+  // Handle task creation
+  const handleTaskCreated = (newTask) => {
+    setTasks(prevTasks => [newTask, ...prevTasks]);
+  };
+
+  // Handle task update
+  const handleTaskUpdated = (updatedTask) => {
+    setTasks(prevTasks => 
+      prevTasks.map(task => 
+        task._id === updatedTask._id ? updatedTask : task
+      )
+    );
+  };
+
+  // Handle task deletion
+  const handleTaskDeleted = (deletedTaskId) => {
+    setTasks(prevTasks => 
+      prevTasks.filter(task => task._id !== deletedTaskId)
+    );
+  };
+
+  useEffect(() => {
+    loadTasks();
   }, []);
 
   if (loading) return <p>loading...</p>;
@@ -30,10 +52,17 @@ export default function Tasks() {
 
   return (
     <>
-      <CreateTaskButton>Create Task</CreateTaskButton>
+      <CreateTaskButton onTaskCreated={handleTaskCreated}>
+        Create Task
+      </CreateTaskButton>
       <h1>Tasks Page</h1>
       {tasks.map((task) => (
-        <TaskCard key={task._id} task={task} />
+        <TaskCard 
+          key={task._id} 
+          task={task} 
+          onTaskUpdated={handleTaskUpdated}
+          onTaskDeleted={handleTaskDeleted}
+        />
       ))}
     </>
   );
