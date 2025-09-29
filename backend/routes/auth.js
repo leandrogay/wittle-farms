@@ -5,12 +5,16 @@ import nodemailer from "nodemailer";
 import User from "../models/User.js";
 import crypto from "crypto";
 import bcrypt from "bcryptjs"; 
+import cookieParser from "cookie-parser";
 
 dotenv.config({ path: "./config/secrets.env" });
 
 const router = Router();
+router.use(cookieParser());
 const JWT_SECRET = process.env.JWT_SECRET ?? "dev_secret_change_me";
-const JWT_EXPIRES_IN = "1h";
+const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET ?? "dev_refresh_secret_change_me";
+const JWT_EXPIRES_IN = "30m"; // access token 
+const JWT_REFRESH_EXPIRES_IN = "7d"; // refresh token 
 
 function getTransporter() {
   if (process.env.MAILTRAP_HOST) {
@@ -37,8 +41,35 @@ transporter.verify().then(
   (err) => console.error("Email transporter error:", err)
 );
 
-const signToken = (user) =>
-  jwt.sign({ sub: user._id, role: user.role }, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
+const signAccessToken = (user) => 
+  jwt.sign({ sub: user._id, role: user.role}, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
+
+const signRefreshToken = (user) => 
+  jwt.sign({ sub: user._id }, JWT_REFRESH_SECRET, { expiresIn: JWT_REFRESH_EXPIRES_IN });
+
+const sendRefreshToken = (res, token) => {
+  res.cookie('refreshToken', token, {
+    httpOnly: true, 
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'strict',
+    maxAge: 7 * 24 * 60 * 60 * 1000, // max age of 7 days for refresh token 
+  });
+};
+
+const handleSucessfulAuth = async (res, user) => {
+  const accessToken = signAccessToken(user);
+  const refreshToken = signRefreshToken(user);
+  
+  user.refreshToken = refreshToken; // store refresh token in db
+  await user.save({ validateBeforeSave: false});
+
+  sendRefreshToken(res, refreshToken);
+
+  return res.json({
+    accessToken,
+    user: { id: user._id, name: user.name, email: user.email, role: user.role }
+  });
+};
 
 router.post("/register", async (req, res) => {
   try {
@@ -48,11 +79,7 @@ router.post("/register", async (req, res) => {
     }
     const user = new User({ name, email, password, role });
     await user.save();
-    const token = signToken(user);
-    return res.status(201).json({
-      token,
-      user: { id: user._id, name: user.name, email: user.email, role: user.role },
-    });
+    return await handleSucessfulAuth(res, user); // login user after successful registration 
   } catch (err) {
     console.error("REGISTER error:", err);
     if (err?.code === 11000) return res.status(409).json({ message: "Email already in use" });
@@ -138,18 +165,59 @@ router.post("/verify-otp", async (req, res) => {
 
     user.otp = undefined;
     user.otpExpires = undefined;
-    await user.save({ validateBeforeSave: false });
 
-    const token = signToken(user);
-    return res.json({
-      token,
-      user: { id: user._id, name: user.name, email: user.email, role: user.role },
-    });
+    return await handleSucessfulAuth(res, user);
   } catch (err) {
     console.error("VERIFY OTP error:", err);
     return res.status(500).json({ message: "Server error" });
   }
 });
+
+router.post("/refresh", async(req, res) => {
+  const token = req.cookies.refreshToken;
+  if(!token) return res.status(401).json({ message: "No refresh token provided" });
+
+  try {
+    const payload = jwt.verify(token, JWT_REFRESH_SECRET);
+    const user = await User.findById(payload.sub);
+
+    if (!user || user.refreshToken !== token){
+      return res.status(403).json({ message: "Invalid refresh token" });
+    }
+
+    // to rotate tokens
+    const newAccessToken = signAccessToken(user);
+    const newRefreshToken = signRefreshToken(user);
+
+    user.refreshToken = newRefreshToken; // update db with new refresh token
+    await user.save({ validateBeforeSave: false });
+
+    sendRefreshToken(res, newRefreshToken);
+
+    return res.json({ accessToken: newAccessToken });
+
+  } catch (err) {
+    return res.status(403).json({ message: "Invalid or expired refresh token" });
+  }
+});
+
+router.post("/logout", async (req, res) => {
+  const token = req.cookies.refreshToken;
+  if (token) {
+    try {
+      const payload = jwt.verify(token, JWT_REFRESH_SECRET);
+      const user = await User.findById(payload.sub);
+      if (user) {
+        user.refreshToken = undefined;
+        await user.save({ validateBeforeSave: false });
+      }
+    } catch (err) {
+      // ignore errors 
+    }
+  }
+  res.clearCookie('refreshToken');
+  res.json({ message: "Logged out successfully"})
+})
 
 // =====================
 // Forgot / Reset Password
@@ -311,15 +379,11 @@ export function verifyAuth(req, res, next) {
   }
 }
 
-router.post("/logout", (req, res) => {
-  res.json({ message: "Logged out successfully" });
-});
-
 // Get the full current user (DB-backed)
 router.get("/me", verifyAuth, async (req, res) => {
   try {
     const user = await User.findById(req.userId)
-      .select("-password -otp -otpExpires -failedLoginAttempts -lockUntil")
+      .select("-password -otp -otpExpires -failedLoginAttempts -lockUntil -refreshToken")
       .lean();
 
     if (!user) return res.status(404).json({ message: "User not found" });

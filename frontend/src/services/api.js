@@ -185,13 +185,13 @@ export async function deleteTask(taskId) {
 *
 */
 
-function getToken() {
+export function getToken() {
   return localStorage.getItem(TOKEN_KEY);
 }
-function setToken(t) {
+export function setToken(t) {
   if (t) localStorage.setItem(TOKEN_KEY, t);
 }
-function clearToken() {
+export function clearToken() {
   localStorage.removeItem(TOKEN_KEY);
 }
 function authHeaders() {
@@ -199,18 +199,46 @@ function authHeaders() {
   return t ? { Authorization: `Bearer ${t}` } : {};
 }
 
+function getTokenExp(token) {
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    return typeof payload.exp === 'number' ? payload.exp : 0;
+  } catch { return 0; }
+}
+
+function isExpiringSoon(token, skewSeconds = 30) {
+  const exp = getTokenExp(token);
+  if (!exp) return true;
+  const now = Math.floor(Date.now() / 1000);
+  return exp - now <= skewSeconds;
+}
+
+export function scheduleLogoutWarning(token, onWarn, onLogout) {
+  const exp = getTokenExp(token);
+  if (!exp) return;
+
+  const now = Math.floor(Date.now() / 1000); // seconds
+  const msUntilExpiry = (exp - now) * 1000;
+
+  // Fire warning 2 minutes before expiry
+  const warnMs = msUntilExpiry - 2 * 60 * 1000;
+
+  if (warnMs > 0) {
+    setTimeout(onWarn, warnMs);
+  }
+  if (msUntilExpiry > 0) {
+    setTimeout(onLogout, msUntilExpiry);
+  }
+}
+
 export async function getSession() {
-  const res = await fetch(`${API_BASE}/api/auth/session`, {
-    headers: { ...authHeaders() },
-  });
+  const res = await authFetch(`/api/auth/session`)
   if (!res.ok) throw new Error("Not authenticated");
   return res.json();
 }
 
 export async function getMe() {
-  const res = await fetch(`${API_BASE}/api/auth/me`, {
-    headers: { ...authHeaders() },
-  });
+  const res = await authFetch(`/api/auth/me`);
   if (!res.ok) throw new Error("Not authenticated");
   return res.json();
 }
@@ -233,11 +261,15 @@ export async function loginUser(email, password) {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ email, password }),
+    credentials: "include",
   });
 
   const data = await jsonOrText(res);
 
   if (!res.ok) throw new Error(data.message || "Login failed");
+
+  if (data.accessToken) setToken(data.accessToken);
+
   return data;
 }
 
@@ -246,12 +278,65 @@ export async function verifyOtp(email, otp) {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ email, otp }),
+    credentials: "include",
   });
 
   const data = await jsonOrText(res);
 
   if (!res.ok) throw new Error(data.message || "OTP verification failed");
+
+  if (data.accessToken) setToken(data.accessToken);
+
   return data;
+}
+
+export async function refreshAccessToken() {
+  const res = await fetch(`${API_BASE}/api/auth/refresh`, {
+    method: "POST",
+    credentials: "include",
+  });
+
+  if (!res.ok) throw new Error("Unable to refresh token");
+
+  const data = await res.json();
+  if (data.accessToken) setToken(data.accessToken);
+  return data.accessToken;
+}
+
+export async function authFetch(path, options = {}) {
+  let token = getToken();
+  if (!token || isExpiringSoon(token)) {
+    try { await refreshAccessToken(); } catch {}
+    token = getToken();
+  }
+  // first refresh
+  let res = await fetch(`${API_BASE}${path}`, {
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...(options.headers || {}),
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    credentials: "include",
+  });
+  if (res.status !== 401) return res;
+  // refresh again if 401 error 
+  try {
+    await refreshAccessToken();
+    const refreshed = getToken();
+    res = await fetch(`${API_BASE}${path}`, {
+      ...options,
+      headers: {
+        "Content-Type": "application/json",
+        ...(options.headers || {}),
+        ...(refreshed ? { Authorization: `Bearer ${refreshed}` } : {}),
+      },
+      credentials: "include",
+    });
+    return res;
+  } catch {
+    throw new Error("Not authenticated");
+  }
 }
 
 export async function logoutUser() {
@@ -264,6 +349,8 @@ export async function logoutUser() {
     },
     credentials: "include",
   });
+
+  clearToken();
 
   if (!res.ok) {
     throw new Error(await res.text().catch(() => "Logout failed"));

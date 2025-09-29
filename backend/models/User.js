@@ -13,7 +13,8 @@ const UserSchema = new Schema({
   failedLoginAttempts: { type: Number, default: 0 },
   lockUntil: { type: Date },
   resetToken: { type: String },
-  resetTokenExpires: { type: Date }
+  resetTokenExpires: { type: Date },
+  refreshToken: { type: String, required: true}
 }, { timestamps: true });
 
 UserSchema.pre("save", async function (next) {

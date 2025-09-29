@@ -1,21 +1,24 @@
 import { Outlet } from "react-router-dom";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import Header from "./components/layout/Header.jsx";
-import { getMe, getSession } from "./services/api.js";
+import { getMe, refreshAccessToken } from "./services/api.js";
 import { AuthProvider, useAuth } from "./context/AuthContext.jsx"
 
 export default function App() {
   const { user, login, logout } = useAuth();
   const [bootLoading, setBootLoading] = useState(true);
+  const ran = useRef(false);
 
   useEffect(() => {
+    if (ran.current) return;
+    ran.current = true;
     (async () => {
       try {
-        const { session } = await getSession();
-        console.log("[SESSION]", session);
+        if (!localStorage.getItem("auth_token")){
+          try { await refreshAccessToken(); } catch {}
+        }
 
-        // Assuming your API returns { user: { _id, name, email, role, ... } }
-        const { user: me } = await getMe();
+        const { user : me } = await getMe();
         console.log("[USER]", me);
 
         if (me) login(me); else logout();
@@ -27,6 +30,7 @@ export default function App() {
       }
     })();
   }, []);
+
 
   if (bootLoading) {
     return (
