@@ -31,9 +31,8 @@ function ProjectPicker({ projects, valueId, onChange }) {
           {projects.map((p) => (
             <button
               key={p._id}
-              className={`w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-gray-100 ${
-                p._id === valueId ? "bg-indigo-50 font-semibold" : ""
-              }`}
+              className={`w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-gray-100 ${p._id === valueId ? "bg-indigo-50 font-semibold" : ""
+                }`}
               onClick={() => {
                 onChange(p._id);
                 setOpen(false);
@@ -56,8 +55,8 @@ function SquareTaskTile({ task, onOpen, section }) {
   const statusClass =
     status === "To Do" ? "text-gray-500"
       : status === "In Progress" ? "text-blue-500"
-      : status === "Done" ? "text-green-500"
-      : "";
+        : status === "Done" ? "text-green-500"
+          : "";
 
   const deadlineChip = !hasDate ? (
     <span className="inline-flex items-center rounded-lg bg-gray-50 px-2.5 py-1 text-xs font-medium text-gray-700">
@@ -119,7 +118,7 @@ function SquareTaskTile({ task, onOpen, section }) {
 }
 
 export default function TaskBoardMgr() {
-  const { user, loading: authLoading } = useAuth(); 
+  const { user, loading: authLoading } = useAuth();
   const [projects, setProjects] = useState([]);
   const [projLoading, setProjLoading] = useState(true);
   const [projError, setProjError] = useState(null);
@@ -336,8 +335,8 @@ export default function TaskBoardMgr() {
               selectedProjectId
                 ? "Create a new task in this project"
                 : projects.length === 0
-                ? "You have no projects you created"
-                : "Select a project first"
+                  ? "You have no projects you created"
+                  : "Select a project first"
             }
           >
             + Create Task
@@ -446,10 +445,22 @@ export default function TaskBoardMgr() {
         >
           <div className="w-[min(90vw,740px)] rounded-2xl bg-white shadow-2xl p-4">
             <h2 className="text-lg font-semibold mb-3">{activeTask?.title || "Task details"}</h2>
-            <TaskCard task={activeTask} />
+            <TaskCard
+              task={activeTask}
+              onTaskUpdated={async () => {
+                await reloadTasks();
+              }}
+              onTaskDeleted={(deletedId) => {
+                // Remove task immediately from state
+                setTasks(prev => prev.filter(t => t._id !== deletedId));
+                // Close the modal
+                setActiveTask(null);
+              }}
+            />
           </div>
         </div>
       )}
+
     </section>
   );
 }

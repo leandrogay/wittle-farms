@@ -111,29 +111,54 @@ export async function getManagerProjects() {
     : [];
 }
 
-export async function getTeamMembersByProjectId(userId) {
-  const res = await fetch(`${API_BASE}/api/projects?teamMember=${userId}`);
+// export async function getTeamMembersByProjectId(userId) {
+//   const res = await fetch(`${API_BASE}/api/projects?teamMember=${userId}`);
+//   if (!res.ok) {
+//     throw new Error("Failed to fetch projects");
+//   }
+//   const projects = await res.json();
+
+//   // Flatten all teamMembers
+//   const allMembers = projects.flatMap(p => p.teamMembers || []);
+
+//   // Deduplicate by _id and exclude the current userId
+//   const uniqueMembers = [];
+//   const seen = new Set();
+
+//   for (const member of allMembers) {
+//     if (!seen.has(member._id) && member._id !== userId) {
+//       seen.add(member._id);
+//       uniqueMembers.push(member);
+//     }
+//   }
+
+//   return uniqueMembers;
+// }
+
+export async function getTeamMembersByProjectId(projectId) {
+  if (!projectId) return [];
+
+  // If your backend supports /api/projects/:id
+  const res = await fetch(`${API_BASE}/api/projects/${projectId}`, {
+    credentials: "include",
+  });
+
+  // Fallback (uncomment if your backend only supports a query param)
+  // const res = await fetch(`${API_BASE}/api/projects?id=${encodeURIComponent(projectId)}`, {
+  //   credentials: "include",
+  // });
+
   if (!res.ok) {
-    throw new Error("Failed to fetch projects");
-  }
-  const projects = await res.json();
-
-  // Flatten all teamMembers
-  const allMembers = projects.flatMap(p => p.teamMembers || []);
-
-  // Deduplicate by _id and exclude the current userId
-  const uniqueMembers = [];
-  const seen = new Set();
-
-  for (const member of allMembers) {
-    if (!seen.has(member._id) && member._id !== userId) {
-      seen.add(member._id);
-      uniqueMembers.push(member);
-    }
+    throw new Error("Failed to fetch project/team members");
   }
 
-  return uniqueMembers;
+  const project = await res.json();
+  // If your fallback returns an array, pick the first:
+  // const project = Array.isArray(raw) ? raw[0] : raw;
+
+  return Array.isArray(project?.teamMembers) ? project.teamMembers : [];
 }
+
 
 export async function updateTask(taskId, formData) {
   try {
