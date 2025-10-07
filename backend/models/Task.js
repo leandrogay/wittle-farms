@@ -18,10 +18,14 @@ const TaskSchema = new Schema({
 
   createdBy: { type: Types.ObjectId, ref: 'User', required: true, index: true },
 
-  attachments: [{ type: Types.ObjectId, ref: 'Attachment', index: true }]
+  attachments: [{ type: Types.ObjectId, ref: 'Attachment', index: true }],
+
+  allDay:   { type: Boolean, default: false },
+  startAt:  { type: Date, index: true },
+  endAt:    { type: Date, index: true },
 },
   { timestamps: true });
 
-TaskSchema.index({ assignedProject: 1, status: 1, priority: 1, deadline: 1 });
+TaskSchema.index({ assignedProject: 1, status: 1, priority: 1, deadline: 1, startAt: 1, endAt: 1});
 
 export default model('Task', TaskSchema);
