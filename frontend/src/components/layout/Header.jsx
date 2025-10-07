@@ -28,11 +28,17 @@ export default function Header() {
         )}
 
         {user?.role === "Manager" && (
-          <NavLink to="/taskboard-mgr" style={linkStyle}>
-            TaskBoard (Mgr)
-          </NavLink>
+          <>
+            <NavLink to="/taskboard-mgr" style={linkStyle}>
+              TaskBoard (Mgr)
+            </NavLink>
+            <NavLink to="/calendar" style={linkStyle}>
+              Calendar
+            </NavLink>
+          </>
         )}
       </div>
+
 
       <button
         onClick={handleLogout}

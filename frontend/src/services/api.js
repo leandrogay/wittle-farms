@@ -1,4 +1,5 @@
-const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:3000";
+const API_BASE = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || "http://localhost:3000";
+export const BASE = API_BASE;
 const TOKEN_KEY = "auth_token";
 
 /*
@@ -413,4 +414,28 @@ export async function resetPassword(token, password) {
 
   if (!res.ok) throw new Error(data.message || "Unable to reset password");
   return data;
+}
+
+export async function getCalendarTasks({ start, end, userIds, projectId, status }) {
+  const url = new URL("/api/calendar", BASE);
+  url.searchParams.set("start", start);
+  url.searchParams.set("end", end);
+  if (Array.isArray(userIds) && userIds.length) url.searchParams.set("userIds", userIds.join(","));
+  if (projectId) url.searchParams.set("projectId", projectId);
+  if (status) url.searchParams.set("status", status);
+
+  const res = await fetch(url, { credentials: "include" });
+  if (!res.ok) throw new Error(`GET /api/calendar failed: ${res.status} ${await res.text()}`);
+  return res.json(); // -> { tasks: [...] }
+}
+
+export async function updateTaskDates(taskId, { startAt, endAt, allDay }) {
+  const res = await fetch(`${BASE}/api/tasks/${taskId}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify({ startAt, endAt, allDay }),
+  });
+  if (!res.ok) throw new Error(`PUT /api/tasks/${taskId} failed: ${res.status} ${await res.text()}`);
+  return res.json();
 }
