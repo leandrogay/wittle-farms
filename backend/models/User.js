@@ -16,7 +16,7 @@ const UserSchema = new Schema({
   lockUntil: { type: Date },
   resetToken: { type: String },
   resetTokenExpires: { type: Date },
-  refreshToken: { type: String, required: true}
+  refreshToken: { type: String, default: null}
 }, { timestamps: true });
 
 UserSchema.pre("save", async function (next) {

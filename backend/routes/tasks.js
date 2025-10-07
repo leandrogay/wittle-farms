@@ -7,13 +7,14 @@ import Attachment from '../models/Attachment.js';
 const router = Router();
 const upload = multer({ storage: multer.memoryStorage() });
 
+
 /**
  * CREATE Task
  * POST /api/tasks
  */
 router.post('/', upload.array('attachments'), async (req, res) => {
   try {
-    const { title, description, notes, assignedProject, assignedTeamMembers, status, priority, deadline, createdBy } = req.body;
+    const { title, description, notes, assignedProject, assignedTeamMembers, status, priority, deadline, createdBy, allDay, startAt, endAt } = req.body;
 
     // Validate required fields
     if (!title) {
@@ -52,16 +53,30 @@ router.post('/', upload.array('attachments'), async (req, res) => {
       }
     }
 
+    // Compute schedule defaults
+    const now = new Date();
+    const sAt = startAt ? new Date(startAt) : now;
+    let eAt = endAt
+      ? new Date(endAt)
+      : (deadline ? new Date(deadline) : new Date(sAt.getTime() + 60 * 60 * 1000)); // +1h if no deadline
+
+    // Guard ordering
+    if (eAt < sAt) eAt = new Date(sAt.getTime() + 60 * 60 * 1000);
+
+
     const task = await Task.create({
       title,
       description,
       notes,
       assignedProject,
-      assignedTeamMembers,
+      assignedTeamMembers: teamMembers,
       status,
       priority,
-      deadline,
+      deadline: deadline ? new Date(deadline) : null,
       createdBy,
+      allDay: (allDay === true || allDay === 'true'),
+      startAt: sAt,
+      endAt: eAt,
     });
 
     if (req.files && req.files.length > 0) {
@@ -86,6 +101,9 @@ router.post('/', upload.array('attachments'), async (req, res) => {
       .populate("createdBy", "name email")
       .populate("assignedProject", "name")
       .populate("attachments");
+
+    const io = req.app.get("io");
+    io.emit('calendar:task:created', { task: populatedTask });
 
     res.status(201).json(populatedTask);
   } catch (e) {
@@ -145,58 +163,64 @@ router.get('/:id', async (req, res) => {
  */
 router.put('/:id', upload.array('attachments'), async (req, res) => {
   try {
-    const { title, description, notes, assignedProject, assignedTeamMembers, status, priority, deadline, createdBy } = req.body;
+    const {
+      title, description, notes,
+      assignedProject, assignedTeamMembers,
+      status, priority, deadline, createdBy,
+      allDay, startAt, endAt
+    } = req.body;
 
-    // Validate required fields
-    if (!title) {
-      return res.status(400).json({ error: 'Title is required' });
-    }
-    if (!assignedProject) {
-      return res.status(400).json({ error: 'Assigned project is required' });
-    }
+    // Load existing so we can compute defaults
+    const existing = await Task.findById(req.params.id);
+    if (!existing) return res.status(404).json({ error: 'Task not found' });
 
-    // Validate ObjectIds
-    if (!mongoose.Types.ObjectId.isValid(assignedProject)) {
+    // Validate IDs only if provided
+    if (assignedProject !== undefined && !mongoose.Types.ObjectId.isValid(assignedProject)) {
       return res.status(400).json({ error: 'Invalid project ID' });
     }
-    if (createdBy && !mongoose.Types.ObjectId.isValid(createdBy)) {
+    if (createdBy !== undefined && !mongoose.Types.ObjectId.isValid(createdBy)) {
       return res.status(400).json({ error: 'Invalid creator ID' });
     }
 
-    // Process assignedTeamMembers
-    let teamMembers = [];
-    if (assignedTeamMembers.length > 0) {
+    // Normalize team members only if provided
+    let teamMembers;
+    if (assignedTeamMembers !== undefined) {
       if (typeof assignedTeamMembers === 'string') {
-        // Single member or comma-separated string
-        teamMembers = assignedTeamMembers.split(',').filter(id => id.trim());
+        teamMembers = assignedTeamMembers.split(',').map(s => s.trim()).filter(Boolean);
       } else if (Array.isArray(assignedTeamMembers)) {
         teamMembers = assignedTeamMembers;
       }
-
-      // Validate team member IDs
-      for (const memberId of teamMembers) {
-        if (!mongoose.Types.ObjectId.isValid(memberId)) {
-          return res.status(400).json({ error: `Invalid team member ID: ${memberId}` });
+      for (const id of teamMembers) {
+        if (!mongoose.Types.ObjectId.isValid(id)) {
+          return res.status(400).json({ error: `Invalid team member ID: ${id}` });
         }
       }
     }
 
-    // Build update data with correct field names
-    const updateData = {
-      title,
-      description,
-      notes,
-      assignedProject, // Keep original field name
-      assignedTeamMembers: teamMembers, // Keep original field name
-      status,
-      priority,
-      deadline,
-    };
+    // Build partial update object: include only provided fields
+    const updateData = {};
+    if (title !== undefined) updateData.title = title;
+    if (description !== undefined) updateData.description = description;
+    if (notes !== undefined) updateData.notes = notes;
+    if (assignedProject !== undefined) updateData.assignedProject = assignedProject;
+    if (teamMembers !== undefined) updateData.assignedTeamMembers = teamMembers;
+    if (status !== undefined) updateData.status = status;
+    if (priority !== undefined) updateData.priority = priority;
+    if (createdBy !== undefined) updateData.createdBy = createdBy;
+    if (deadline !== undefined) updateData.deadline = deadline ? new Date(deadline) : null;
+    if (allDay !== undefined) updateData.allDay = (allDay === true || allDay === 'true');
+    if (startAt !== undefined) updateData.startAt = startAt ? new Date(startAt) : null;
+    if (endAt !== undefined) updateData.endAt = endAt ? new Date(endAt) : null;
 
-    // Only include createdBy if provided (shouldn't change on updates typically)
-    if (createdBy) {
-      updateData.createdBy = createdBy;
-    }
+    let sAt = updateData.startAt ?? existing.startAt ?? existing.createdAt ?? new Date();
+    let eAt = updateData.endAt
+      ?? existing.endAt
+      ?? (updateData.deadline ?? existing.deadline)
+      ?? new Date(sAt.getTime() + 60 * 60 * 1000);
+
+    if (eAt < sAt) eAt = new Date(sAt.getTime() + 60 * 60 * 1000);
+    updateData.startAt = sAt;
+    updateData.endAt = eAt;
 
     const task = await Task.findByIdAndUpdate(
       req.params.id,
@@ -204,9 +228,7 @@ router.put('/:id', upload.array('attachments'), async (req, res) => {
       { new: true, runValidators: true }
     );
 
-    if (!task) return res.status(404).json({ error: 'Task not found' });
-
-    // Handle new attachments if provided
+    // Handle new attachments (optional)
     if (req.files && req.files.length > 0) {
       const newAttachments = await Promise.all(
         req.files.map((file) => Attachment.create({
@@ -218,26 +240,26 @@ router.put('/:id', upload.array('attachments'), async (req, res) => {
           uploadedBy: createdBy || task.createdBy,
         }))
       );
-
-      // Add new attachment IDs to existing ones
       const existingAttachmentIds = task.attachments || [];
-      const newAttachmentIds = newAttachments.map((a) => a._id);
-      task.attachments = [...existingAttachmentIds, ...newAttachmentIds];
+      task.attachments = [...existingAttachmentIds, ...newAttachments.map(a => a._id)];
       await task.save();
     }
 
-    // Return populated task
     const populatedTask = await Task.findById(task._id)
       .populate('assignedTeamMembers', 'name email')
       .populate('createdBy', 'name email')
       .populate('assignedProject', 'name')
       .populate('attachments');
 
+    const io = req.app.get('io');
+    io.emit('calendar:task:updated', { task: populatedTask });
+
     res.json(populatedTask);
   } catch (e) {
     res.status(400).json({ error: e.message });
   }
 });
+
 
 /*
  * DELETE Task
@@ -248,6 +270,9 @@ router.delete('/:id', async (req, res) => {
     const task = await Task.findByIdAndDelete(req.params.id);
 
     if (!task) return res.status(404).json({ error: 'Task not found' });
+
+    const io = req.app.get('io');
+    io.emit('calendar:task:deleted', { id: req.params.id });
 
     res.json({ message: 'Task deleted successfully' });
   } catch (e) {
