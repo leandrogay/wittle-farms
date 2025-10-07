@@ -5,10 +5,11 @@ import cors from 'cors';
 import express from 'express';
 import mongoose from 'mongoose';
 
-import userRouter from './routes/users.js';
-import projectRouter from './routes/projects.js';
-import tasksRouter from './routes/tasks.js';
 import authRouter from './routes/auth.js';
+import userRouter from './routes/users.js';
+import tasksRouter from './routes/tasks.js';
+import projectRouter from './routes/projects.js';
+import departmentRouter from './routes/departments.js';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -18,8 +19,9 @@ app.use(express.json());
 
 app.use('/api/auth', authRouter);
 app.use('/api/users', userRouter);
-app.use('/api/projects', projectRouter);
 app.use('/api/tasks', tasksRouter);
+app.use('/api/projects', projectRouter);
+app.use('/api/departments', departmentRouter);
 
 console.log('Loaded ENV:', process.env.MONGO_URI);
 
