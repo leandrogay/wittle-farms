@@ -6,6 +6,8 @@ const UserSchema = new Schema({
   name: { type: String, required: true, trim: true },
   email: { type: String, required: true, unique: true, lowercase: true },
   role: { type: String, enum: ['Director', 'Manager', 'Staff'], default: 'Staff' },
+  department: { type: Types.ObjectId, ref: 'Department', default: null, index: true},
+
   password: { type: String, required: true, minlength: 8 },
   passwordHistory: { type: [String], default: [] },
   otp: { type: String },  
