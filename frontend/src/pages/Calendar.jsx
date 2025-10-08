@@ -60,15 +60,18 @@ export default function Calendar() {
   const moveHandlers = useRef(new WeakMap());
 
   const toEvent = (t) => {
-    // We only get tasks with a deadline now, but this is safe either way:
-    if (!t.deadline) return null;
+    // only show tasks that actually have a deadline
+    if (!t?.deadline) return null;
 
     return {
       id: t._id,
       title: t.title,
+
+      // show exactly at the deadline time
       start: t.deadline,
-      end: null,
-      allDay: true,
+      end: null,          // no span
+      allDay: false,      // force timed (week/day views)
+
       extendedProps: {
         assignees: t.assignedTeamMembers,
         status: t.status,
@@ -77,13 +80,22 @@ export default function Calendar() {
     };
   };
 
+
+
   const loadRange = async (start, end) => {
     const { tasks } = await getCalendarTasks({
       start: start.toISOString(),
       end: end.toISOString(),
     });
-    setEvents(tasks.map(toEvent).filter(Boolean));
+
+    const events = tasks
+      .filter(t => !!t.deadline)   // keep only tasks with deadlines
+      .map(toEvent)
+      .filter(Boolean);            // drop nulls (just in case)
+
+    setEvents(events);
   };
+
 
   useEffect(() => {
     const api = calRef.current?.getApi();
@@ -238,8 +250,8 @@ export default function Calendar() {
         slotMaxTime="24:00:00"
         height="auto"
         views={{
-          timeGridWeek: { allDaySlot: false },
-          timeGridDay: { allDaySlot: false },
+          timeGridWeek: { allDaySlot: true },
+          timeGridDay: { allDaySlot: true },
         }}
       />
 

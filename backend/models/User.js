@@ -1,6 +1,6 @@
 import mongoose from 'mongoose';
 import bcrypt from "bcryptjs";
-const { Schema, model } = mongoose;
+const { Schema, model, Types } = mongoose;
 
 const UserSchema = new Schema({
   name: { type: String, required: true, trim: true },
