@@ -60,14 +60,15 @@ export default function Calendar() {
   const moveHandlers = useRef(new WeakMap());
 
   const toEvent = (t) => {
-    const hasDates = t.startAt || t.endAt;
-    const deadlineOnly = !hasDates && t.deadline;
+    // We only get tasks with a deadline now, but this is safe either way:
+    if (!t.deadline) return null;
+
     return {
       id: t._id,
       title: t.title,
-      start: t.startAt || t.deadline,
-      end: t.endAt || (deadlineOnly ? null : t.deadline),
-      allDay: deadlineOnly ? true : !!t.allDay,
+      start: t.deadline,
+      end: null,
+      allDay: true,
       extendedProps: {
         assignees: t.assignedTeamMembers,
         status: t.status,
@@ -81,7 +82,7 @@ export default function Calendar() {
       start: start.toISOString(),
       end: end.toISOString(),
     });
-    setEvents(tasks.map(toEvent));
+    setEvents(tasks.map(toEvent).filter(Boolean));
   };
 
   useEffect(() => {
