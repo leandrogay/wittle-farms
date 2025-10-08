@@ -60,7 +60,7 @@ function SquareTaskTile({ task, onOpen, section }) {
 
   const deadlineChip = !hasDate ? (
     <span className="inline-flex items-center rounded-lg bg-gray-50 px-2.5 py-1 text-xs font-medium text-gray-700">
-      Deadline: {deadlineStr}
+      {hasDate ? "Deadline: " : ""}{deadlineStr}
     </span>
   ) : section === "overdue" ? (
     <span className="inline-flex items-center rounded-lg bg-red-50 px-2.5 py-1 text-xs font-medium text-red-700">

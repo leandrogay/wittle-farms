@@ -31,6 +31,8 @@ export default function TaskForm({
   const [showAssigneeDropdown, setShowAssigneeDropdown] = useState(false);
   const { user } = useAuth();
   const isEdit = task !== null;
+  const [noDueDate, setNoDueDate] = useState(() => (isEdit ? !task?.deadline : false));
+
 
   const [formData, setFormData] = useState(() => {
     if (isEdit) {
@@ -47,7 +49,7 @@ export default function TaskForm({
         // SG-local datetime-local input value
         deadline: task.deadline
           ? dayjs(task.deadline).tz().format("YYYY-MM-DDTHH:mm")
-          : dayjs().tz().format("YYYY-MM-DDTHH:mm"),
+          : "",
         createdBy: user.id,
       };
     }
@@ -59,7 +61,7 @@ export default function TaskForm({
       assignedTeamMembers: [],
       status: "To Do",
       priority: "Low",
-      deadline: dayjs().tz().format("YYYY-MM-DDTHH:mm"),
+      deadline: "",
       createdBy: user.id,
       attachments: [],
     };
@@ -171,6 +173,13 @@ export default function TaskForm({
     }));
   }
 
+  function toggleNoDueDate(checked) {
+    setNoDueDate(checked);
+    if (checked) {
+      setFormData((prev) => ({ ...prev, deadline: "" }));
+    }
+  }
+
   const selectedMembers = teamMembers.filter((tm) =>
     formData.assignedTeamMembers.includes(tm._id)
   );
@@ -179,15 +188,16 @@ export default function TaskForm({
     e.preventDefault();
 
     try {
-      // Convert SG-local "YYYY-MM-DDTHH:mm" into an absolute ISO timestamp for backend
-      const deadlineIso = dayjs
-        .tz(formData.deadline, "YYYY-MM-DDTHH:mm", "Asia/Singapore")
-        .toISOString();
-
-      const payload = {
-        ...formData,
-        deadline: deadlineIso,
-      };
+      const payload = { ...formData };
+      const hasDeadline = !noDueDate && !!formData.deadline;
+      if (hasDeadline) {
+        // Convert SG-local to absolute ISO
+        payload.deadline = dayjs
+          .tz(formData.deadline, "YYYY-MM-DDTHH:mm", "Asia/Singapore")
+          .toISOString();
+      } else {
+        delete payload.deadline;
+      }
 
       if (isEdit) {
         const data = await updateTask(task._id, payload);
@@ -486,19 +496,33 @@ export default function TaskForm({
                   </div>
                 </div>
 
-                {/* Deadline (SG local) */}
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-1">
-                    {isEdit ? "Update Deadline" : "Deadline"}
+                    Deadline <span className="text-gray-500 font-normal"></span>
+                  </label>
+                  <label className="flex items-center gap-2 mb-2 text-sm">
+                    <input
+                      type="checkbox"
+                      className="rounded border-gray-300"
+                      checked={noDueDate}
+                      onChange={(e) => toggleNoDueDate(e.target.checked)}
+                    />
+                    No due date
                   </label>
                   <input
                     type="datetime-local"
                     name="deadline"
                     value={formData.deadline}
                     onChange={handleChange}
-                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                    disabled={noDueDate}
+                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all disabled:bg-gray-100 disabled:text-gray-500"
                     min={dayjs().tz().format("YYYY-MM-DDTHH:mm")}
                   />
+                  {noDueDate && (
+                    <p className="mt-1 text-xs text-gray-500">
+                      This task will be created with <strong>No due date</strong>.
+                    </p>
+                  )}
                 </div>
               </div>
             </div>
