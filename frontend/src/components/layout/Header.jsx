@@ -24,7 +24,14 @@ export default function Header() {
         <NavLink to="/home" style={linkStyle} end>Home</NavLink>
 
         {user?.role === "Staff" && (
-          <NavLink to="/tasks" style={linkStyle}>My Tasks</NavLink>
+          <><NavLink to="/tasks" style={linkStyle}>
+            My Tasks (Staff)
+          </NavLink>
+          <NavLink to="/calendar" style={linkStyle}>
+              Calendar
+            </NavLink>
+          </>
+          
         )}
 
         {user?.role === "Manager" && (

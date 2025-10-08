@@ -4,8 +4,8 @@ import DeleteTaskButton from "./DeleteTaskButton";
 
 const priorityStyles = {
   Low: "bg-emerald-50 text-emerald-800 ring-1 ring-emerald-200",
-  Medium: "bg-amber-50  text-amber-800  ring-1 ring-amber-200",
-  High: "bg-red-50    text-red-800    ring-1 ring-red-200",
+  Medium: "bg-amber-50 text-amber-800 ring-1 ring-amber-200",
+  High: "bg-red-50 text-red-800 ring-1 ring-red-200",
 };
 
 function Badge({ children, className = "" }) {
@@ -27,39 +27,66 @@ function FieldRow({ label, children }) {
   );
 }
 
-export default function TaskCard({ 
-  task, 
-  onTaskUpdated, 
-  onTaskDeleted 
-}) {
+export default function TaskCard({ task, onTaskUpdated, onTaskDeleted }) {
   const priority = task?.priority || "No priority";
-  const pClass = priorityStyles[priority] || priorityStyles.Default;
-  const deadlineText = task?.deadline
+  const pClass = priorityStyles[priority] || "bg-gray-50 text-gray-700 ring-1 ring-gray-200";
+
+  const now = dayjs();
+  const deadline = task?.deadline ? dayjs(task.deadline) : null;
+  const isOverdue = deadline && now.isAfter(deadline, "day");
+  const daysOverdue = isOverdue ? now.diff(deadline, "day") : 0;
+
+  const deadlineText = deadline
     ? dayjs(task.deadline).format("dddd, MMMM D, YYYY h:mm A")
     : null;
 
   return (
-    <article className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+    <article
+      className={`rounded-2xl border p-6 shadow-sm bg-white ${
+        isOverdue ? "border-red-400 ring-2 ring-red-200" : "border-gray-200"
+      }`}
+    >
       <p className="text-sm font-medium text-gray-400">
         Project: {task?.assignedProject?.name ?? "—"}
       </p>
       <h2 className="mt-1 text-2xl font-extrabold tracking-tight text-gray-900">
         Title: {task?.title ?? "Untitled"}
       </h2>
+
       <FieldRow label="Description">{task?.description ?? "—"}</FieldRow>
       <FieldRow label="Notes">{task?.notes ?? "—"}</FieldRow>
+
       <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <Badge className={pClass}>
           <span className="sr-only">Priority:</span>
           <span className="text-sm font-bold">{priority}</span>
         </Badge>
+
         {deadlineText && (
-          <Badge className="bg-gray-100 text-gray-700 ring-1 ring-gray-200">
+          <Badge
+            className={`${
+              isOverdue
+                ? "bg-red-100 text-red-800 ring-1 ring-red-200"
+                : "bg-gray-100 text-gray-700 ring-1 ring-gray-200"
+            }`}
+          >
             <span className="font-semibold">Deadline:</span>
             <span className="font-medium">{deadlineText}</span>
+            {isOverdue && (
+              <span className="ml-2 text-sm font-bold text-red-700">
+                {daysOverdue} {daysOverdue === 1 ? "day" : "days"} overdue
+              </span>
+            )}
           </Badge>
         )}
       </div>
+
+      {isOverdue && (
+        <div className="mt-3 rounded-lg bg-red-50 border border-red-200 px-4 py-2 text-sm text-red-800 font-semibold">
+          Task overdue by {daysOverdue} {daysOverdue === 1 ? "day" : "days"}.
+        </div>
+      )}
+
       <div className="mt-5 rounded-xl bg-blue-50 ring-1 ring-blue-100">
         <div className="px-4 py-2 text-sm font-semibold text-blue-900/80">
           Team Members
@@ -76,6 +103,7 @@ export default function TaskCard({
           )}
         </ul>
       </div>
+
       <div className="mt-5 space-y-1 text-sm text-gray-600">
         {task?.updatedAt && (
           <p>
@@ -94,18 +122,15 @@ export default function TaskCard({
           {task?.createdBy?.name ?? "—"}
         </p>
       </div>
-      <TaskFormButton 
-        task={task} 
-        onTaskUpdated={onTaskUpdated}
-      >
-        Edit Task
-      </TaskFormButton>
-      <DeleteTaskButton 
-        task={task} 
-        onTaskDeleted={onTaskDeleted}
-      >
-        Delete Task
-      </DeleteTaskButton>
+
+      <div className="mt-4 flex flex-wrap gap-3">
+        <TaskFormButton task={task} onTaskUpdated={onTaskUpdated}>
+          Edit Task
+        </TaskFormButton>
+        <DeleteTaskButton task={task} onTaskDeleted={onTaskDeleted}>
+          Delete Task
+        </DeleteTaskButton>
+      </div>
     </article>
   );
 }
