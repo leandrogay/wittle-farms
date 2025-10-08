@@ -52,6 +52,7 @@ createRoot(document.getElementById("root")).render(
 
               <Route element={<RequireRole roles={["Staff"]} />}>
                 <Route path="tasks" element={<Tasks />} />
+                <Route path="calendar" element={<Calendar />} />
               </Route>
 
               <Route element={<RequireRole roles={["Manager"]} />}>
