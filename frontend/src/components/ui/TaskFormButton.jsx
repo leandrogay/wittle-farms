@@ -32,7 +32,7 @@ export default function TaskFormButton({
   };
 
   return (
-    <div className="p-6">
+    <div>
       <button
         onClick={() => setShowForm(true)}
         className="px-5 py-2 bg-blue-600 text-white rounded-lg shadow hover:bg-blue-700"

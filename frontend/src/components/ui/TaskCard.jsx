@@ -123,7 +123,7 @@ export default function TaskCard({ task, onTaskUpdated, onTaskDeleted }) {
         </p>
       </div>
 
-      <div className="mt-4 flex flex-wrap gap-3">
+      <div className="mt-4 flex flex-wrap gap-3 justify-end">
         <TaskFormButton task={task} onTaskUpdated={onTaskUpdated}>
           Edit Task
         </TaskFormButton>

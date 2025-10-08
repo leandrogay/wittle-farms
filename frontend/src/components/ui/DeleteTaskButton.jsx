@@ -40,15 +40,15 @@ export default function DeleteTaskButton({
       <Modal isOpen={showConfirmation} onClose={() => setShowConfirmation(false)}>
         <div className="p-6">
           <h1 className="text-lg font-semibold mb-4">
-            Are you sure you want to delete <span className="font-bold">{task?.title ?? "this task"}</span>?
+            Are you sure you want to delete: <br></br>[<span className="font-bold">{task?.title ?? "this task"}</span>]?
           </h1>
-          <div className="flex gap-3">
+          <div className="flex gap-3 justify-center">
             <button
               onClick={handleDelete}
               disabled={deleting}
               className="px-5 py-2 bg-red-600 text-white rounded-lg shadow hover:bg-red-700 disabled:opacity-50"
             >
-              {deleting ? "Deleting..." : "Confirm Delete"}
+              {deleting ? "Deleting..." : "Delete"}
             </button>
             <button
               onClick={() => setShowConfirmation(false)}
