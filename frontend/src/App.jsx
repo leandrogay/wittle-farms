@@ -1,13 +1,12 @@
 import { Outlet } from "react-router-dom";
 import { useEffect, useState, useRef } from "react";
 import Header from "./components/layout/Header.jsx";
+import AnimatedBackground from "./components/layout/AnimatedBackground.jsx";
 import { getMe, refreshAccessToken } from "./services/api.js";
-import { AuthProvider, useAuth } from "./context/AuthContext.jsx"
-import Calendar from "./pages/Calendar.jsx";
-import CreateProject from "./pages/CreateProject.jsx";
+import { useAuth } from "./context/AuthContext.jsx";
 
 export default function App() {
-  const { user, login, logout } = useAuth();
+  const { login, logout } = useAuth();
   const [bootLoading, setBootLoading] = useState(true);
   const ran = useRef(false);
 
@@ -16,14 +15,12 @@ export default function App() {
     ran.current = true;
     (async () => {
       try {
-        if (!localStorage.getItem("auth_token")){
+        if (!localStorage.getItem("auth_token")) {
           try { await refreshAccessToken(); } catch {}
         }
-
-        const { user : me } = await getMe();
-        console.log("[USER]", me);
-
-        if (me) login(me); else logout();
+        const { user: me } = await getMe();
+        if (me) login(me);
+        else logout();
       } catch (err) {
         console.warn("No active session:", err?.message || err);
         logout();
@@ -33,20 +30,23 @@ export default function App() {
     })();
   }, []);
 
-
   if (bootLoading) {
     return (
-      <div className="min-h-screen bg-zinc-200">
+      <AnimatedBackground>
         <Header />
-        <div className="p-6 text-gray-600">Loading…</div>
-      </div>
+        <div className="flex items-center justify-center h-screen text-gray-100">
+          Loading…
+        </div>
+      </AnimatedBackground>
     );
   }
 
   return (
-    <div className="bg-zinc-200 min-h-screen">
+    <AnimatedBackground>
       <Header />
-      <Outlet />
-    </div>
+      <main className="page-container">
+        <Outlet />
+      </main>
+    </AnimatedBackground>
   );
 }

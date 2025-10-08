@@ -1,6 +1,8 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { ThemeProvider } from "./context/ThemeContext.jsx";
+
 import "./index.css";
 
 import App from "./App.jsx";
@@ -14,7 +16,6 @@ import ResetPassword from "./pages/ResetPassword.jsx";
 import ResetLinkExpired from "./pages/ResetLinkExpired";
 import Calendar from "./pages/Calendar.jsx";
 import CreateProject from "./pages/CreateProject.jsx";
-
 
 import { AuthProvider } from "./context/AuthContext.jsx";
 import RequireAuth from "./components/auth/RequireAuth.jsx";
@@ -33,40 +34,42 @@ function Unauthorized() {
 createRoot(document.getElementById("root")).render(
   <StrictMode>
     <AuthProvider>
-      <BrowserRouter>
-        <Routes>
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
-          <Route path="/unauthorized" element={<Unauthorized />} />
-          <Route path="/forgot-password" element={<ForgotPassword />} />
-          <Route path="/reset-password" element={<ResetPassword />} />
-          <Route path="/reset-link-expired" element={<ResetLinkExpired />} />
+      <ThemeProvider>
+        <BrowserRouter>
+          <Routes>
+            <Route path="/login" element={<Login />} />
+            <Route path="/register" element={<Register />} />
+            <Route path="/unauthorized" element={<Unauthorized />} />
+            <Route path="/forgot-password" element={<ForgotPassword />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
+            <Route path="/reset-link-expired" element={<ResetLinkExpired />} />
 
-          <Route element={<App />}>
-            {/* Auth-protected area */}
-            <Route element={<RequireAuth />}>
-              {/* Landing: send user to the correct page by role */}
-              <Route index element={<RoleRedirect />} />
+            <Route element={<App />}>
+              {/* Auth-protected area */}
+              <Route element={<RequireAuth />}>
+                {/* Landing: send user to the correct page by role */}
+                <Route index element={<RoleRedirect />} />
 
-              <Route path="home" element={<Home />} />
+                <Route path="home" element={<Home />} />
 
-              <Route element={<RequireRole roles={["Staff"]} />}>
-                <Route path="tasks" element={<Tasks />} />
-                <Route path="calendar" element={<Calendar />} />
-              </Route>
+                <Route element={<RequireRole roles={["Staff"]} />}>
+                  <Route path="tasks" element={<Tasks />} />
+                  <Route path="calendar" element={<Calendar />} />
+                </Route>
 
-              <Route element={<RequireRole roles={["Manager"]} />}>
-                <Route path="taskboard-mgr" element={<TaskBoardMgr />} />
-                <Route path="createProject" element={<CreateProject />} />
-                <Route path="calendar" element={<Calendar />} />
+                <Route element={<RequireRole roles={["Manager"]} />}>
+                  <Route path="taskboard-mgr" element={<TaskBoardMgr />} />
+                  <Route path="createProject" element={<CreateProject />} />
+                  <Route path="calendar" element={<Calendar />} />
+                </Route>
               </Route>
             </Route>
-          </Route>
 
-          {/* Fallback */}
-          <Route path="*" element={<Navigate to="/login" replace />} />
-        </Routes>
-      </BrowserRouter>
+            {/* Fallback */}
+            <Route path="*" element={<Navigate to="/login" replace />} />
+          </Routes>
+        </BrowserRouter>
+      </ThemeProvider>
     </AuthProvider>
   </StrictMode>
 );
