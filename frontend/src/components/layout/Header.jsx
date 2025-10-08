@@ -32,6 +32,9 @@ export default function Header() {
             <NavLink to="/taskboard-mgr" style={linkStyle}>
               TaskBoard (Mgr)
             </NavLink>
+            <NavLink to="/createProject" style={linkStyle}>
+              Create Project (Mgr)
+            </NavLink>
             <NavLink to="/calendar" style={linkStyle}>
               Calendar
             </NavLink>

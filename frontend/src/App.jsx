@@ -4,6 +4,7 @@ import Header from "./components/layout/Header.jsx";
 import { getMe, refreshAccessToken } from "./services/api.js";
 import { AuthProvider, useAuth } from "./context/AuthContext.jsx"
 import Calendar from "./pages/Calendar.jsx";
+import CreateProject from "./pages/CreateProject.jsx";
 
 export default function App() {
   const { user, login, logout } = useAuth();

@@ -14,6 +14,16 @@ function BoardIcon(props) {
   );
 }
 
+function createProject(props) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" {...props}>
+      <rect x="3" y="4" width="18" height="16" rx="2" strokeWidth="1.5" />
+      <path d="M9 4v16M15 4v16" strokeWidth="1.5" />
+      <path d="M3 10h18" strokeWidth="1.5" />
+    </svg>
+  );
+}
+
 function CalendarIcon(props) {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" {...props}>
@@ -45,7 +55,7 @@ export default function Home() {
         </header>
 
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-          {/* <FeatureCard
+          <FeatureCard
             title="Taskboard"
             to="/TaskBoardMgr" // TENTATIVE  
             description="View your taskboards."
@@ -65,7 +75,17 @@ export default function Home() {
             description="Generate team reports."
             icon={ReportIcon}
             cta="Build Report"
-          /> */}
+          />
+
+          <FeatureCard
+            title="Create New Project"
+            to="/projects/new"
+            description="Start a new project."
+            icon={ReportIcon}
+            cta="Create Project"
+          />
+
+
         </div>
       </section>
     </main>
