@@ -57,29 +57,21 @@ export default function Home() {
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
           <FeatureCard
             title="Taskboard"
-            to="/TaskBoardMgr" // TENTATIVE  
+            to="/taskboard-mgr" // TENTATIVE  
             description="View your taskboards."
             icon={BoardIcon}
             cta="Open Taskboard"
           />
           <FeatureCard
             title="Team Calendar"
-            to="/team-calendar" //TENTATIVE
+            to="/calendar" //TENTATIVE
             description="View your team's shared calendar."
             icon={CalendarIcon}
             cta="View Calendar"
-          />
-          <FeatureCard
-            title="Report Generation"
-            to="/reports" // TENTATIVE
-            description="Generate team reports."
-            icon={ReportIcon}
-            cta="Build Report"
-          />
-
+          />  
           <FeatureCard
             title="Create New Project"
-            to="/projects/new"
+            to="/createProject"
             description="Start a new project."
             icon={ReportIcon}
             cta="Create Project"
