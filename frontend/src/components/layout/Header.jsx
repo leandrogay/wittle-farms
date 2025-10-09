@@ -72,7 +72,7 @@ export default function Header() {
                 }`
               }
             >
-              TaskBoard
+              Taskboard
             </NavLink>
             <NavLink
               to="/create-project"

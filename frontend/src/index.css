@@ -1,5 +1,5 @@
 @import "tailwindcss";
-
+@custom-variant dark (&:where(.dark, .dark *));
 @theme {
   /* 🎨 BRAND COLORS */
   --color-brand-primary: #3b82f6;

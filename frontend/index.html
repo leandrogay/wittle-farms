@@ -1,16 +1,33 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/LF_logo.png" />
-    <link rel="stylesheet" href="https://unpkg.com/@fullcalendar/daygrid@6.1.19/index.css" />
-    <link rel="stylesheet" href="https://unpkg.com/@fullcalendar/timegrid@6.1.19/index.css" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Wittle Farms
-    </title>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.jsx"></script>
-  </body>
+
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" type="image/svg+xml" href="/LF_logo.png" />
+  <link rel="stylesheet" href="https://unpkg.com/@fullcalendar/daygrid@6.1.19/index.css" />
+  <link rel="stylesheet" href="https://unpkg.com/@fullcalendar/timegrid@6.1.19/index.css" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Wittle Farms
+  </title>
+  <meta name="color-scheme" content="light dark" />
+  <script>
+    (function () {
+      try {
+        const stored = localStorage.getItem('theme');            // user choice
+        const systemDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        const theme = stored || (systemDark ? 'dark' : 'light');  // stored overrides system
+        document.documentElement.classList.toggle('dark', theme === 'dark');
+        // keep native controls consistent:
+        const m = document.querySelector('meta[name="color-scheme"]');
+        if (m) m.setAttribute('content', theme === 'dark' ? 'dark light' : 'light dark');
+      } catch { }
+    })();
+  </script>
+</head>
+
+<body>
+  <div id="root"></div>
+  <script type="module" src="/src/main.jsx"></script>
+</body>
+
 </html>
