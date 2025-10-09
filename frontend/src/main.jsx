@@ -9,6 +9,7 @@ import App from "./App.jsx";
 import Home from "./pages/Home.jsx";
 import Tasks from "./pages/Tasks.jsx";
 import TaskBoardMgr from "./pages/TaskBoardMgr.jsx";
+import Dashboard from "./pages/Dashboard.jsx";
 import Login from "./pages/Login.jsx";
 import Register from "./pages/Register.jsx";
 import ForgotPassword from "./pages/ForgotPassword.jsx";
@@ -61,8 +62,12 @@ createRoot(document.getElementById("root")).render(
                   <Route path="create-project" element={<CreateProject />} />
                 </Route>
 
-                <Route element={<RequireRole roles={["Staff", "Manager"]} />}>
+                <Route element={<RequireRole roles={["Staff", "Manager", "Director"]} />}>
                   <Route path="calendar" element={<Calendar />} />
+                </Route>
+
+                <Route element={<RequireRole roles={["Director"]} />}>
+                  <Route path="dashboard" element={<Dashboard />} />
                 </Route>
               </Route>
             </Route>

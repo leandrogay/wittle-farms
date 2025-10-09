@@ -75,6 +75,14 @@ export async function getTasks() {
   return res.json();
 }
 
+export async function getProjects() {
+  const res = await fetch(`${API_BASE}/api/projects`);
+  if (!res.ok) {
+    throw new Error("Failed to fetch projects");
+  }
+  return res.json();
+}
+
 export async function getProjectsByUserId(userId) {
   const res = await fetch(`${API_BASE}/api/projects/user/${userId}`);
   if (!res.ok) {
@@ -332,7 +340,7 @@ export async function refreshAccessToken() {
 export async function authFetch(path, options = {}) {
   let token = getToken();
   if (!token || isExpiringSoon(token)) {
-    try { await refreshAccessToken(); } catch {}
+    try { await refreshAccessToken(); } catch { }
     token = getToken();
   }
   // first refresh
@@ -505,9 +513,9 @@ export async function getAllTeamMembers() {
   const data = await res.json();
   return Array.isArray(data)
     ? data.map((u) => ({
-        _id: u._id || u.id,
-        name: u.name || u.fullName || u.email || "Unnamed",
-        email: u.email,
-      }))
+      _id: u._id || u.id,
+      name: u.name || u.fullName || u.email || "Unnamed",
+      email: u.email,
+    }))
     : [];
 }
