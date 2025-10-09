@@ -54,12 +54,14 @@ createRoot(document.getElementById("root")).render(
 
                 <Route element={<RequireRole roles={["Staff"]} />}>
                   <Route path="tasks" element={<Tasks />} />
-                  <Route path="calendar" element={<Calendar />} />
                 </Route>
 
                 <Route element={<RequireRole roles={["Manager"]} />}>
                   <Route path="taskboard-mgr" element={<TaskBoardMgr />} />
                   <Route path="create-project" element={<CreateProject />} />
+                </Route>
+
+                <Route element={<RequireRole roles={["Staff", "Manager"]} />}>
                   <Route path="calendar" element={<Calendar />} />
                 </Route>
               </Route>
