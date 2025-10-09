@@ -425,17 +425,19 @@ export async function resetPassword(token, password) {
 }
 
 export async function getCalendarTasks({ start, end, userIds, projectId, status }) {
-  const url = new URL("/api/calendar", BASE);
-  url.searchParams.set("start", start);
-  url.searchParams.set("end", end);
-  if (Array.isArray(userIds) && userIds.length) url.searchParams.set("userIds", userIds.join(","));
-  if (projectId) url.searchParams.set("projectId", projectId);
-  if (status) url.searchParams.set("status", status);
+  const q = new URLSearchParams();
+  q.set("start", start);
+  q.set("end", end);
+  if (Array.isArray(userIds) && userIds.length) q.set("userIds", userIds.join(","));
+  if (projectId) q.set("projectId", projectId);
+  if (status) q.set("status", status);
 
-  const res = await fetch(url, { credentials: "include" });
-  if (!res.ok) throw new Error(`GET /api/calendar failed: ${res.status} ${await res.text()}`);
-  return res.json(); // -> { tasks: [...] }
+  const path = `/api/calendar?${q.toString()}`;
+  const res = await authFetch(path, { method: "GET" });  // <— ensures Bearer token & refresh
+  if (!res.ok) throw new Error(`GET ${path} failed: ${res.status} ${await res.text().catch(() => "")}`);
+  return res.json();
 }
+
 
 export async function updateTaskDates(taskId, { startAt, endAt, allDay }) {
   const res = await fetch(`${BASE}/api/tasks/${taskId}`, {
