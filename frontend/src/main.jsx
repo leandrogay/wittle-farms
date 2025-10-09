@@ -59,7 +59,7 @@ createRoot(document.getElementById("root")).render(
 
                 <Route element={<RequireRole roles={["Manager"]} />}>
                   <Route path="taskboard-mgr" element={<TaskBoardMgr />} />
-                  <Route path="createProject" element={<CreateProject />} />
+                  <Route path="create-project" element={<CreateProject />} />
                   <Route path="calendar" element={<Calendar />} />
                 </Route>
               </Route>

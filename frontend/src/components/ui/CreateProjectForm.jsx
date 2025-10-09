@@ -15,7 +15,7 @@ export default function CreateProjectForm({
   onCancel,
   onCreated,
   onUpdated,
-  project = null, // pass when editing
+  project = null,
 }) {
   const { user } = useAuth();
   const isEdit = !!project;
@@ -124,7 +124,6 @@ export default function CreateProjectForm({
     setSaving(true);
     setError(null);
     try {
-      // Minimal payload; the API will add timestamps and refetch populated doc
       const payload = {
         name: formData.name,
         description: formData.description,
@@ -132,8 +131,8 @@ export default function CreateProjectForm({
         teamMembers: formData.teamMembers,
       };
   
-      const project = await createProject(payload); // ← now returns populated shape
-      onCreated?.(project);                         // matches your desired format
+      const project = await createProject(payload);
+      onCreated?.(project);
       alert("Project created successfully!");
       onCancel?.();
     } catch (e) {
@@ -146,7 +145,7 @@ export default function CreateProjectForm({
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[300px]">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-primary dark:border-brand-secondary" />
       </div>
     );
   }
@@ -157,19 +156,19 @@ export default function CreateProjectForm({
 
   return (
     <div className="w-[800px] max-h-[90vh] overflow-hidden mx-auto">
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 flex flex-col max-h-[90vh]">
-        <div className="p-4 border-b border-gray-100">
-          <h2 className="text-xl font-bold">
+      <div className="bg-light-bg dark:bg-dark-bg rounded-lg shadow-sm border border-light-border dark:border-dark-border flex flex-col max-h-[90vh]">
+        <div className="p-4 border-b border-light-border dark:border-dark-border">
+          <h2 className="text-xl font-bold text-light-text-primary dark:text-dark-text-primary">
             {isEdit ? "Edit Project" : "Create New Project"}
           </h2>
-          <p className="text-gray-600 text-sm">
+          <p className="text-light-text-secondary dark:text-dark-text-secondary text-sm">
             {isEdit ? "Update the project details below" : "Fill in details to create a project"}
           </p>
         </div>
 
         {error && (
-          <div className="p-4 bg-red-50 border-l-4 border-red-400">
-            <p className="text-red-700">{error}</p>
+          <div className="p-4 bg-priority-high-bg dark:bg-priority-high-bg-dark border-l-4 border-danger">
+            <p className="text-priority-high-text dark:text-priority-high-text-dark">{error}</p>
           </div>
         )}
 
@@ -179,7 +178,9 @@ export default function CreateProjectForm({
               {/* Left */}
               <div className="lg:col-span-2 space-y-4">
                 <div>
-                  <label className="block text-sm font-semibold mb-1">Project Name *</label>
+                  <label className="block text-sm font-semibold mb-1 text-light-text-primary dark:text-dark-text-primary">
+                    Project Name *
+                  </label>
                   <input
                     type="text"
                     name="name"
@@ -187,31 +188,37 @@ export default function CreateProjectForm({
                     onChange={handleChange}
                     required
                     placeholder="e.g. Q4 Website Revamp"
-                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 text-sm border border-light-border dark:border-dark-border rounded-lg bg-light-bg dark:bg-dark-bg-secondary text-light-text-primary dark:text-dark-text-primary focus:ring-2 focus:ring-brand-primary dark:focus:ring-brand-secondary"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-semibold mb-1">Description</label>
+                  <label className="block text-sm font-semibold mb-1 text-light-text-primary dark:text-dark-text-primary">
+                    Description
+                  </label>
                   <textarea
                     name="description"
                     value={formData.description}
                     onChange={handleChange}
                     rows={4}
                     placeholder="What is this project about?"
-                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 resize-none"
+                    className="w-full px-3 py-2 text-sm border border-light-border dark:border-dark-border rounded-lg bg-light-bg dark:bg-dark-bg-secondary text-light-text-primary dark:text-dark-text-primary focus:ring-2 focus:ring-brand-primary dark:focus:ring-brand-secondary resize-none"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-semibold mb-1">
+                  <label className="block text-sm font-semibold mb-1 text-light-text-primary dark:text-dark-text-primary">
                     {isEdit ? "Update Attachments" : "Attachments"}
                   </label>
-                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-3">
-                    <input type="file" name="attachments" multiple onChange={handleChange}
-                      className="w-full text-xs text-gray-600 file:mr-3 file:py-1 file:px-3 file:rounded-full file:border-0 file:text-xs file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                  <div className="border-2 border-dashed border-light-border dark:border-dark-border rounded-lg p-3 bg-light-surface dark:bg-dark-surface">
+                    <input 
+                      type="file" 
+                      name="attachments" 
+                      multiple 
+                      onChange={handleChange}
+                      className="w-full text-xs text-light-text-secondary dark:text-dark-text-secondary file:mr-3 file:py-1 file:px-3 file:rounded-full file:border-0 file:text-xs file:font-medium file:bg-brand-primary file:text-white hover:file:bg-blue-700"
                     />
-                    <p className="text-xs text-gray-500 mt-1">
+                    <p className="text-xs text-light-text-muted dark:text-dark-text-muted mt-1">
                       {isEdit ? "Upload additional files or replace existing ones" : "Upload files, images, or documents"}
                     </p>
                   </div>
@@ -219,9 +226,15 @@ export default function CreateProjectForm({
                   {formData.attachments?.length > 0 && (
                     <div className="mt-2 flex flex-wrap gap-1 max-h-20 overflow-y-auto">
                       {Array.from(formData.attachments).map((file, idx) => (
-                        <div key={idx} className="flex items-center bg-gray-50 text-gray-700 text-xs px-2 py-1 rounded-full border">
+                        <div key={idx} className="flex items-center bg-light-surface dark:bg-dark-surface text-light-text-primary dark:text-dark-text-primary text-xs px-2 py-1 rounded-full border border-light-border dark:border-dark-border">
                           <span className="truncate max-w-[100px]">{file.name}</span>
-                          <button type="button" onClick={() => removeAttachment(idx)} className="ml-1 text-gray-400 hover:text-red-500 font-bold text-sm">×</button>
+                          <button 
+                            type="button" 
+                            onClick={() => removeAttachment(idx)} 
+                            className="ml-1 text-light-text-muted dark:text-dark-text-muted hover:text-danger font-bold text-sm"
+                          >
+                            ×
+                          </button>
                         </div>
                       ))}
                     </div>
@@ -232,9 +245,15 @@ export default function CreateProjectForm({
               {/* Right */}
               <div className="space-y-4 w-full max-w-[250px]">
                 <div>
-                  <label className="block text-sm font-semibold mb-1">Status</label>
-                  <select name="status" value={formData.status} onChange={handleChange}
-                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                  <label className="block text-sm font-semibold mb-1 text-light-text-primary dark:text-dark-text-primary">
+                    Status
+                  </label>
+                  <select 
+                    name="status" 
+                    value={formData.status} 
+                    onChange={handleChange}
+                    className="w-full px-3 py-2 text-sm border border-light-border dark:border-dark-border rounded-lg bg-light-bg dark:bg-dark-bg-secondary text-light-text-primary dark:text-dark-text-primary focus:ring-2 focus:ring-brand-primary dark:focus:ring-brand-secondary"
+                  >
                     <option>Planned</option>
                     <option>Active</option>
                     <option>On Hold</option>
@@ -243,9 +262,15 @@ export default function CreateProjectForm({
                 </div>
 
                 <div>
-                  <label className="block text-sm font-semibold mb-1">Priority</label>
-                  <select name="priority" value={formData.priority} onChange={handleChange}
-                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                  <label className="block text-sm font-semibold mb-1 text-light-text-primary dark:text-dark-text-primary">
+                    Priority
+                  </label>
+                  <select 
+                    name="priority" 
+                    value={formData.priority} 
+                    onChange={handleChange}
+                    className="w-full px-3 py-2 text-sm border border-light-border dark:border-dark-border rounded-lg bg-light-bg dark:bg-dark-bg-secondary text-light-text-primary dark:text-dark-text-primary focus:ring-2 focus:ring-brand-primary dark:focus:ring-brand-secondary"
+                  >
                     <option>Low</option>
                     <option>Medium</option>
                     <option>High</option>
@@ -253,9 +278,15 @@ export default function CreateProjectForm({
                 </div>
 
                 <div>
-                  <label className="block text-sm font-semibold mb-1">Visibility</label>
-                  <select name="visibility" value={formData.visibility} onChange={handleChange}
-                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                  <label className="block text-sm font-semibold mb-1 text-light-text-primary dark:text-dark-text-primary">
+                    Visibility
+                  </label>
+                  <select 
+                    name="visibility" 
+                    value={formData.visibility} 
+                    onChange={handleChange}
+                    className="w-full px-3 py-2 text-sm border border-light-border dark:border-dark-border rounded-lg bg-light-bg dark:bg-dark-bg-secondary text-light-text-primary dark:text-dark-text-primary focus:ring-2 focus:ring-brand-primary dark:focus:ring-brand-secondary"
+                  >
                     <option value="Private">Private (only you)</option>
                     <option value="Team">Team (project members)</option>
                     <option value="Org">Organisation</option>
@@ -263,9 +294,16 @@ export default function CreateProjectForm({
                 </div>
 
                 <div>
-                  <label className="block text-sm font-semibold mb-1">Project Lead *</label>
-                  <select name="projectLead" value={formData.projectLead} onChange={handleChange} required
-                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                  <label className="block text-sm font-semibold mb-1 text-light-text-primary dark:text-dark-text-primary">
+                    Project Lead *
+                  </label>
+                  <select 
+                    name="projectLead" 
+                    value={formData.projectLead} 
+                    onChange={handleChange} 
+                    required
+                    className="w-full px-3 py-2 text-sm border border-light-border dark:border-dark-border rounded-lg bg-light-bg dark:bg-dark-bg-secondary text-light-text-primary dark:text-dark-text-primary focus:ring-2 focus:ring-brand-primary dark:focus:ring-brand-secondary"
+                  >
                     <option value="">Select a lead</option>
                     {members
                       .filter((m) => formData.teamMembers.includes(m._id))
@@ -276,18 +314,26 @@ export default function CreateProjectForm({
                 </div>
 
                 <div className="assignee-dropdown-container relative">
-                  <label className="block text-sm font-semibold mb-1">Team Members</label>
+                  <label className="block text-sm font-semibold mb-1 text-light-text-primary dark:text-dark-text-primary">
+                    Team Members
+                  </label>
 
                   {selectedMembers.length > 0 && (
                     <div className="mb-2 w-[250px]">
                       <div className="grid grid-cols-2 gap-1 max-h-20 overflow-y-auto">
                         {selectedMembers.map((m) => (
-                          <div key={m._id} className="flex items-center bg-blue-100 text-blue-800 text-xs px-1 py-1 rounded-full">
-                            <div className="w-3 h-3 bg-blue-200 rounded-full mr-1 flex items-center justify-center text-[10px]">
+                          <div key={m._id} className="flex items-center bg-brand-primary/10 dark:bg-brand-secondary/10 text-brand-primary dark:text-brand-secondary text-xs px-1 py-1 rounded-full border border-brand-primary/20 dark:border-brand-secondary/20">
+                            <div className="w-3 h-3 bg-brand-primary/20 dark:bg-brand-secondary/20 rounded-full mr-1 flex items-center justify-center text-[10px]">
                               {m.name?.charAt(0)?.toUpperCase() || "•"}
                             </div>
                             <span className="truncate">{m.name}</span>
-                            <button type="button" onClick={() => removeMember(m._id)} className="ml-1 text-blue-600 hover:text-blue-800 font-bold text-xs">×</button>
+                            <button 
+                              type="button" 
+                              onClick={() => removeMember(m._id)} 
+                              className="ml-1 text-brand-primary dark:text-brand-secondary hover:text-danger font-bold text-xs"
+                            >
+                              ×
+                            </button>
                           </div>
                         ))}
                       </div>
@@ -297,35 +343,35 @@ export default function CreateProjectForm({
                   <button
                     type="button"
                     onClick={() => setShowMemberDropdown((s) => !s)}
-                    className="w-full max-w-[250px] px-3 py-2 text-sm border border-gray-300 rounded-lg bg-white hover:bg-gray-50 flex justify-between items-center focus:ring-2 focus:ring-blue-500"
+                    className="w-full max-w-[250px] px-3 py-2 text-sm border border-light-border dark:border-dark-border rounded-lg bg-light-bg dark:bg-dark-bg-secondary hover:bg-light-surface dark:hover:bg-dark-surface flex justify-between items-center focus:ring-2 focus:ring-brand-primary dark:focus:ring-brand-secondary text-light-text-secondary dark:text-dark-text-secondary"
                   >
-                    <span className="text-gray-600 truncate">
+                    <span className="truncate">
                       {formData.teamMembers.length ? `${formData.teamMembers.length} selected` : "Select team members"}
                     </span>
-                    <svg className="w-4 h-4 text-gray-400 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                     </svg>
                   </button>
 
                   {showMemberDropdown && (
-                    <div className="absolute z-20 w-[250px] mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                    <div className="absolute z-20 w-[250px] mt-1 bg-light-bg dark:bg-dark-bg-secondary border border-light-border dark:border-dark-border rounded-lg shadow-lg max-h-48 overflow-y-auto">
                       <div className="p-1">
                         {members.length === 0 ? (
-                          <div className="p-3 text-gray-500 text-center text-sm">No members</div>
+                          <div className="p-3 text-light-text-muted dark:text-dark-text-muted text-center text-sm">No members</div>
                         ) : (
                           members.map((tm) => (
-                            <label key={tm._id} className="flex items-center p-2 hover:bg-gray-50 cursor-pointer rounded-md">
+                            <label key={tm._id} className="flex items-center p-2 hover:bg-light-surface dark:hover:bg-dark-surface cursor-pointer rounded-md">
                               <input
                                 type="checkbox"
                                 checked={formData.teamMembers.includes(tm._id)}
                                 onChange={() => toggleMember(tm._id)}
-                                className="mr-2 w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                                className="mr-2 w-4 h-4 text-brand-primary dark:text-brand-secondary border-light-border dark:border-dark-border rounded focus:ring-brand-primary dark:focus:ring-brand-secondary"
                               />
                               <div className="flex items-center min-w-0 flex-1">
-                                <div className="w-6 h-6 bg-gray-200 rounded-full mr-2 flex items-center justify-center text-xs font-medium text-gray-600">
+                                <div className="w-6 h-6 bg-light-surface dark:bg-dark-surface rounded-full mr-2 flex items-center justify-center text-xs font-medium text-light-text-secondary dark:text-dark-text-secondary">
                                   {tm.name?.charAt(0)?.toUpperCase() || "•"}
                                 </div>
-                                <span className="text-sm font-medium text-gray-700 truncate">{tm.name}</span>
+                                <span className="text-sm font-medium text-light-text-primary dark:text-dark-text-primary truncate">{tm.name}</span>
                               </div>
                             </label>
                           ))
@@ -337,23 +383,27 @@ export default function CreateProjectForm({
 
                 <div className="space-y-3">
                   <div>
-                    <label className="block text-sm font-semibold mb-1">Start Date *</label>
+                    <label className="block text-sm font-semibold mb-1 text-light-text-primary dark:text-dark-text-primary">
+                      Start Date *
+                    </label>
                     <input
                       type="date"
                       name="startDate"
                       value={formData.startDate}
                       onChange={handleChange}
                       required
-                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 text-sm border border-light-border dark:border-dark-border rounded-lg bg-light-bg dark:bg-dark-bg-secondary text-light-text-primary dark:text-dark-text-primary focus:ring-2 focus:ring-brand-primary dark:focus:ring-brand-secondary"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-semibold mb-1">End Date</label>
-                    <label className="flex items-center gap-2 mb-2 text-sm">
+                    <label className="block text-sm font-semibold mb-1 text-light-text-primary dark:text-dark-text-primary">
+                      End Date
+                    </label>
+                    <label className="flex items-center gap-2 mb-2 text-sm text-light-text-secondary dark:text-dark-text-secondary">
                       <input
                         type="checkbox"
-                        className="rounded border-gray-300"
+                        className="rounded border-light-border dark:border-dark-border"
                         checked={noEndDate}
                         onChange={(e) => toggleNoEndDate(e.target.checked)}
                       />
@@ -366,19 +416,19 @@ export default function CreateProjectForm({
                       onChange={handleChange}
                       disabled={noEndDate}
                       min={formData.startDate}
-                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:text-gray-500"
+                      className="w-full px-3 py-2 text-sm border border-light-border dark:border-dark-border rounded-lg bg-light-bg dark:bg-dark-bg-secondary text-light-text-primary dark:text-dark-text-primary focus:ring-2 focus:ring-brand-primary dark:focus:ring-brand-secondary disabled:bg-light-surface dark:disabled:bg-dark-surface disabled:text-light-text-muted dark:disabled:text-dark-text-muted"
                     />
                   </div>
                 </div>
               </div>
             </div>
 
-            <div className="flex flex-col sm:flex-row justify-end gap-2 mt-4 pt-3 border-t border-gray-100">
+            <div className="flex flex-col sm:flex-row justify-end gap-2 mt-4 pt-3 border-t border-light-border dark:border-dark-border">
               <button
                 type="button"
                 onClick={onCancel}
                 disabled={saving}
-                className="px-4 py-2 text-sm border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+                className="px-4 py-2 text-sm border border-light-border dark:border-dark-border text-light-text-primary dark:text-dark-text-primary rounded-lg hover:bg-light-surface dark:hover:bg-dark-surface"
               >
                 Cancel
               </button>
@@ -386,7 +436,9 @@ export default function CreateProjectForm({
                 type="submit"
                 disabled={saving}
                 className={`px-4 py-2 text-sm rounded-lg font-medium shadow-sm ${
-                  isEdit ? "bg-green-600 text-white hover:bg-green-700" : "bg-blue-600 text-white hover:bg-blue-700"
+                  isEdit 
+                    ? "bg-success text-white hover:bg-emerald-600" 
+                    : "bg-brand-primary text-white hover:bg-blue-700"
                 }`}
               >
                 {saving ? (isEdit ? "Saving..." : "Creating...") : isEdit ? "Save Changes" : "Create Project"}

@@ -1,21 +1,27 @@
-import { useTheme } from "../../context/ThemeContext.jsx";
-
 export default function AnimatedBackground({ children }) {
-  const { theme } = useTheme();
-
   return (
-    <div className="relative min-h-screen overflow-hidden text-gray-900 dark:text-gray-100 transition-colors duration-500">
-      <div
-        className={`absolute inset-0 -z-20 animate-gradient bg-gradient-to-br 
-        ${theme === "light"
-          ? "from-blue-100 via-indigo-200 to-purple-100"
-          : "from-blue-800 via-indigo-900 to-purple-800"} 
-        opacity-90 transition-all duration-700`}
-      ></div>
-
-      <div className="absolute inset-0 -z-10 bg-[url('/noise.svg')] opacity-15 mix-blend-overlay"></div>
-
-      <div className="relative z-10">{children}</div>
+    <div className="min-h-screen bg-gradient-to-br from-light-bg via-light-bg-secondary to-light-surface dark:from-dark-bg dark:via-dark-bg-secondary dark:to-dark-surface relative overflow-hidden">
+      {/* Animated gradient orbs */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div 
+          className="absolute -top-1/2 -left-1/2 w-full h-full bg-gradient-to-br from-brand-primary/20 to-transparent dark:from-brand-secondary/20 rounded-full blur-3xl animate-gradient"
+          style={{
+            backgroundSize: '200% 200%',
+          }}
+        />
+        <div 
+          className="absolute -bottom-1/2 -right-1/2 w-full h-full bg-gradient-to-tl from-info/20 to-transparent dark:from-info/10 rounded-full blur-3xl animate-gradient"
+          style={{
+            backgroundSize: '200% 200%',
+            animationDelay: '2s',
+          }}
+        />
+      </div>
+      
+      {/* Content */}
+      <div className="relative z-10">
+        {children}
+      </div>
     </div>
   );
 }

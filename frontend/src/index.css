@@ -1,1 +1,74 @@
 @import "tailwindcss";
+
+@theme {
+  /* 🎨 BRAND COLORS */
+  --color-brand-primary: #3b82f6;
+  --color-brand-secondary: #8b5cf6;
+  
+  /* ✅ SEMANTIC COLORS */
+  --color-success: #10b981;
+  --color-warning: #f59e0b;
+  --color-danger: #ef4444;
+  --color-info: #06b6d4;
+  
+  /* 🌞 LIGHT MODE */
+  --color-light-bg: #ffffff;
+  --color-light-bg-secondary: #f8fafc;
+  --color-light-surface: #f1f5f9;
+  --color-light-border: #e2e8f0;
+  --color-light-text-primary: #0f172a;
+  --color-light-text-secondary: #475569;
+  --color-light-text-muted: #94a3b8;
+  
+  /* 🌙 DARK MODE */
+  --color-dark-bg: #0f172a;
+  --color-dark-bg-secondary: #1e293b;
+  --color-dark-surface: #334155;
+  --color-dark-border: #475569;
+  --color-dark-text-primary: #f8fafc;
+  --color-dark-text-secondary: #cbd5e1;
+  --color-dark-text-muted: #64748b;
+  
+  /* 🎯 PRIORITY COLORS (Light Mode) */
+  --color-priority-low-bg: #ecfdf5;
+  --color-priority-low-text: #065f46;
+  --color-priority-low-border: #a7f3d0;
+  
+  --color-priority-medium-bg: #fffbeb;
+  --color-priority-medium-text: #92400e;
+  --color-priority-medium-border: #fde68a;
+  
+  --color-priority-high-bg: #fef2f2;
+  --color-priority-high-text: #991b1b;
+  --color-priority-high-border: #fecaca;
+  
+  /* 🎯 PRIORITY COLORS (Dark Mode) */
+  --color-priority-low-bg-dark: #064e3b;
+  --color-priority-low-text-dark: #6ee7b7;
+  --color-priority-low-border-dark: #047857;
+  
+  --color-priority-medium-bg-dark: #78350f;
+  --color-priority-medium-text-dark: #fcd34d;
+  --color-priority-medium-border-dark: #b45309;
+  
+  --color-priority-high-bg-dark: #7f1d1d;
+  --color-priority-high-text-dark: #fca5a5;
+  --color-priority-high-border-dark: #b91c1c;
+  
+  /* 💫 ANIMATIONS */
+  --animate-gradient: gradientShift 15s ease infinite;
+  --animate-pulse-slow: pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  
+  /* 🔤 FONTS */
+  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+}
+
+@keyframes gradientShift {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.8; }
+}

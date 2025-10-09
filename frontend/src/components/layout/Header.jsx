@@ -7,13 +7,6 @@ export default function Header() {
   const { user, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
 
-  const linkStyle = ({ isActive }) => ({
-    margin: "0 8px",
-    textDecoration: "none",
-    color: isActive ? (theme === "dark" ? "#ff7b7b" : "tomato") : (theme === "dark" ? "white" : "black"),
-    fontWeight: isActive ? "bold" : "normal",
-  });
-
   const handleLogout = () => {
     localStorage.removeItem("auth_token");
     logout();
@@ -21,60 +14,126 @@ export default function Header() {
   };
 
   return (
-    <nav style={{
-      marginBottom: "1rem",
-      display: "flex",
-      alignItems: "center",
-      backgroundColor: theme === "dark" ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)",
-      backdropFilter: "blur(10px)",
-      borderRadius: "12px",
-      padding: "0.5rem 1rem",
-    }}>
-      <div>
-        <NavLink to="/home" style={linkStyle} end>Home</NavLink>
+    <nav className="mb-4 flex items-center bg-light-surface/80 dark:bg-dark-surface/80 backdrop-blur-md rounded-xl px-4 py-3 border border-light-border dark:border-dark-border shadow-sm">
+      {/* Navigation Links */}
+      <div className="flex items-center gap-1">
+        <NavLink
+          to="/home"
+          end
+          className={({ isActive }) =>
+            `px-4 py-2 rounded-lg font-medium transition-all ${
+              isActive
+                ? "bg-brand-primary text-white dark:bg-brand-secondary shadow-sm"
+                : "text-light-text-primary dark:text-dark-text-primary hover:bg-light-bg dark:hover:bg-dark-bg"
+            }`
+          }
+        >
+          Home
+        </NavLink>
 
         {user?.role === "Staff" && (
           <>
-            <NavLink to="/tasks" style={linkStyle}>My Tasks</NavLink>
-            <NavLink to="/calendar" style={linkStyle}>Calendar</NavLink>
+            <NavLink
+              to="/tasks"
+              className={({ isActive }) =>
+                `px-4 py-2 rounded-lg font-medium transition-all ${
+                  isActive
+                    ? "bg-brand-primary text-white dark:bg-brand-secondary shadow-sm"
+                    : "text-light-text-primary dark:text-dark-text-primary hover:bg-light-bg dark:hover:bg-dark-bg"
+                }`
+              }
+            >
+              My Tasks
+            </NavLink>
+            <NavLink
+              to="/calendar"
+              className={({ isActive }) =>
+                `px-4 py-2 rounded-lg font-medium transition-all ${
+                  isActive
+                    ? "bg-brand-primary text-white dark:bg-brand-secondary shadow-sm"
+                    : "text-light-text-primary dark:text-dark-text-primary hover:bg-light-bg dark:hover:bg-dark-bg"
+                }`
+              }
+            >
+              Calendar
+            </NavLink>
           </>
         )}
 
         {user?.role === "Manager" && (
           <>
-            <NavLink to="/taskboard-mgr" style={linkStyle}>TaskBoard</NavLink>
-            <NavLink to="/createProject" style={linkStyle}>Create Project</NavLink>
-            <NavLink to="/calendar" style={linkStyle}>Calendar</NavLink>
+            <NavLink
+              to="/taskboard-mgr"
+              className={({ isActive }) =>
+                `px-4 py-2 rounded-lg font-medium transition-all ${
+                  isActive
+                    ? "bg-brand-primary text-white dark:bg-brand-secondary shadow-sm"
+                    : "text-light-text-primary dark:text-dark-text-primary hover:bg-light-bg dark:hover:bg-dark-bg"
+                }`
+              }
+            >
+              TaskBoard
+            </NavLink>
+            <NavLink
+              to="/create-project"
+              className={({ isActive }) =>
+                `px-4 py-2 rounded-lg font-medium transition-all ${
+                  isActive
+                    ? "bg-brand-primary text-white dark:bg-brand-secondary shadow-sm"
+                    : "text-light-text-primary dark:text-dark-text-primary hover:bg-light-bg dark:hover:bg-dark-bg"
+                }`
+              }
+            >
+              Create Project
+            </NavLink>
+            <NavLink
+              to="/calendar"
+              className={({ isActive }) =>
+                `px-4 py-2 rounded-lg font-medium transition-all ${
+                  isActive
+                    ? "bg-brand-primary text-white dark:bg-brand-secondary shadow-sm"
+                    : "text-light-text-primary dark:text-dark-text-primary hover:bg-light-bg dark:hover:bg-dark-bg"
+                }`
+              }
+            >
+              Calendar
+            </NavLink>
           </>
         )}
       </div>
 
-      <div style={{ marginLeft: "auto", display: "flex", gap: "0.5rem" }}>
+      {/* Right Side Actions */}
+      <div className="ml-auto flex items-center gap-2">
+        {/* User Info */}
+        {user && (
+          <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-light-bg dark:bg-dark-bg border border-light-border dark:border-dark-border">
+            <div className="w-7 h-7 rounded-full bg-brand-primary dark:bg-brand-secondary flex items-center justify-center text-white text-sm font-semibold">
+              {user.name?.charAt(0)?.toUpperCase() || "U"}
+            </div>
+            <div className="flex flex-col">
+              <span className="text-xs font-medium text-light-text-primary dark:text-dark-text-primary leading-tight">
+                {user.name}
+              </span>
+              <span className="text-[10px] text-light-text-muted dark:text-dark-text-muted">
+                {user.role}
+              </span>
+            </div>
+          </div>
+        )}
+
+        {/* Theme Toggle */}
         <button
           onClick={toggleTheme}
-          style={{
-            padding: "6px 12px",
-            borderRadius: "6px",
-            border: "none",
-            backgroundColor: theme === "dark" ? "#444" : "#ddd",
-            color: theme === "dark" ? "white" : "black",
-            cursor: "pointer",
-            transition: "all 0.3s",
-          }}
+          className="px-3 py-2 rounded-lg bg-light-bg dark:bg-dark-bg border border-light-border dark:border-dark-border text-light-text-primary dark:text-dark-text-primary hover:bg-light-surface dark:hover:bg-dark-surface transition-all shadow-sm font-medium text-sm"
+          title={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
         >
           {theme === "dark" ? "☀️ Light" : "🌙 Dark"}
         </button>
 
+        {/* Logout Button */}
         <button
           onClick={handleLogout}
-          style={{
-            padding: "6px 12px",
-            color: theme === "dark" ? "white" : "black",
-            background: "none",
-            border: "1px solid rgba(255,255,255,0.2)",
-            borderRadius: "6px",
-            cursor: "pointer",
-          }}
+          className="px-3 py-2 rounded-lg bg-danger text-white hover:bg-red-700 transition-all shadow-sm font-medium text-sm"
         >
           Logout
         </button>
