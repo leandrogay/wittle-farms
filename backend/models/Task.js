@@ -15,9 +15,7 @@ const TaskSchema = new Schema({
   status: { type: String, enum: STATUS, default: 'To Do', index: true },
   priority: { type: String, enum: PRIORITY, default: 'Low', index: true },
   deadline: { type: Date, index: true },
-
   createdBy: { type: Types.ObjectId, ref: 'User', required: true, index: true },
-  departments: [{ type: Types.ObjectId, ref: 'Department', default: [], index: true, }],
 
   attachments: [{ type: Types.ObjectId, ref: 'Attachment', index: true }],
 
