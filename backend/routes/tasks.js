@@ -1,12 +1,30 @@
 import { Router } from 'express';
 import mongoose from 'mongoose';
 import multer from 'multer';
-import Task from '../models/Task.js';
+
+import Task, { DEFAULT_REMINDERS_MIN } from '../models/Task.js';
 import Attachment from '../models/Attachment.js';
 
 const router = Router();
 const upload = multer({ storage: multer.memoryStorage() });
 
+/** Convert incoming reminderOffsets (array | string | CSV) to a clean number[] (minutes, >0) */
+function coerceReminderOffsets(input) {
+  if (input == null) return [];
+  if (typeof input === 'string') {
+    // If multipart we send JSON string, try parse first
+    try {
+      input = JSON.parse(input);
+    } catch {
+      // Fallback for CSV like "7200,1440"
+      input = String(input).split(',').map(s => s.trim());
+    }
+  }
+  const arr = Array.isArray(input) ? input : [input];
+  return [...new Set(arr.map(Number))]
+    .filter(n => Number.isFinite(n) && n > 0)
+    .sort((a, b) => b - a);
+}
 
 /**
  * CREATE Task
@@ -14,20 +32,28 @@ const upload = multer({ storage: multer.memoryStorage() });
  */
 router.post('/', upload.array('attachments'), async (req, res) => {
   try {
-    const { title, description, notes, assignedProject, assignedTeamMembers, status, priority, deadline, createdBy, allDay, startAt, endAt } = req.body;
+    const {
+      title,
+      description,
+      notes,
+      assignedProject,
+      assignedTeamMembers,
+      status,
+      priority,
+      deadline,
+      createdBy,
+      allDay,
+      startAt,
+      endAt,
+      reminderOffsets, // optional
+    } = req.body;
 
-    // Validate required fields
-    if (!title) {
-      return res.status(400).json({ error: 'Title is required' });
-    }
-    if (!assignedProject) {
-      return res.status(400).json({ error: 'Assigned project is required' });
-    }
-    if (!createdBy) {
-      return res.status(400).json({ error: 'Created by is required' });
-    }
+    // Required
+    if (!title) return res.status(400).json({ error: 'Title is required' });
+    if (!assignedProject) return res.status(400).json({ error: 'Assigned project is required' });
+    if (!createdBy) return res.status(400).json({ error: 'Created by is required' });
 
-    // Validate ObjectIds
+    // Validate IDs
     if (!mongoose.Types.ObjectId.isValid(assignedProject)) {
       return res.status(400).json({ error: 'Invalid project ID' });
     }
@@ -35,17 +61,14 @@ router.post('/', upload.array('attachments'), async (req, res) => {
       return res.status(400).json({ error: 'Invalid creator ID' });
     }
 
-    // Process assignedTeamMembers
+    // Team members
     let teamMembers = [];
     if (assignedTeamMembers) {
       if (typeof assignedTeamMembers === 'string') {
-        // Single member or comma-separated string
-        teamMembers = assignedTeamMembers.split(',').filter(id => id.trim());
+        teamMembers = assignedTeamMembers.split(',').map(s => s.trim()).filter(Boolean);
       } else if (Array.isArray(assignedTeamMembers)) {
         teamMembers = assignedTeamMembers;
       }
-
-      // Validate team member IDs
       for (const memberId of teamMembers) {
         if (!mongoose.Types.ObjectId.isValid(memberId)) {
           return res.status(400).json({ error: `Invalid team member ID: ${memberId}` });
@@ -53,16 +76,19 @@ router.post('/', upload.array('attachments'), async (req, res) => {
       }
     }
 
-    // Compute schedule defaults
+    // Times
     const now = new Date();
     const sAt = startAt ? new Date(startAt) : now;
     let eAt = endAt
       ? new Date(endAt)
-      : (deadline ? new Date(deadline) : new Date(sAt.getTime() + 60 * 60 * 1000)); // +1h if no deadline
-
-    // Guard ordering
+      : (deadline ? new Date(deadline) : new Date(sAt.getTime() + 60 * 60 * 1000));
     if (eAt < sAt) eAt = new Date(sAt.getTime() + 60 * 60 * 1000);
 
+    // Reminders
+    const cleanOffsets = coerceReminderOffsets(reminderOffsets);
+    const finalOffsets = deadline
+      ? (cleanOffsets.length ? cleanOffsets : DEFAULT_REMINDERS_MIN)
+      : [];
 
     const task = await Task.create({
       title,
@@ -77,33 +103,35 @@ router.post('/', upload.array('attachments'), async (req, res) => {
       allDay: (allDay === true || allDay === 'true'),
       startAt: sAt,
       endAt: eAt,
+      reminderOffsets: finalOffsets,
     });
 
+    // Attachments (optional)
     if (req.files && req.files.length > 0) {
       const attachments = await Promise.all(
-        req.files.map((file) => Attachment.create({
-          task: task._id,
-          filename: file.originalname,
-          mimetype: file.mimetype,
-          size: file.size,
-          data: file.buffer,
-          uploadedBy: createdBy,
-        }))
+        req.files.map(file =>
+          Attachment.create({
+            task: task._id,
+            filename: file.originalname,
+            mimetype: file.mimetype,
+            size: file.size,
+            data: file.buffer,
+            uploadedBy: createdBy,
+          })
+        )
       );
-
-      // Link attachments to IDs to task
-      task.attachments = attachments.map((a) => a._id);
+      task.attachments = attachments.map(a => a._id);
       await task.save();
     }
 
     const populatedTask = await Task.findById(task._id)
-      .populate("assignedTeamMembers", "name email")
-      .populate("createdBy", "name email")
-      .populate("assignedProject", "name")
-      .populate("attachments");
+      .populate('assignedTeamMembers', 'name email')
+      .populate('createdBy', 'name email')
+      .populate('assignedProject', 'name')
+      .populate('attachments');
 
-    const io = req.app.get("io");
-    io.emit('calendar:task:created', { task: populatedTask });
+    const io = req.app.get('io');
+    io?.emit?.('calendar:task:created', { task: populatedTask });
 
     res.status(201).json(populatedTask);
   } catch (e) {
@@ -111,9 +139,9 @@ router.post('/', upload.array('attachments'), async (req, res) => {
   }
 });
 
-/*
- * READ All Tasks (with optional filters)
- * GET /api/tasks?assignee=USER_ID
+/**
+ * READ all tasks
+ * GET /api/tasks?assignedProject=<id>&status=<status>&assignee=<userId>&createdBy=<userId>
  */
 router.get('/', async (req, res) => {
   try {
@@ -137,10 +165,7 @@ router.get('/', async (req, res) => {
   }
 });
 
-/*
- * READ Single Task
- * GET /api/tasks/:id
- */
+/** READ one task */
 router.get('/:id', async (req, res) => {
   try {
     const task = await Task.findById(req.params.id)
@@ -150,27 +175,34 @@ router.get('/:id', async (req, res) => {
       .lean();
 
     if (!task) return res.status(404).json({ error: 'Task not found' });
-
     res.json(task);
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
 });
 
-/*
+/**
  * UPDATE Task
  * PUT /api/tasks/:id
  */
 router.put('/:id', upload.array('attachments'), async (req, res) => {
   try {
     const {
-      title, description, notes,
-      assignedProject, assignedTeamMembers,
-      status, priority, deadline, createdBy,
-      allDay, startAt, endAt
+      title,
+      description,
+      notes,
+      assignedProject,
+      assignedTeamMembers,
+      status,
+      priority,
+      deadline,
+      createdBy,
+      allDay,
+      startAt,
+      endAt,
+      reminderOffsets, // optional
     } = req.body;
 
-    // Load existing so we can compute defaults
     const existing = await Task.findById(req.params.id);
     if (!existing) return res.status(404).json({ error: 'Task not found' });
 
@@ -182,7 +214,7 @@ router.put('/:id', upload.array('attachments'), async (req, res) => {
       return res.status(400).json({ error: 'Invalid creator ID' });
     }
 
-    // Normalize team members only if provided
+    // Team members (optional)
     let teamMembers;
     if (assignedTeamMembers !== undefined) {
       if (typeof assignedTeamMembers === 'string') {
@@ -197,7 +229,7 @@ router.put('/:id', upload.array('attachments'), async (req, res) => {
       }
     }
 
-    // Build partial update object: include only provided fields
+    // Build partial update object
     const updateData = {};
     if (title !== undefined) updateData.title = title;
     if (description !== undefined) updateData.description = description;
@@ -212,33 +244,65 @@ router.put('/:id', upload.array('attachments'), async (req, res) => {
     if (startAt !== undefined) updateData.startAt = startAt ? new Date(startAt) : null;
     if (endAt !== undefined) updateData.endAt = endAt ? new Date(endAt) : null;
 
+    // Determine what the deadline will be AFTER this update
+    const nextDeadline = (deadline !== undefined)
+      ? (deadline ? new Date(deadline) : null)
+      : existing.deadline;
+
+    // Reminders:
+    // - If client provided reminderOffsets:
+    //     * if nextDeadline and cleaned is empty => default to 7/3/1
+    //     * if nextDeadline and cleaned not empty => use cleaned
+    //     * if no nextDeadline => []
+    // - If client did NOT provide reminderOffsets:
+    //     * if nextDeadline is null => clear reminders []
+    //     * else if nextDeadline exists and existing has no reminders => default to 7/3/1
+    if (reminderOffsets !== undefined) {
+      const cleaned = coerceReminderOffsets(reminderOffsets);
+      updateData.reminderOffsets = nextDeadline
+        ? (cleaned.length ? cleaned : DEFAULT_REMINDERS_MIN)
+        : [];
+    } else {
+      if (!nextDeadline) {
+        updateData.reminderOffsets = [];
+      } else {
+        const hadNone = !Array.isArray(existing.reminderOffsets) || existing.reminderOffsets.length === 0;
+        if (hadNone) {
+          updateData.reminderOffsets = DEFAULT_REMINDERS_MIN;
+        }
+      }
+    }
+
+    // Normalize times
     let sAt = updateData.startAt ?? existing.startAt ?? existing.createdAt ?? new Date();
-    let eAt = updateData.endAt
-      ?? existing.endAt
-      ?? (updateData.deadline ?? existing.deadline)
-      ?? new Date(sAt.getTime() + 60 * 60 * 1000);
+    let eAt =
+      updateData.endAt ??
+      existing.endAt ??
+      (updateData.deadline ?? existing.deadline) ??
+      new Date(sAt.getTime() + 60 * 60 * 1000);
 
     if (eAt < sAt) eAt = new Date(sAt.getTime() + 60 * 60 * 1000);
     updateData.startAt = sAt;
     updateData.endAt = eAt;
 
-    const task = await Task.findByIdAndUpdate(
-      req.params.id,
-      updateData,
-      { new: true, runValidators: true }
-    );
+    const task = await Task.findByIdAndUpdate(req.params.id, updateData, {
+      new: true,
+      runValidators: true,
+    });
 
-    // Handle new attachments (optional)
+    // New attachments (optional)
     if (req.files && req.files.length > 0) {
       const newAttachments = await Promise.all(
-        req.files.map((file) => Attachment.create({
-          task: task._id,
-          filename: file.originalname,
-          mimetype: file.mimetype,
-          size: file.size,
-          data: file.buffer,
-          uploadedBy: createdBy || task.createdBy,
-        }))
+        req.files.map(file =>
+          Attachment.create({
+            task: task._id,
+            filename: file.originalname,
+            mimetype: file.mimetype,
+            size: file.size,
+            data: file.buffer,
+            uploadedBy: createdBy || task.createdBy,
+          })
+        )
       );
       const existingAttachmentIds = task.attachments || [];
       task.attachments = [...existingAttachmentIds, ...newAttachments.map(a => a._id)];
@@ -252,7 +316,7 @@ router.put('/:id', upload.array('attachments'), async (req, res) => {
       .populate('attachments');
 
     const io = req.app.get('io');
-    io.emit('calendar:task:updated', { task: populatedTask });
+    io?.emit?.('calendar:task:updated', { task: populatedTask });
 
     res.json(populatedTask);
   } catch (e) {
@@ -260,19 +324,14 @@ router.put('/:id', upload.array('attachments'), async (req, res) => {
   }
 });
 
-
-/*
- * DELETE Task
- * DELETE /api/tasks/:id
- */
+/** DELETE task */
 router.delete('/:id', async (req, res) => {
   try {
     const task = await Task.findByIdAndDelete(req.params.id);
-
     if (!task) return res.status(404).json({ error: 'Task not found' });
 
     const io = req.app.get('io');
-    io.emit('calendar:task:deleted', { id: req.params.id });
+    io?.emit?.('calendar:task:deleted', { id: req.params.id });
 
     res.json({ message: 'Task deleted successfully' });
   } catch (e) {
@@ -280,26 +339,22 @@ router.delete('/:id', async (req, res) => {
   }
 });
 
-
-
-/*
-* READ/DOWNLOAD attachement by TaskId & AttachmentId
-* GET /api/tasks/:taskId/attachments/:attachmentId
-*/
-router.get("/:taskId/attachments/:attachmentId", async (req, res) => {
+/** Download an attachment for a task */
+router.get('/:taskId/attachments/:attachmentId', async (req, res) => {
   try {
     const attachment = await Attachment.findById(req.params.attachmentId);
-    if (!attachment) return res.status(404).json({ error: "File not found" });
+    if (!attachment) return res.status(404).json({ error: 'File not found' });
 
-    res.set("Content-Type", attachment.mimetype);
-    res.set("Content-Disposition", `attachment; filename="${attachment.filename}"`);
+    res.set('Content-Type', attachment.mimetype);
+    res.set('Content-Disposition', `attachment; filename="${attachment.filename}"`);
     res.send(attachment.data);
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
 });
 
-router.delete("/attachments/drop", async (req, res) => {
+/** Danger: drop all attachments (dev) */
+router.delete('/attachments/drop', async (req, res) => {
   try {
     await Attachment.deleteMany({});
     res.json({ message: 'All attachments deleted successfully' });
