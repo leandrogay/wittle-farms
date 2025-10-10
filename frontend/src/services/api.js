@@ -26,7 +26,13 @@ function toFormDataIfFiles(obj) {
   Object.entries(obj).forEach(([key, value]) => {
     if (key === "attachments") {
       Array.from(value).forEach(file => fd.append("attachments", file));
-    } else if (Array.isArray(value)) {
+    }
+    else if (key === "reminderOffsets") {
+      // Always send as JSON string so the server sees the whole array reliably.
+      const arr = Array.isArray(value) ? value : [];
+      fd.append("reminderOffsets", JSON.stringify(arr));
+    }
+    else if (Array.isArray(value)) {
       value.forEach(v => fd.append(key, v));
     } else {
       fd.append(key, value);
@@ -505,10 +511,6 @@ export async function createProject(formData) {
   }
 }
 
-/**
- * Returns all members you can assign to a project.
- * Normalized to {_id, name, email}
- */
 export async function getAllTeamMembers() {
   const res = await fetch(`${API_BASE}/api/users`, { credentials: "include" });
   if (!res.ok) throw new Error(await res.text().catch(() => "Failed to fetch team members"));

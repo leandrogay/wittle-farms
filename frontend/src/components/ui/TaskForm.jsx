@@ -34,6 +34,16 @@ export default function TaskForm({
     isEdit ? !task?.deadline : false
   );
 
+  const MINUTES = { minute: 1, hour: 60, day: 1440 };
+  const [newReminderValue, setNewReminderValue] = useState(0);
+  const [newReminderUnit, setNewReminderUnit] = useState("day");
+
+  function labelFromMinutes(m) {
+    if (m % MINUTES.day === 0) return `${m / MINUTES.day} day(s) before`;
+    if (m % MINUTES.hour === 0) return `${m / MINUTES.hour} hour(s) before`;
+    return `${m} minute(s) before`;
+  }
+
   const [formData, setFormData] = useState(() => {
     if (isEdit) {
       return {
@@ -50,6 +60,8 @@ export default function TaskForm({
           ? dayjs(task.deadline).tz().format("YYYY-MM-DDTHH:mm")
           : "",
         createdBy: user.id,
+        reminderOffsets: Array.isArray(task.reminderOffsets) ? task.reminderOffsets : [],
+        attachments: [],
       };
     }
     return {
@@ -63,6 +75,7 @@ export default function TaskForm({
       deadline: "",
       createdBy: user.id,
       attachments: [],
+      reminderOffsets: [],
     };
   });
 
@@ -190,32 +203,60 @@ export default function TaskForm({
     try {
       const payload = { ...formData };
       const hasDeadline = !noDueDate && !!formData.deadline;
+
       if (hasDeadline) {
         payload.deadline = dayjs
           .tz(formData.deadline, "YYYY-MM-DDTHH:mm", "Asia/Singapore")
           .toISOString();
+
+        let offsets = Array.isArray(formData.reminderOffsets)
+          ? [...formData.reminderOffsets]
+          : [];
+
+        const pending = Number(newReminderValue) * MINUTES[newReminderUnit];
+        if (Number.isFinite(pending) && pending > 0 && !offsets.includes(pending)) {
+          offsets.push(pending);
+        }
+
+        payload.reminderOffsets = [...new Set(offsets)]
+          .map(Number)
+          .filter((n) => Number.isFinite(n) && n > 0)
+          .sort((a, b) => b - a);
       } else {
         delete payload.deadline;
+        payload.reminderOffsets = (Array.isArray(formData.reminderOffsets) ? formData.reminderOffsets : [])
+          .map(Number)
+          .filter(n => Number.isFinite(n) && n > 0);
+      }
+
+      console.log("[TASK SUBMIT PAYLOAD]", payload);
+      {
+        const mins = Array.isArray(payload.reminderOffsets) ? payload.reminderOffsets : [];
+        const days = mins.map(m => +(m / 1440).toFixed(4));
+        console.log("[TASK SUBMIT] reminderOffsets (min):", mins, "→ days:", days);
       }
 
       if (isEdit) {
         const data = await updateTask(task._id, payload);
+        console.log("[SERVER UPDATE RESULT] reminderOffsets (min):", data?.reminderOffsets,
+              "→ days:", (data?.reminderOffsets || []).map(m => m / 1440));
         onUpdated?.(data);
         alert("Task updated successfully!");
       } else {
         const data = await createTask(payload);
+        console.log("[SERVER CREATE RESULT] reminderOffsets (min):", data?.reminderOffsets,
+              "→ days:", (data?.reminderOffsets || []).map(m => m / 1440));
         onCreated?.(data);
         alert("Task created successfully!");
       }
+
       onCancel();
     } catch (err) {
-      alert(
-        `${isEdit ? "Error updating task: " : "Error creating task: "}${
-          err.message
-        }`
-      );
+      alert(`${isEdit ? "Error updating task: " : "Error creating task: "}${err.message}`);
     }
   }
+
+
 
   useEffect(() => {
     function handleClickOutside(event) {
@@ -452,8 +493,8 @@ export default function TaskForm({
                       {formData.assignedTeamMembers.length > 0
                         ? `${formData.assignedTeamMembers.length} selected`
                         : isEdit
-                        ? "Change assignees"
-                        : "Select team members"}
+                          ? "Change assignees"
+                          : "Select team members"}
                     </span>
                     <svg
                       className="w-4 h-4 transition-transform text-light-text-muted dark:text-dark-text-muted shrink-0 ml-2"
@@ -547,8 +588,7 @@ export default function TaskForm({
 
                 <div>
                   <label className="block text-sm font-semibold text-light-text-primary dark:text-dark-text-primary mb-1">
-                    Deadline{" "}
-                    <span className="text-light-text-muted dark:text-dark-text-muted font-normal"></span>
+                    Deadline <span className="text-light-text-muted dark:text-dark-text-muted font-normal"></span>
                   </label>
                   <label className="flex items-center gap-2 mb-2 text-sm text-light-text-secondary dark:text-dark-text-secondary">
                     <input
@@ -570,9 +610,96 @@ export default function TaskForm({
                   />
                   {noDueDate && (
                     <p className="mt-1 text-xs text-light-text-muted dark:text-dark-text-muted">
-                      This task will be created with{" "}
-                      <strong>No due date</strong>.
+                      This task will be created with <strong>No due date</strong>.
                     </p>
+                  )}
+                </div>
+
+                <div className="mt-3">
+                  <label className="block text-sm font-semibold text-light-text-primary dark:text-dark-text-primary mb-1">
+                    Reminders
+                  </label>
+
+                  {noDueDate ? (
+                    <p className="text-xs text-light-text-muted dark:text-dark-text-muted">
+                      Add a deadline to enable reminders.
+                    </p>
+                  ) : (
+                    <>
+                      {formData.reminderOffsets.length > 0 ? (
+                        <div className="flex flex-wrap gap-2 mb-2">
+                          {formData.reminderOffsets
+                            .slice()
+                            .sort((a, b) => b - a)
+                            .map((m, idx) => (
+                              <span
+                                key={`${m}-${idx}`}
+                                className="inline-flex items-center text-xs bg-light-surface dark:bg-dark-surface border border-light-border dark:border-dark-border rounded-full px-2 py-1"
+                              >
+                                {labelFromMinutes(m)}
+                                <button
+                                  type="button"
+                                  className="ml-1 text-light-text-muted dark:text-dark-text-muted hover:text-danger"
+                                  onClick={() =>
+                                    setFormData(prev => ({
+                                      ...prev,
+                                      reminderOffsets: (prev.reminderOffsets || []).filter(x => x !== m),
+                                    }))
+                                  }
+                                  title="Remove reminder"
+                                >
+                                  ×
+                                </button>
+                              </span>
+                            ))}
+                        </div>
+                      ) : (
+                        <p className="text-xs text-light-text-muted dark:text-dark-text-muted mb-2">
+                          If you don’t add any, we’ll remind you <b>7</b>, <b>3</b>, and <b>1</b> day before the deadline by default.
+                        </p>
+                      )}
+
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="number"
+                          min={0}
+                          step={1}
+                          value={newReminderValue}
+                          onChange={(e) =>
+                            setNewReminderValue(
+                              parseInt(e.target.value || "1", 10)
+                            )
+                          }
+                          className="w-24 px-3 py-2 text-sm border border-light-border dark:border-dark-border rounded-lg bg-light-bg dark:bg-dark-bg-secondary text-light-text-primary dark:text-dark-text-primary"
+                        />
+                        <select
+                          value={newReminderUnit}
+                          onChange={(e) => setNewReminderUnit(e.target.value)}
+                          className="px-3 py-2 text-sm border border-light-border dark:border-dark-border rounded-lg bg-light-bg dark:bg-dark-bg-secondary text-light-text-primary dark:text-dark-text-primary"
+                        >
+                          <option value="minute">minute(s) before</option>
+                          <option value="hour">hour(s) before</option>
+                          <option value="day">day(s) before</option>
+                        </select>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const minutes =
+                              Number(newReminderValue) * MINUTES[newReminderUnit];
+                            if (!Number.isFinite(minutes) || minutes <= 0) return;
+                            setFormData((prev) => ({
+                              ...prev,
+                              reminderOffsets: [
+                                ...new Set([...(prev.reminderOffsets || []), minutes]),
+                              ],
+                            }));
+                          }}
+                          className="px-3 py-2 text-sm rounded-lg bg-light-surface dark:bg-dark-surface border border-light-border dark:border-dark-border hover:bg-light-bg-secondary dark:hover:bg-dark-bg-secondary"
+                        >
+                          Add
+                        </button>
+                      </div>
+                    </>
                   )}
                 </div>
               </div>
@@ -588,11 +715,10 @@ export default function TaskForm({
               </button>
               <button
                 type="submit"
-                className={`px-4 py-2 text-sm rounded-lg transition-colors font-medium shadow-sm ${
-                  isEdit
-                    ? "bg-success text-white hover:bg-emerald-600"
-                    : "bg-brand-primary text-white hover:bg-blue-700"
-                }`}
+                className={`px-4 py-2 text-sm rounded-lg transition-colors font-medium shadow-sm ${isEdit
+                  ? "bg-success text-white hover:bg-emerald-600"
+                  : "bg-brand-primary text-white hover:bg-blue-700"
+                  }`}
               >
                 {isEdit ? "Save Changes" : "Create Task"}
               </button>
