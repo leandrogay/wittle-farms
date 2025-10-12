@@ -523,3 +523,19 @@ export async function getAllTeamMembers() {
     }))
     : [];
 }
+
+
+// (Manager) Send Overdue Task Alerts via Gmail
+export async function sendOverdueAlerts(projectId) {
+  const API_BASE = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || "http://localhost:3000";
+  const res = await fetch(`${API_BASE}/api/notifications/overdue?project=${encodeURIComponent(projectId)}`, {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+  });
+  if (!res.ok) {
+    throw new Error(await res.text().catch(() => "Failed to send overdue alerts"));
+  }
+  return res.json();
+}
+

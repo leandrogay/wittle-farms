@@ -6,6 +6,8 @@ import express from 'express';
 import mongoose from 'mongoose';
 import http from 'http';
 import { Server as IOServer } from 'socket.io';
+import cron from 'node-cron';
+import { runDailyOverdueDigest } from './jobs/dailyOverdueTaskEmails.js';
 
 import authRouter from './routes/auth.js';
 import userRouter from './routes/users.js';
@@ -13,6 +15,7 @@ import tasksRouter from './routes/tasks.js';
 import projectRouter from './routes/projects.js';
 import departmentRouter from './routes/departments.js';
 import calendarRoute from "./routes/calendar.js";
+import notificationsRouter from './routes/overdue-notifis.js'
 
 
 const app = express();
@@ -38,6 +41,7 @@ app.use('/api/users', userRouter);
 app.use('/api/tasks', tasksRouter);
 app.use('/api/projects', projectRouter);
 app.use('/api/departments', departmentRouter);
+app.use('/api/notifications', notificationsRouter)
 
 console.log('Loaded ENV:', process.env.MONGO_URI);
 
@@ -64,3 +68,17 @@ try {
 server.listen(PORT, () => {
   console.log(`Server running at http://localhost:${PORT}`);
 });
+
+// Daily 9:00 AM Asia/Singapore Overdue Email Notifications for Managers
+const job = cron.schedule(
+  "0 9 * * *",
+  async () => {
+    try {
+      await runDailyOverdueDigest();
+      console.log("[cron] Test digest fired");
+    } catch (err) {
+      console.error("[cron] Test digest failed:", err);
+    }
+  },
+  { timezone: "Asia/Singapore" }
+);
