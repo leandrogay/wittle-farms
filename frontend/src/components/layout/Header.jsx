@@ -1,11 +1,15 @@
 import { NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext.jsx";
 import { useTheme } from "../../context/ThemeContext.jsx";
+import { useState } from "react";
+import NotificationBell from "../notifications/NotificationBell";
+import NotificationPanel from "../notifications/NotificationPanel";
 
 export default function Header() {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
+  const [showNotifications, setShowNotifications] = useState(false);
 
   const handleLogout = () => {
     localStorage.removeItem("auth_token");
@@ -148,6 +152,24 @@ export default function Header() {
                 {user.role}
               </span>
             </div>
+          </div>
+        )}
+
+        {/* Notifications */}
+        {user && (
+          <div className="relative">
+            <NotificationBell onClick={() => setShowNotifications(!showNotifications)} />
+            {showNotifications && (
+              <>
+                <div
+                  className="fixed inset-0 z-10"
+                  onClick={() => setShowNotifications(false)}
+                ></div>
+                <div className="absolute right-0 z-20">
+                  <NotificationPanel onClose={() => setShowNotifications(false)} />
+                </div>
+              </>
+            )}
           </div>
         )}
 

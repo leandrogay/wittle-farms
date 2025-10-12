@@ -19,6 +19,7 @@ import Calendar from "./pages/Calendar.jsx";
 import CreateProject from "./pages/CreateProject.jsx";
 
 import { AuthProvider } from "./context/AuthContext.jsx";
+import { NotificationProvider } from "./context/NotificationContext.jsx";
 import RequireAuth from "./components/auth/RequireAuth.jsx";
 import RequireRole from "./components/auth/RequireRole.jsx";
 import RoleRedirect from "./components/auth/RoleRedirect.jsx";
@@ -37,7 +38,8 @@ createRoot(document.getElementById("root")).render(
     <AuthProvider>
       <ThemeProvider>
         <BrowserRouter>
-          <Routes>
+          <NotificationProvider>
+            <Routes>
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
             <Route path="/unauthorized" element={<Unauthorized />} />
@@ -75,6 +77,7 @@ createRoot(document.getElementById("root")).render(
             {/* Fallback */}
             <Route path="*" element={<Navigate to="/login" replace />} />
           </Routes>
+            </NotificationProvider>
         </BrowserRouter>
       </ThemeProvider>
     </AuthProvider>
