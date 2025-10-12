@@ -8,6 +8,12 @@ import http from 'http';
 import { Server as IOServer } from 'socket.io';
 import cron from 'node-cron';
 import { runDailyOverdueDigest } from './jobs/dailyOverdueTaskEmails.js';
+import { 
+  checkAndCreateReminders, 
+  getUnreadNotifications,
+  markNotificationsAsRead,
+  markNotificationsAsSent 
+} from './services/notificationService.js';
 
 import authRouter from './routes/auth.js';
 import userRouter from './routes/users.js';
@@ -48,9 +54,50 @@ console.log('Loaded ENV:', process.env.MONGO_URI);
 io.on('connection', socket => {
   console.log('Client connected:', socket.id);
 
+  // When user requests their unread notifications
+  socket.on('getUnreadNotifications', async (userId) => {
+    try {
+      const notifications = await getUnreadNotifications(userId);
+      socket.emit('unreadNotifications', notifications);
+    } catch (err) {
+      console.error('Error fetching unread notifications:', err);
+    }
+  });
+
+  // When user marks notifications as read
+  socket.on('markNotificationsRead', async (notificationIds) => {
+    try {
+      await markNotificationsAsRead(notificationIds);
+    } catch (err) {
+      console.error('Error marking notifications as read:', err);
+    }
+  });
+
   socket.on('disconnect', () => {
     console.log('Client disconnected:', socket.id);
   });
+});
+
+// Check for task reminders every minute
+const reminderJob = cron.schedule('* * * * *', async () => {
+  try {
+    const notifications = await checkAndCreateReminders();
+    
+    // Emit new notifications to connected clients
+    if (notifications.length > 0) {
+      notifications.forEach(notification => {
+        io.emit(`notification:${notification.userId}`, notification);
+      });
+      
+      // Mark notifications as sent
+      const notificationIds = notifications.map(n => n._id);
+      await markNotificationsAsSent(notificationIds);
+    }
+  } catch (err) {
+    console.error('[cron] Task reminder check failed:', err);
+  }
+}, {
+  timezone: 'Asia/Singapore'
 });
 
 try {

@@ -4,6 +4,7 @@ import Header from "./components/layout/Header.jsx";
 import AnimatedBackground from "./components/layout/AnimatedBackground.jsx";
 import { getMe, refreshAccessToken } from "./services/api.js";
 import { useAuth } from "./context/AuthContext.jsx";
+import { initializeSocket } from "./services/socket.js";
 
 export default function App() {
   const { login, logout } = useAuth();
@@ -30,23 +31,25 @@ export default function App() {
     })();
   }, []);
 
-  if (bootLoading) {
-    return (
-      <AnimatedBackground>
-        <Header />
-        <div className="flex items-center justify-center h-screen text-gray-100">
-          Loading…
-        </div>
-      </AnimatedBackground>
-    );
-  }
+  // Initialize socket when app loads and not in loading state
+  useEffect(() => {
+    if (!bootLoading) {
+      initializeSocket();
+    }
+  }, [bootLoading]);
 
   return (
     <AnimatedBackground>
       <Header />
-      <main className="page-container">
-        <Outlet />
-      </main>
+      {bootLoading ? (
+        <div className="flex items-center justify-center h-screen text-gray-100">
+          Loading…
+        </div>
+      ) : (
+        <main className="page-container">
+          <Outlet />
+        </main>
+      )}
     </AnimatedBackground>
   );
 }
