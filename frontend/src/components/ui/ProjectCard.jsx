@@ -5,23 +5,34 @@ export default function ProjectCard({ project, onOpen }) {
   const now = dayjs();
   const isOverdue = deadline && now.isAfter(deadline, "day");
   const daysUntilDeadline = deadline ? deadline.diff(now, "day") : null;
-  
+ 
   const deadlineText = deadline
     ? deadline.format("DD MMM YYYY")
     : "No deadline";
-
+  
   const teamSize = Array.isArray(project?.teamMembers) ? project.teamMembers.length : 0;
-
+  
+  // Helper to format department display
+  const getDepartmentDisplay = (dept) => {
+    if (!dept) return null;
+    if (Array.isArray(dept)) {
+      return dept.map(d => d?.name || d).filter(Boolean).join(", ");
+    }
+    return dept?.name || dept;
+  };
+  
+  const departmentDisplay = getDepartmentDisplay(project?.department);
+  
   const chipColor = isOverdue
     ? "bg-priority-high-bg dark:bg-priority-high-bg-dark text-priority-high-text dark:text-priority-high-text-dark border border-priority-high-border dark:border-priority-high-border-dark"
     : daysUntilDeadline !== null && daysUntilDeadline <= 7 && daysUntilDeadline >= 0
     ? "bg-priority-medium-bg dark:bg-priority-medium-bg-dark text-priority-medium-text dark:text-priority-medium-text-dark border border-priority-medium-border dark:border-priority-medium-border-dark"
     : "bg-brand-primary/10 dark:bg-brand-secondary/10 text-brand-primary dark:text-brand-secondary border border-brand-primary/20 dark:border-brand-secondary/20";
-
+  
   return (
     <article className="border border-light-border dark:border-dark-border rounded-2xl shadow-sm bg-light-bg dark:bg-dark-bg overflow-hidden transition-all hover:shadow-md hover:border-brand-primary dark:hover:border-brand-secondary h-full group">
-      <button 
-        onClick={() => onOpen(project)} 
+      <button
+        onClick={() => onOpen(project)}
         className="w-full p-5 text-left h-full flex flex-col"
       >
         <div className="space-y-3 flex-1">
@@ -29,26 +40,26 @@ export default function ProjectCard({ project, onOpen }) {
           <div className="text-base sm:text-lg font-bold line-clamp-2 text-light-text-primary dark:text-dark-text-primary group-hover:text-brand-primary dark:group-hover:text-brand-secondary transition-colors">
             {project?.name || "Untitled Project"}
           </div>
-
+          
           {/* Description */}
           {project?.description && (
             <div className="text-sm text-light-text-secondary dark:text-dark-text-secondary line-clamp-2">
               {project.description}
             </div>
           )}
-
+          
           {/* Department */}
-          {project?.department && (
+          {departmentDisplay && (
             <div className="text-sm space-y-1">
               <div className="font-medium text-light-text-secondary dark:text-dark-text-secondary">
                 Department:
               </div>
               <div className="text-base font-semibold text-brand-primary dark:text-brand-secondary">
-                {project.department}
+                {departmentDisplay}
               </div>
             </div>
           )}
-
+          
           {/* Team Size */}
           <div className="flex items-center gap-2 text-sm text-light-text-secondary dark:text-dark-text-secondary">
             <svg
@@ -66,7 +77,7 @@ export default function ProjectCard({ project, onOpen }) {
             </span>
           </div>
         </div>
-
+        
         {/* Deadline Chip */}
         <div className={`mt-4 inline-flex items-center rounded-lg px-3 py-1.5 text-xs font-semibold ${chipColor}`}>
           {isOverdue && "⚠️ "}

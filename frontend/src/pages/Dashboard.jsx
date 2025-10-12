@@ -1,7 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import dayjs from "dayjs";
 import ProjectCard from "../components/ui/ProjectCard";
-// import FilterSort from "../components/dashboard/FilterSort";
 import { getProjects } from "../services/api.js";
 import { useAuth } from "../context/AuthContext.jsx";
 
@@ -49,14 +48,7 @@ export default function Dashboard() {
         setLoading(true);
         const data = await getProjects();
         
-        // Filter projects created by the director or in their department
-        const myProjects = Array.isArray(data)
-          ? data.filter(p => {
-              // Directors can see all projects, or filter by their created projects
-              return true; // Adjust based on your business logic
-            })
-          : [];
-        
+        const myProjects = Array.isArray(data) ? data : [];
         setProjects(myProjects);
       } catch (err) {
         setError(err.message || "Failed to load projects");
@@ -68,10 +60,18 @@ export default function Dashboard() {
 
   // Extract unique departments from projects
   const departments = useMemo(() => {
-    const depts = projects
-      .map(p => (Array.isArray(p.department) ? p.department.map(d => d.name).join(", ") : ""))
-      .filter(d => d && d.trim() !== "");
-    return ["All", ...new Set(depts)].sort();
+    const deptNames = projects
+      .map(p => {
+        // Handle both populated department object and array of departments
+        if (Array.isArray(p.department)) {
+          return p.department.map(d => d?.name || d).filter(Boolean);
+        }
+        return p.department?.name || p.department;
+      })
+      .flat()
+      .filter(d => d && typeof d === 'string' && d.trim() !== "");
+    
+    return ["All", ...new Set(deptNames)].sort();
   }, [projects]);
 
   // Apply filters and sorting
@@ -80,7 +80,14 @@ export default function Dashboard() {
 
     // Apply department filter
     if (departmentFilter !== "All") {
-      result = result.filter(p => p.department === departmentFilter);
+      result = result.filter(p => {
+        if (Array.isArray(p.department)) {
+          return p.department.some(d => 
+            (d?.name || d) === departmentFilter
+          );
+        }
+        return (p.department?.name || p.department) === departmentFilter;
+      });
     }
 
     // Apply sorting
@@ -100,10 +107,26 @@ export default function Dashboard() {
         });
         break;
       case "department-asc":
-        result.sort((a, b) => (a.department || "").localeCompare(b.department || ""));
+        result.sort((a, b) => {
+          const aName = Array.isArray(a.department)
+            ? a.department[0]?.name || ""
+            : a.department?.name || "";
+          const bName = Array.isArray(b.department)
+            ? b.department[0]?.name || ""
+            : b.department?.name || "";
+          return aName.localeCompare(bName);
+        });
         break;
       case "department-desc":
-        result.sort((a, b) => (b.department || "").localeCompare(a.department || ""));
+        result.sort((a, b) => {
+          const aName = Array.isArray(a.department)
+            ? a.department[0]?.name || ""
+            : a.department?.name || "";
+          const bName = Array.isArray(b.department)
+            ? b.department[0]?.name || ""
+            : b.department?.name || "";
+          return bName.localeCompare(aName);
+        });
         break;
       case "title-asc":
         result.sort((a, b) => (a.name || "").localeCompare(b.name || ""));
@@ -319,6 +342,15 @@ export default function Dashboard() {
 }
 
 function ProjectDetailView({ project }) {
+  // Helper to format department display
+  const getDepartmentDisplay = (dept) => {
+    if (!dept) return "—";
+    if (Array.isArray(dept)) {
+      return dept.map(d => d?.name || d).filter(Boolean).join(", ");
+    }
+    return dept?.name || dept;
+  };
+
   return (
     <div className="space-y-4">
       <div>
@@ -345,7 +377,7 @@ function ProjectDetailView({ project }) {
             Department
           </h3>
           <p className="mt-1 text-light-text-primary dark:text-dark-text-primary">
-            {project.department}
+            {getDepartmentDisplay(project.department)}
           </p>
         </div>
       )}
