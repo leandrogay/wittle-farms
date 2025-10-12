@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import dayjs from "dayjs";
-import { getManagerProjects, getProjectTasks } from "../services/api.js";
+import { getManagerProjects, getProjectTasks, sendOverdueAlerts } from "../services/api.js";
 import TaskCard from "../components/ui/TaskCard.jsx";
 import TaskForm from "../components/ui/TaskForm.jsx";
 import { useAuth } from "../context/AuthContext.jsx";
@@ -35,11 +35,10 @@ function ProjectPicker({ projects, valueId, onChange }) {
           {projects.map((p) => (
             <button
               key={p._id}
-              className={`w-full rounded-lg px-3 py-2 text-left text-sm transition-colors ${
-                p._id === valueId
-                  ? "bg-brand-primary dark:bg-brand-secondary text-white font-semibold"
-                  : "text-light-text-primary dark:text-dark-text-primary hover:bg-light-surface dark:hover:bg-dark-surface"
-              }`}
+              className={`w-full rounded-lg px-3 py-2 text-left text-sm transition-colors ${p._id === valueId
+                ? "bg-brand-primary dark:bg-brand-secondary text-white font-semibold"
+                : "text-light-text-primary dark:text-dark-text-primary hover:bg-light-surface dark:hover:bg-dark-surface"
+                }`}
               onClick={() => {
                 onChange(p._id);
                 setOpen(false);
@@ -63,10 +62,10 @@ function SquareTaskTile({ task, onOpen, section }) {
     status === "To Do"
       ? "text-light-text-muted dark:text-dark-text-muted"
       : status === "In Progress"
-      ? "text-info"
-      : status === "Done"
-      ? "text-success"
-      : "";
+        ? "text-info"
+        : status === "Done"
+          ? "text-success"
+          : "";
 
   const priorityColors = {
     Low: "text-success",
@@ -391,8 +390,8 @@ export default function TaskBoardMgr() {
               selectedProjectId
                 ? "Create a new task in this project"
                 : projects.length === 0
-                ? "You have no projects you created"
-                : "Select a project first"
+                  ? "You have no projects you created"
+                  : "Select a project first"
             }
           >
             + Create Task
