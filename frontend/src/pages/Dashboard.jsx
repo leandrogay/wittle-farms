@@ -69,7 +69,7 @@ export default function Dashboard() {
   // Extract unique departments from projects
   const departments = useMemo(() => {
     const depts = projects
-      .map(p => p.department)
+      .map(p => (Array.isArray(p.department) ? p.department.map(d => d.name).join(", ") : ""))
       .filter(d => d && d.trim() !== "");
     return ["All", ...new Set(depts)].sort();
   }, [projects]);
