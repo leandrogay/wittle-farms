@@ -2,8 +2,8 @@ import Task from '../models/Task.js';
 import Notification from '../models/Notification.js';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime.js';
+import { sendEmail } from '../utils/mailer.js';
 
-// Configure dayjs with plugins
 dayjs.extend(relativeTime);
 
 /**
@@ -13,7 +13,6 @@ dayjs.extend(relativeTime);
 export async function checkAndCreateReminders() {
   const now = dayjs();
   
-  // Find all non-completed tasks with deadlines
   const tasks = await Task.find({ 
     status: { $ne: 'Done' },
     deadline: { $exists: true, $ne: null }
@@ -28,15 +27,11 @@ export async function checkAndCreateReminders() {
 
     const deadline = dayjs(task.deadline);
     
-    // For each reminder offset
     for (const offset of task.reminderOffsets) {
       const reminderTime = deadline.subtract(offset, 'minute');
       
-      // If it's time for this reminder (within the last minute)
       if (Math.abs(now.diff(reminderTime, 'minute')) <= 1) {
-        // Create a notification for each team member
         for (const member of task.assignedTeamMembers) {
-          // Check if a similar notification already exists
           const existingNotification = await Notification.findOne({
             userId: member._id,
             taskId: task._id,
@@ -44,28 +39,28 @@ export async function checkAndCreateReminders() {
             scheduledFor: new Date(reminderTime)
           });
 
-          if (!existingNotification) {
-            const notification = {
-              userId: member._id,
-              taskId: task._id,
-              type: 'reminder',
-              message: `Task "${task.title}" is due in ${formatTimeRemaining(offset)}`,
-              scheduledFor: new Date(reminderTime),
-              read: false,
-              sent: false
-            };
-            
-            notifications.push(notification);
-          }
+            if (!existingNotification) {
+              const notification = {
+                userId: member._id,
+                taskId: task._id,
+                type: 'reminder',
+                message: `Task "${task.title}" is due in ${formatTimeRemaining(offset)}`,
+                scheduledFor: new Date(reminderTime),
+                read: false,
+                sent: false
+              };
+              
+              notifications.push(notification);
+            }
         }
       }
     }
 
-    // Check for overdue (only once when it becomes overdue)
-    if (deadline.isBefore(now, 'minute') && 
-        deadline.isAfter(now.subtract(1, 'minute'), 'minute')) {
+    if (
+      deadline.isBefore(now, 'minute') && 
+      deadline.isAfter(now.subtract(1, 'minute'), 'minute')
+    ) {
       for (const member of task.assignedTeamMembers) {
-        // Check if overdue notification already exists
         const existingNotification = await Notification.findOne({
           userId: member._id,
           taskId: task._id,
@@ -90,7 +85,6 @@ export async function checkAndCreateReminders() {
     }
   }
 
-  // Bulk create all notifications
   if (notifications.length > 0) {
     await Notification.insertMany(notifications);
   }
@@ -122,13 +116,63 @@ export async function markNotificationsAsRead(notificationIds) {
 }
 
 /**
- * Mark notifications as sent (after successful Socket.IO emission)
+ * Mark notifications as sent (used for socket-only flows).
+ * If you're using sendPendingEmails(), that function will mark sent + sentAt after emailing.
  */
 export async function markNotificationsAsSent(notificationIds) {
   await Notification.updateMany(
     { _id: { $in: notificationIds } },
     { $set: { sent: true } }
   );
+}
+
+/**
+ * Send emails for all due notifications (reminder + overdue) that haven't been sent yet.
+ * Marks them { sent: true, sentAt: new Date() } after a successful email.
+ */
+export async function sendPendingEmails() {
+  const now = new Date();
+
+  // Find due & unsent notifications
+  const due = await Notification.find({
+    sent: false,
+    scheduledFor: { $lte: now },
+  })
+    .populate('userId', 'name email')
+    .populate('taskId', 'title deadline')
+    .lean();
+
+  if (!due.length) return [];
+
+  const sentIds = [];
+
+  for (const n of due) {
+    const to = n.userId?.email;
+    if (!to) continue;
+
+    const subject =
+      n.type === 'overdue'
+        ? `Overdue: ${n.taskId?.title ?? 'Task'}`
+        : `Reminder: ${n.taskId?.title ?? 'Task'} due soon`;
+
+    const html = buildEmailHtml({ notification: n });
+
+    try {
+      await sendEmail({ to, subject, html });
+      sentIds.push(n._id);
+    } catch (err) {
+      console.error('[mailer] send failed for notification', n._id, err?.message || err);
+    }
+  }
+
+  if (sentIds.length) {
+    await Notification.updateMany(
+      { _id: { $in: sentIds } },
+      { $set: { sent: true, sentAt: new Date() } }
+    );
+  }
+
+  return sentIds;
 }
 
 /**
@@ -144,4 +188,24 @@ function formatTimeRemaining(minutes) {
   } else {
     return `${minutes} ${minutes === 1 ? 'minute' : 'minutes'}`;
   }
+}
+
+/** Build a simple HTML email */
+function buildEmailHtml({ notification }) {
+  const taskTitle = notification.taskId?.title ?? 'Task';
+  const deadline = notification.taskId?.deadline
+    ? dayjs(notification.taskId.deadline).format('ddd, DD MMM YYYY HH:mm')
+    : 'N/A';
+  const heading = notification.type === 'overdue' ? 'Task Overdue' : 'Task Reminder';
+
+  return `
+    <div style="font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;">
+      <h2>${heading}</h2>
+      <p><strong>${taskTitle}</strong></p>
+      <p>${notification.message || ''}</p>
+      <p><strong>Deadline:</strong> ${deadline}</p>
+      <hr style="border:none;border-top:1px solid #e5e7eb;margin:16px 0" />
+      <p style="font-size:12px;color:#6b7280">You are receiving this because you are assigned to this task.</p>
+    </div>
+  `;
 }

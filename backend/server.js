@@ -7,12 +7,14 @@ import mongoose from 'mongoose';
 import http from 'http';
 import { Server as IOServer } from 'socket.io';
 import cron from 'node-cron';
+
 import { runDailyOverdueDigest } from './jobs/dailyOverdueTaskEmails.js';
+
 import { 
-  checkAndCreateReminders, 
+  checkAndCreateReminders,     
   getUnreadNotifications,
   markNotificationsAsRead,
-  markNotificationsAsSent 
+  sendPendingEmails
 } from './services/notificationService.js';
 
 import authRouter from './routes/auth.js';
@@ -20,9 +22,8 @@ import userRouter from './routes/users.js';
 import tasksRouter from './routes/tasks.js';
 import projectRouter from './routes/projects.js';
 import departmentRouter from './routes/departments.js';
-import calendarRoute from "./routes/calendar.js";
-import notificationsRouter from './routes/overdue-notifis.js'
-
+import calendarRoute from './routes/calendar.js';
+import notificationsRouter from './routes/overdue-notifis.js';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -38,23 +39,21 @@ const io = new IOServer(server, {
 
 app.use(cors({ origin: 'http://localhost:5173', credentials: true }));
 app.use(express.json());
+app.set('io', io);
 
-app.set("io", io);
-
-app.use("/api/calendar", calendarRoute);
+app.use('/api/calendar', calendarRoute);
 app.use('/api/auth', authRouter);
 app.use('/api/users', userRouter);
 app.use('/api/tasks', tasksRouter);
 app.use('/api/projects', projectRouter);
 app.use('/api/departments', departmentRouter);
-app.use('/api/notifications', notificationsRouter)
+app.use('/api/notifications', notificationsRouter);
 
 console.log('Loaded ENV:', process.env.MONGO_URI);
 
-io.on('connection', socket => {
+io.on('connection', (socket) => {
   console.log('Client connected:', socket.id);
 
-  // When user requests their unread notifications
   socket.on('getUnreadNotifications', async (userId) => {
     try {
       const notifications = await getUnreadNotifications(userId);
@@ -64,7 +63,6 @@ io.on('connection', socket => {
     }
   });
 
-  // When user marks notifications as read
   socket.on('markNotificationsRead', async (notificationIds) => {
     try {
       await markNotificationsAsRead(notificationIds);
@@ -78,27 +76,30 @@ io.on('connection', socket => {
   });
 });
 
-// Check for task reminders every minute
-const reminderJob = cron.schedule('* * * * *', async () => {
+cron.schedule('* * * * *', async () => {
   try {
-    const notifications = await checkAndCreateReminders();
-    
-    // Emit new notifications to connected clients
-    if (notifications.length > 0) {
-      notifications.forEach(notification => {
-        io.emit(`notification:${notification.userId}`, notification);
+    const newlyCreated = await checkAndCreateReminders();
+
+    if (newlyCreated.length > 0) {
+      newlyCreated.forEach((n) => {
+        io.emit(`notification:${n.userId}`, n);
       });
-      
-      // Mark notifications as sent
-      const notificationIds = notifications.map(n => n._id);
-      await markNotificationsAsSent(notificationIds);
     }
+
+    await sendPendingEmails();
   } catch (err) {
-    console.error('[cron] Task reminder check failed:', err);
+    console.error('[cron] minute reminder flow failed:', err);
   }
-}, {
-  timezone: 'Asia/Singapore'
-});
+}, { timezone: 'Asia/Singapore' });
+
+cron.schedule('0 9 * * *', async () => {
+  try {
+    await runDailyOverdueDigest(); 
+    console.log('[cron] daily overdue digest sent');
+  } catch (err) {
+    console.error('[cron] daily overdue digest failed:', err);
+  }
+}, { timezone: 'Asia/Singapore' });
 
 try {
   await mongoose.connect(process.env.MONGO_URI, {
@@ -110,22 +111,6 @@ try {
   console.error('MongoDB connection error:', err);
 }
 
-
-// Start both Express + Socket.IO server
 server.listen(PORT, () => {
   console.log(`Server running at http://localhost:${PORT}`);
 });
-
-// Daily 9:00 AM Asia/Singapore Overdue Email Notifications for Managers
-const job = cron.schedule(
-  "0 9 * * *",
-  async () => {
-    try {
-      await runDailyOverdueDigest();
-      console.log("[cron] Test digest fired");
-    } catch (err) {
-      console.error("[cron] Test digest failed:", err);
-    }
-  },
-  { timezone: "Asia/Singapore" }
-);
