@@ -458,9 +458,7 @@ export async function updateTaskDates(taskId, { startAt, endAt, allDay }) {
 
 /* ===================== Projects ===================== */
 export async function getProjectById(id) {
-  const res = await fetch(`${API_BASE}/api/projects/${id}?populate=1`, {
-    credentials: "include",
-  });
+  const res = await fetch(`${API_BASE}/api/projects/${id}?populate=1`, { credentials: "include" });
   if (!res.ok) throw new Error(await res.text().catch(() => "Failed to fetch project"));
   return res.json();
 }
@@ -472,19 +470,113 @@ export async function getDepartments() {
   return res.json();
 }
 
+/** Get selectable users */
 export async function getAllTeamMembers() {
   const res = await fetch(`${API_BASE}/api/users`, { credentials: "include" });
   if (!res.ok) throw new Error(await res.text().catch(() => "Failed to fetch team members"));
   const data = await res.json();
   return Array.isArray(data)
     ? data.map((u) => ({
-      _id: u._id || u.id,
-      name: u.name || u.fullName || u.email || "Unnamed",
-      email: u.email,
-    }))
+        _id: u._id || u.id,
+        name: u.name || u.fullName || u.email || "Unnamed",
+        email: u.email,
+      }))
     : [];
 }
 
+/** Create project; if server ignored department on POST, patch then refetch populated */
+export async function createProject(formData) {
+  // We send aliases so whichever key the server expects will be read.
+  const body = JSON.stringify({
+    ...formData,
+    department: formData.department ?? formData.departments ?? formData.departmentIds ?? (formData.departmentId ? [formData.departmentId] : []),
+  });
+
+  const res = await fetch(`${API_BASE}/api/projects`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body,
+  });
+
+  if (!res.ok) throw new Error(await res.text().catch(() => "Failed to create project"));
+  let created = await res.json();
+  const id = created?._id || created?.id;
+
+  // verify departments persisted; if not, update once
+  const want =
+    (Array.isArray(formData.department) && formData.department.length) ||
+    (Array.isArray(formData.departments) && formData.departments.length) ||
+    (Array.isArray(formData.departmentIds) && formData.departmentIds.length) ||
+    !!formData.departmentId;
+
+  const has =
+    Array.isArray(created?.department) ? created.department.length > 0 : false;
+
+  if (id && want && !has) {
+    try {
+      const deptIds =
+        formData.department ?? formData.departments ?? formData.departmentIds ?? (formData.departmentId ? [formData.departmentId] : []);
+      const upd = await fetch(`${API_BASE}/api/projects/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ department: deptIds }),
+      });
+      if (upd.ok) created = await upd.json();
+    } catch { /* ignore; we'll refetch below if needed */ }
+  }
+
+  // if not fully populated, refetch populated
+  const isPopulated =
+    created &&
+    typeof created.createdBy === "object" &&
+    Array.isArray(created.teamMembers) &&
+    created.teamMembers.every((m) => typeof m === "object") &&
+    Array.isArray(created.department) &&
+    created.department.every((d) => typeof d === "object");
+
+  return isPopulated ? created : (id ? await getProjectById(id) : created);
+}
+
+/** Update project and return populated */
+export async function updateProject(projectId, formData) {
+  const body = JSON.stringify({
+    ...formData,
+    ...(formData.department || formData.departments || formData.departmentIds || formData.departmentId
+      ? {
+          department:
+            formData.department ??
+            formData.departments ??
+            formData.departmentIds ??
+            (formData.departmentId ? [formData.departmentId] : []),
+        }
+      : {}),
+  });
+
+  const res = await fetch(`${API_BASE}/api/projects/${projectId}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body,
+  });
+
+  if (!res.ok) throw new Error(await res.text().catch(() => "Failed to update project"));
+  const updated = await res.json();
+
+  const isPopulated =
+    updated &&
+    typeof updated.createdBy === "object" &&
+    Array.isArray(updated.teamMembers) &&
+    updated.teamMembers.every((m) => typeof m === "object") &&
+    Array.isArray(updated.department) &&
+    updated.department.every((d) => typeof d === "object");
+
+  if (isPopulated) return updated;
+
+  const id = updated?._id || updated?.id;
+  return id ? await getProjectById(id) : updated;
+}
 
 // (Manager) Send Overdue Task Alerts via Gmail
 export async function sendOverdueAlerts(projectId) {
