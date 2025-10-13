@@ -441,7 +441,6 @@ export async function updateTaskDates(taskId, { startAt, endAt, allDay }) {
 }
 
 /* ===================== Projects ===================== */
-
 export async function getProjectById(id) {
   const res = await fetch(`${API_BASE}/api/projects/${id}?populate=1`, {
     credentials: "include",
@@ -450,55 +449,14 @@ export async function getProjectById(id) {
   return res.json();
 }
 
-export async function createProject(formData) {
-  try {
-    // Build minimal payload the API expects
-    const now = new Date().toISOString();
-    const payload = {
-      name: formData.name,
-      description: formData.description ?? "",
-      createdBy: formData.createdBy,        // <-- user.id
-      teamMembers: formData.teamMembers ?? [],
-      createdAt: now,                        // harmless frontend timestamps
-      updatedAt: now,
-    };
-
-    const res = await fetch(`${API_BASE}/api/projects`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      credentials: "include",
-      body: JSON.stringify(payload),
-    });
-
-    if (!res.ok) throw new Error(await res.text().catch(() => "Failed to create project"));
-    const created = await res.json();
-
-    // If backend already returns populated fields, just return it.
-    const isPopulated =
-      created &&
-      created.createdBy &&
-      typeof created.createdBy === "object" &&
-      Array.isArray(created.teamMembers) &&
-      created.teamMembers.every((m) => typeof m === "object");
-
-    if (isPopulated) return created;
-
-    // Otherwise fetch the populated version to match the desired format.
-    const id = created?._id || created?.id;
-    if (!id) return created; // fallback
-
-    const populated = await getProjectById(id);
-    return populated;
-  } catch (err) {
-    console.error("[createProject]", err);
-    throw err;
-  }
+/** Get selectable departments */
+export async function getDepartments() {
+  const res = await fetch(`${API_BASE}/api/departments`, { credentials: "include" });
+  if (!res.ok) throw new Error(await res.text().catch(() => "Failed to fetch departments"));
+  return res.json();
 }
 
-/**
- * Returns all members you can assign to a project.
- * Normalized to {_id, name, email}
- */
+/** Get selectable users (team members) */
 export async function getAllTeamMembers() {
   const res = await fetch(`${API_BASE}/api/users`, { credentials: "include" });
   if (!res.ok) throw new Error(await res.text().catch(() => "Failed to fetch team members"));
@@ -508,6 +466,93 @@ export async function getAllTeamMembers() {
         _id: u._id || u.id,
         name: u.name || u.fullName || u.email || "Unnamed",
         email: u.email,
+        role: u.role,
       }))
     : [];
+}
+
+/** Create project; if backend ignores departments on POST, PATCH them then refetch */
+export async function createProject(formData) {
+  const res = await fetch(`${API_BASE}/api/projects`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify(formData),
+  });
+
+  if (!res.ok) throw new Error(await res.text().catch(() => "Failed to create project"));
+  let created = await res.json();
+  const id = created?._id || created?.id;
+
+  // Determine if departments were intended vs actually present
+  const wantDepts =
+    (Array.isArray(formData.department) && formData.department.length) ||
+    (Array.isArray(formData.departments) && formData.departments.length) ||
+    (Array.isArray(formData.departmentIds) && formData.departmentIds.length) ||
+    formData.departmentId;
+
+  const haveDeptsNow =
+    Array.isArray(created?.department) ? created.department.length > 0 :
+    Array.isArray(created?.departments) ? created.departments.length > 0 :
+    !!created?.departmentId;
+
+  // Fallback: update departments if missing
+  if (id && wantDepts && !haveDeptsNow) {
+    const deptIds =
+      formData.department ?? formData.departments ?? formData.departmentIds ?? (formData.departmentId ? [formData.departmentId] : []);
+    try {
+      const upd = await fetch(`${API_BASE}/api/projects/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          department: deptIds,
+          departments: deptIds,
+          ...(deptIds?.length === 1 ? { departmentId: deptIds[0] } : {}),
+        }),
+      });
+      if (upd.ok) created = await upd.json();
+    } catch { /* ignore, we will refetch populated below */ }
+  }
+
+  // If already populated, return; else refetch populated
+  const populated =
+    created &&
+    typeof created.createdBy === "object" &&
+    Array.isArray(created.teamMembers) &&
+    created.teamMembers.every((m) => typeof m === "object") &&
+    (
+      (Array.isArray(created.department) && created.department.every((d) => typeof d === "object")) ||
+      (Array.isArray(created.departments) && created.departments.every((d) => typeof d === "object"))
+    );
+
+  if (populated) return created;
+  return id ? await getProjectById(id) : created;
+}
+
+export async function updateProject(projectId, formData) {
+  const res = await fetch(`${API_BASE}/api/projects/${projectId}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify(formData),
+  });
+
+  if (!res.ok) throw new Error(await res.text().catch(() => "Failed to update project"));
+  const updated = await res.json();
+
+  const isPopulated =
+    updated &&
+    typeof updated.createdBy === "object" &&
+    Array.isArray(updated.teamMembers) &&
+    updated.teamMembers.every((m) => typeof m === "object") &&
+    (
+      (Array.isArray(updated.department) && updated.department.every((d) => typeof d === "object")) ||
+      (Array.isArray(updated.departments) && updated.departments.every((d) => typeof d === "object"))
+    );
+
+  if (isPopulated) return updated;
+
+  const id = updated?._id || updated?.id;
+  return id ? await getProjectById(id) : updated;
 }

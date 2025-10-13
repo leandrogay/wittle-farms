@@ -1,6 +1,10 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "../../context/AuthContext.jsx";
-import { createProject, getAllTeamMembers } from "../../services/api.js";
+import {
+  createProject,
+  getAllTeamMembers,
+  getDepartments,
+} from "../../services/api.js";
 
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
@@ -15,31 +19,39 @@ export default function CreateProjectForm({
   onCancel,
   onCreated,
   onUpdated,
-  project = null, // pass when editing
+  project = null,
 }) {
   const { user } = useAuth();
   const isEdit = !!project;
 
   const [members, setMembers] = useState([]);
+  const [departments, setDepartments] = useState([]);
+  const [departmentIds, setDepartmentIds] = useState([]);
+  const [deadline, setDeadline] = useState("");
+
   const [showMemberDropdown, setShowMemberDropdown] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
   const [noEndDate, setNoEndDate] = useState(() => (isEdit ? !project?.endDate : false));
 
+  const dropdownRef = useRef(null);
+  const dropdownBtnRef = useRef(null);
+
   const [formData, setFormData] = useState(() => {
     if (isEdit) {
       return {
         name: project?.name ?? "",
         description: project?.description ?? "",
-        status: project?.status ?? "Planned",
         priority: project?.priority ?? "Medium",
         visibility: project?.visibility ?? "Team",
         projectLead:
           typeof project?.projectLead === "string"
             ? project.projectLead
             : project?.projectLead?._id ?? "",
-        teamMembers: (project?.teamMembers || []).map((m) => (typeof m === "string" ? m : m?._id)),
+        teamMembers: (project?.teamMembers || []).map((m) =>
+          typeof m === "string" ? m : m?._id
+        ),
         startDate: project?.startDate
           ? dayjs(project.startDate).tz().format("YYYY-MM-DD")
           : dayjs().tz().format("YYYY-MM-DD"),
@@ -51,7 +63,6 @@ export default function CreateProjectForm({
     return {
       name: "",
       description: "",
-      status: "Planned",
       priority: "Medium",
       visibility: "Team",
       projectLead: user.id,
@@ -63,14 +74,32 @@ export default function CreateProjectForm({
     };
   });
 
+  // Load members & departments
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
-        const list = await getAllTeamMembers();
-        if (!cancelled) setMembers(Array.isArray(list) ? list : []);
+        const [memberList, deptList] = await Promise.all([
+          getAllTeamMembers(),
+          getDepartments(),
+        ]);
+
+        if (!cancelled) {
+          setMembers(Array.isArray(memberList) ? memberList : []);
+          setDepartments(Array.isArray(deptList) ? deptList : []);
+          if (isEdit && Array.isArray(project?.department)) {
+            setDepartmentIds(
+              project.department
+                .map((d) => (typeof d === "string" ? d : d?._id))
+                .filter(Boolean)
+            );
+          }
+          if (isEdit && project?.deadline) {
+            setDeadline(dayjs(project.deadline).tz().format("YYYY-MM-DDTHH:mm"));
+          }
+        }
       } catch (e) {
-        if (!cancelled) setError(e.message || "Failed to load team members");
+        if (!cancelled) setError(e.message || "Failed to load form data");
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -78,7 +107,26 @@ export default function CreateProjectForm({
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [isEdit, project]);
+
+  // close dropdown on outside click / Esc
+  useEffect(() => {
+    function onDocClick(e) {
+      if (!showMemberDropdown) return;
+      const insideMenu = dropdownRef.current?.contains(e.target);
+      const insideBtn = dropdownBtnRef.current?.contains(e.target);
+      if (!insideMenu && !insideBtn) setShowMemberDropdown(false);
+    }
+    function onEsc(e) {
+      if (e.key === "Escape") setShowMemberDropdown(false);
+    }
+    document.addEventListener("mousedown", onDocClick);
+    document.addEventListener("keydown", onEsc);
+    return () => {
+      document.removeEventListener("mousedown", onDocClick);
+      document.removeEventListener("keydown", onEsc);
+    };
+  }, [showMemberDropdown]);
 
   const memberMap = useMemo(() => {
     const m = new Map();
@@ -119,21 +167,52 @@ export default function CreateProjectForm({
     setFormData((p) => ({ ...p, attachments: dt.files }));
   }
 
+  // ---------- VALIDATION ----------
+  const isValid =
+    formData.name.trim().length > 0 &&
+    departmentIds.length > 0 &&
+    !!formData.projectLead &&
+    !!formData.startDate;
+
   async function handleSubmit(e) {
     e.preventDefault();
+    if (!isValid) {
+      setError("Please complete all required fields: Name, Department(s), Project Lead, Start Date.");
+      return;
+    }
     setSaving(true);
     setError(null);
     try {
-      // Minimal payload; the API will add timestamps and refetch populated doc
+      // Send multiple keys for compatibility across backends
       const payload = {
         name: formData.name,
-        description: formData.description,
+        description: formData.description ?? "",
+        departmentIds,                       // helper key
+        department: departmentIds,           // common key
+        departments: departmentIds,          // alias
+        ...(departmentIds.length === 1 ? { departmentId: departmentIds[0] } : {}),
+        ...(deadline
+          ? {
+              deadline: dayjs
+                .tz(deadline, "YYYY-MM-DDTHH:mm", "Asia/Singapore")
+                .toISOString(),
+            }
+          : {}),
         createdBy: user.id,
         teamMembers: formData.teamMembers,
+        visibility: formData.visibility,
+        priority: formData.priority,
+        startDate: formData.startDate || undefined,
+        endDate: formData.endDate || undefined,
+        projectLead: formData.projectLead || undefined,
       };
-  
-      const project = await createProject(payload); // ← now returns populated shape
-      onCreated?.(project);                         // matches your desired format
+
+      if (formData.projectLead && !payload.teamMembers.includes(formData.projectLead)) {
+        payload.teamMembers = Array.from(new Set([formData.projectLead, ...payload.teamMembers]));
+      }
+
+      const created = await createProject(payload);
+      onCreated?.(created);
       alert("Project created successfully!");
       onCancel?.();
     } catch (e) {
@@ -146,7 +225,7 @@ export default function CreateProjectForm({
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[300px]">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-primary dark:border-brand-secondary" />
       </div>
     );
   }
@@ -156,96 +235,128 @@ export default function CreateProjectForm({
     .filter(Boolean);
 
   return (
-    <div className="w-[800px] max-h-[90vh] overflow-hidden mx-auto">
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 flex flex-col max-h-[90vh]">
-        <div className="p-4 border-b border-gray-100">
-          <h2 className="text-xl font-bold">
+    <div className="w-[800px] max-h-[90vh] overflow-visible mx-auto">
+      <div className="bg-white dark:bg-dark-bg rounded-lg shadow-sm border border-light-border dark:border-dark-border flex flex-col max-h-[90vh]">
+        <div className="p-4 border-b border-light-border dark:border-dark-border">
+          <h2 className="text-xl font-bold text-light-text-primary dark:text-dark-text-primary">
             {isEdit ? "Edit Project" : "Create New Project"}
           </h2>
-          <p className="text-gray-600 text-sm">
+          <p className="text-light-text-secondary dark:text-dark-text-secondary text-sm">
             {isEdit ? "Update the project details below" : "Fill in details to create a project"}
           </p>
         </div>
 
         {error && (
-          <div className="p-4 bg-red-50 border-l-4 border-red-400">
-            <p className="text-red-700">{error}</p>
+          <div className="p-4 bg-priority-high-bg dark:bg-priority-high-bg-dark border-l-4 border-danger">
+            <p className="text-priority-high-text dark:text-priority-high-text-dark">{error}</p>
           </div>
         )}
 
         <div className="flex-1 overflow-y-auto">
-          <form onSubmit={handleSubmit} className="p-4">
+          <form onSubmit={handleSubmit} className="p-4 bg-white dark:bg-dark-bg-secondary rounded-b-lg">
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
               {/* Left */}
               <div className="lg:col-span-2 space-y-4">
                 <div>
-                  <label className="block text-sm font-semibold mb-1">Project Name *</label>
+                  <label className="block text-sm font-semibold mb-1 text-light-text-primary dark:text-dark-text-primary">
+                    Project Name *
+                  </label>
                   <input
                     type="text"
                     name="name"
                     value={formData.name}
                     onChange={handleChange}
                     required
-                    placeholder="e.g. Q4 Website Revamp"
-                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    placeholder="e.g. Annual Report Spectacular"
+                    className="w-full px-3 py-2 text-sm border border-light-border dark:border-dark-border rounded-lg bg-light-bg dark:bg-dark-bg-secondary text-light-text-primary dark:text-dark-text-primary focus:ring-2 focus:ring-brand-primary dark:focus:ring-brand-secondary"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-semibold mb-1">Description</label>
+                  <label className="block text-sm font-semibold mb-1 text-light-text-primary dark:text-dark-text-primary">
+                    Description
+                  </label>
                   <textarea
                     name="description"
                     value={formData.description}
                     onChange={handleChange}
                     rows={4}
                     placeholder="What is this project about?"
-                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 resize-none"
+                    className="w-full px-3 py-2 text-sm border border-light-border dark:border-dark-border rounded-lg bg-light-bg dark:bg-dark-bg-secondary text-light-text-primary dark:text-dark-text-primary focus:ring-2 focus:ring-brand-primary dark:focus:ring-brand-secondary resize-none"
                   />
                 </div>
 
+                {/* Departments */}
                 <div>
-                  <label className="block text-sm font-semibold mb-1">
+                  <label className="block text-sm font-semibold mb-1 text-light-text-primary dark:text-dark-text-primary">
+                    Department(s) *
+                  </label>
+                  <div className="border rounded-lg p-2 bg-light-bg dark:bg-dark-bg-secondary border-light-border dark:border-dark-border max-h-40 overflow-y-auto">
+                    {departments.length === 0 ? (
+                      <div className="text-sm text-light-text-muted dark:text-dark-text-muted">
+                        No departments available
+                      </div>
+                    ) : (
+                      departments.map((d) => (
+                        <label key={d._id} className="flex items-center gap-2 py-1 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={departmentIds.includes(d._id)}
+                            onChange={() => {
+                              setDepartmentIds((prev) =>
+                                prev.includes(d._id)
+                                  ? prev.filter((x) => x !== d._id)
+                                  : [...prev, d._id]
+                              );
+                            }}
+                            className="w-4 h-4 text-brand-primary dark:text-brand-secondary border-light-border dark:border-dark-border rounded"
+                          />
+                          <span className="text-sm text-light-text-primary dark:text-dark-text-primary">
+                            {d.name}
+                          </span>
+                        </label>
+                      ))
+                    )}
+                  </div>
+                  <p className="mt-1 text-xs text-light-text-muted dark:text-dark-text-muted">
+                    Select at least one department.
+                  </p>
+                </div>
+
+                {/* Attachments */}
+                <div>
+                  <label className="block text-sm font-semibold mb-1 text-light-text-primary dark:text-dark-text-primary">
                     {isEdit ? "Update Attachments" : "Attachments"}
                   </label>
-                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-3">
-                    <input type="file" name="attachments" multiple onChange={handleChange}
-                      className="w-full text-xs text-gray-600 file:mr-3 file:py-1 file:px-3 file:rounded-full file:border-0 file:text-xs file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                  <div className="border-2 border-dashed border-light-border dark:border-dark-border rounded-lg p-3 bg-light-surface dark:bg-dark-surface">
+                    <input
+                      type="file"
+                      name="attachments"
+                      multiple
+                      onChange={handleChange}
+                      className="w-full text-xs text-light-text-secondary dark:text-dark-text-secondary file:mr-3 file:py-1 file:px-3 file:rounded-full file:border-0 file:text-xs file:font-medium file:bg-brand-primary file:text-white hover:file:bg-blue-700"
                     />
-                    <p className="text-xs text-gray-500 mt-1">
-                      {isEdit ? "Upload additional files or replace existing ones" : "Upload files, images, or documents"}
+                    <p className="text-xs text-light-text-muted dark:text-dark-text-muted mt-1">
+                      {isEdit
+                        ? "Upload additional files or replace existing ones"
+                        : "Upload files, images, or documents"}
                     </p>
                   </div>
-
-                  {formData.attachments?.length > 0 && (
-                    <div className="mt-2 flex flex-wrap gap-1 max-h-20 overflow-y-auto">
-                      {Array.from(formData.attachments).map((file, idx) => (
-                        <div key={idx} className="flex items-center bg-gray-50 text-gray-700 text-xs px-2 py-1 rounded-full border">
-                          <span className="truncate max-w-[100px]">{file.name}</span>
-                          <button type="button" onClick={() => removeAttachment(idx)} className="ml-1 text-gray-400 hover:text-red-500 font-bold text-sm">×</button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
                 </div>
               </div>
 
               {/* Right */}
               <div className="space-y-4 w-full max-w-[250px]">
                 <div>
-                  <label className="block text-sm font-semibold mb-1">Status</label>
-                  <select name="status" value={formData.status} onChange={handleChange}
-                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
-                    <option>Planned</option>
-                    <option>Active</option>
-                    <option>On Hold</option>
-                    <option>Completed</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-semibold mb-1">Priority</label>
-                  <select name="priority" value={formData.priority} onChange={handleChange}
-                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                  <label className="block text-sm font-semibold mb-1 text-light-text-primary dark:text-dark-text-primary">
+                    Priority
+                  </label>
+                  <select
+                    name="priority"
+                    value={formData.priority}
+                    onChange={handleChange}
+                    className="w-full px-3 py-2 text-sm border border-light-border dark:border-dark-border rounded-lg bg-light-bg dark:bg-dark-bg-secondary text-light-text-primary dark:text-dark-text-primary focus:ring-2 focus:ring-brand-primary dark:focus:ring-brand-secondary"
+                  >
                     <option>Low</option>
                     <option>Medium</option>
                     <option>High</option>
@@ -253,9 +364,15 @@ export default function CreateProjectForm({
                 </div>
 
                 <div>
-                  <label className="block text-sm font-semibold mb-1">Visibility</label>
-                  <select name="visibility" value={formData.visibility} onChange={handleChange}
-                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                  <label className="block text sm font-semibold mb-1 text-light-text-primary dark:text-dark-text-primary">
+                    Visibility
+                  </label>
+                  <select
+                    name="visibility"
+                    value={formData.visibility}
+                    onChange={handleChange}
+                    className="w-full px-3 py-2 text-sm border border-light-border dark:border-dark-border rounded-lg bg-light-bg dark:bg-dark-bg-secondary text-light-text-primary dark:text-dark-text-primary focus:ring-2 focus:ring-brand-primary dark:focus:ring-brand-secondary"
+                  >
                     <option value="Private">Private (only you)</option>
                     <option value="Team">Team (project members)</option>
                     <option value="Org">Organisation</option>
@@ -263,97 +380,80 @@ export default function CreateProjectForm({
                 </div>
 
                 <div>
-                  <label className="block text-sm font-semibold mb-1">Project Lead *</label>
-                  <select name="projectLead" value={formData.projectLead} onChange={handleChange} required
-                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                  <label className="block text-sm font-semibold mb-1 text-light-text-primary dark:text-dark-text-primary">
+                    Project Lead * (Lead must be a team member)
+                  </label>
+                  <select
+                    name="projectLead"
+                    value={formData.projectLead}
+                    onChange={handleChange}
+                    required
+                    className="w-full px-3 py-2 text-sm border border-light-border dark:border-dark-border rounded-lg bg-light-bg dark:bg-dark-bg-secondary text-light-text-primary dark:text-dark-text-primary focus:ring-2 focus:ring-brand-primary dark:focus:ring-brand-secondary"
+                  >
                     <option value="">Select a lead</option>
                     {members
                       .filter((m) => formData.teamMembers.includes(m._id))
                       .map((m) => (
-                        <option key={m._id} value={m._id}>{m.name}</option>
+                        <option key={m._id} value={m._id}>
+                          {m.name}
+                        </option>
                       ))}
                   </select>
                 </div>
 
-                <div className="assignee-dropdown-container relative">
-                  <label className="block text-sm font-semibold mb-1">Team Members</label>
+                {/* Team Members dropdown */}
+                <TeamMembersPicker
+                  members={members}
+                  selected={formData.teamMembers}
+                  toggleMember={toggleMember}
+                  removeMember={removeMember}
+                  show={showMemberDropdown}
+                  setShow={setShowMemberDropdown}
+                  dropdownRef={dropdownRef}
+                  dropdownBtnRef={dropdownBtnRef}
+                  selectedMembers={selectedMembers}
+                />
 
-                  {selectedMembers.length > 0 && (
-                    <div className="mb-2 w-[250px]">
-                      <div className="grid grid-cols-2 gap-1 max-h-20 overflow-y-auto">
-                        {selectedMembers.map((m) => (
-                          <div key={m._id} className="flex items-center bg-blue-100 text-blue-800 text-xs px-1 py-1 rounded-full">
-                            <div className="w-3 h-3 bg-blue-200 rounded-full mr-1 flex items-center justify-center text-[10px]">
-                              {m.name?.charAt(0)?.toUpperCase() || "•"}
-                            </div>
-                            <span className="truncate">{m.name}</span>
-                            <button type="button" onClick={() => removeMember(m._id)} className="ml-1 text-blue-600 hover:text-blue-800 font-bold text-xs">×</button>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  <button
-                    type="button"
-                    onClick={() => setShowMemberDropdown((s) => !s)}
-                    className="w-full max-w-[250px] px-3 py-2 text-sm border border-gray-300 rounded-lg bg-white hover:bg-gray-50 flex justify-between items-center focus:ring-2 focus:ring-blue-500"
-                  >
-                    <span className="text-gray-600 truncate">
-                      {formData.teamMembers.length ? `${formData.teamMembers.length} selected` : "Select team members"}
-                    </span>
-                    <svg className="w-4 h-4 text-gray-400 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                    </svg>
-                  </button>
-
-                  {showMemberDropdown && (
-                    <div className="absolute z-20 w-[250px] mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
-                      <div className="p-1">
-                        {members.length === 0 ? (
-                          <div className="p-3 text-gray-500 text-center text-sm">No members</div>
-                        ) : (
-                          members.map((tm) => (
-                            <label key={tm._id} className="flex items-center p-2 hover:bg-gray-50 cursor-pointer rounded-md">
-                              <input
-                                type="checkbox"
-                                checked={formData.teamMembers.includes(tm._id)}
-                                onChange={() => toggleMember(tm._id)}
-                                className="mr-2 w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                              />
-                              <div className="flex items-center min-w-0 flex-1">
-                                <div className="w-6 h-6 bg-gray-200 rounded-full mr-2 flex items-center justify-center text-xs font-medium text-gray-600">
-                                  {tm.name?.charAt(0)?.toUpperCase() || "•"}
-                                </div>
-                                <span className="text-sm font-medium text-gray-700 truncate">{tm.name}</span>
-                              </div>
-                            </label>
-                          ))
-                        )}
-                      </div>
-                    </div>
-                  )}
+                {/* Deadline */}
+                <div>
+                  <label className="block text-sm font-semibold mb-1 text-light-text-primary dark:text-dark-text-primary">
+                    Deadline
+                  </label>
+                  <input
+                    type="datetime-local"
+                    value={deadline}
+                    onChange={(e) => setDeadline(e.target.value)}
+                    className="w-full px-3 py-2 text-sm border border-light-border dark:border-dark-border rounded-lg bg-light-bg dark:bg-dark-bg-secondary text-light-text-primary dark:text-dark-text-primary focus:ring-2 focus:ring-brand-primary dark:focus:ring-brand-secondary"
+                  />
+                  <p className="mt-1 text-xs text-light-text-muted dark:text-dark-text-muted">
+                    Optional — used for reporting/overdue calculations
+                  </p>
                 </div>
 
+                {/* Dates */}
                 <div className="space-y-3">
                   <div>
-                    <label className="block text-sm font-semibold mb-1">Start Date *</label>
+                    <label className="block text-sm font-semibold mb-1 text-light-text-primary dark:text-dark-text-primary">
+                      Start Date *
+                    </label>
                     <input
                       type="date"
                       name="startDate"
                       value={formData.startDate}
                       onChange={handleChange}
                       required
-                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 text-sm border border-light-border dark:border-dark-border rounded-lg bg-light-bg dark:bg-dark-bg-secondary text-light-text-primary dark:text-dark-text-primary focus:ring-2 focus:ring-brand-primary dark:focus:ring-brand-secondary"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-semibold mb-1">End Date</label>
-                    <label className="flex items-center gap-2 mb-2 text-sm">
+                    <label className="block text-sm font-semibold mb-1 text-light-text-primary dark:text-dark-text-primary">
+                      End Date
+                    </label>
+                    <label className="flex items-center gap-2 mb-2 text-sm text-light-text-secondary dark:text-dark-text-secondary">
                       <input
                         type="checkbox"
-                        className="rounded border-gray-300"
+                        className="rounded border-light-border dark:border-dark-border"
                         checked={noEndDate}
                         onChange={(e) => toggleNoEndDate(e.target.checked)}
                       />
@@ -366,28 +466,31 @@ export default function CreateProjectForm({
                       onChange={handleChange}
                       disabled={noEndDate}
                       min={formData.startDate}
-                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:text-gray-500"
+                      className="w-full px-3 py-2 text-sm border border-light-border dark:border-dark-border rounded-lg bg-light-bg dark:bg-dark-bg-secondary text-light-text-primary dark:text-dark-text-primary focus:ring-2 focus:ring-brand-primary dark:focus:ring-brand-secondary disabled:bg-light-surface dark:disabled:bg-dark-surface disabled:text-light-text-muted dark:disabled:text-dark-text-muted"
                     />
                   </div>
                 </div>
               </div>
             </div>
 
-            <div className="flex flex-col sm:flex-row justify-end gap-2 mt-4 pt-3 border-t border-gray-100">
+            <div className="flex flex-col sm:flex-row justify-end gap-2 mt-4 pt-3 border-t border-light-border dark:border-dark-border">
               <button
                 type="button"
                 onClick={onCancel}
                 disabled={saving}
-                className="px-4 py-2 text-sm border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+                className="px-4 py-2 text-sm border border-light-border dark:border-dark-border text-light-text-primary dark:text-dark-text-primary rounded-lg hover:bg-light-surface dark:hover:bg-dark-surface"
               >
                 Cancel
               </button>
               <button
                 type="submit"
-                disabled={saving}
+                disabled={saving || !isValid}
+                aria-disabled={saving || !isValid}
                 className={`px-4 py-2 text-sm rounded-lg font-medium shadow-sm ${
-                  isEdit ? "bg-green-600 text-white hover:bg-green-700" : "bg-blue-600 text-white hover:bg-blue-700"
-                }`}
+                  isEdit
+                    ? "bg-success text-white hover:bg-emerald-600"
+                    : "bg-brand-primary text-white hover:bg-blue-700"
+                } ${(!isValid || saving) ? "opacity-50 cursor-not-allowed hover:bg-brand-primary" : ""}`}
               >
                 {saving ? (isEdit ? "Saving..." : "Creating...") : isEdit ? "Save Changes" : "Create Project"}
               </button>
@@ -395,6 +498,104 @@ export default function CreateProjectForm({
           </form>
         </div>
       </div>
+    </div>
+  );
+}
+
+function TeamMembersPicker({
+  members,
+  selected,
+  toggleMember,
+  removeMember,
+  show,
+  setShow,
+  dropdownRef,
+  dropdownBtnRef,
+  selectedMembers,
+}) {
+  return (
+    <div className="assignee-dropdown-container relative">
+      <label className="block text-sm font-semibold mb-1 text-light-text-primary dark:text-dark-text-primary">
+        Team Members
+      </label>
+
+      {selectedMembers.length > 0 && (
+        <div className="mb-2 w-[250px]">
+          <div className="grid grid-cols-2 gap-1 max-h-20 overflow-y-auto">
+            {selectedMembers.map((m) => (
+              <div
+                key={m._id}
+                className="flex items-center bg-brand-primary/10 dark:bg-brand-secondary/10 text-brand-primary dark:text-brand-secondary text-xs px-1 py-1 rounded-full border border-brand-primary/20 dark:border-brand-secondary/20"
+              >
+                <div className="w-3 h-3 bg-brand-primary/20 dark:bg-brand-secondary/20 rounded-full mr-1 flex items-center justify-center text-[10px]">
+                  {m.name?.charAt(0)?.toUpperCase() || "•"}
+                </div>
+                <span className="truncate">{m.name}</span>
+                <button
+                  type="button"
+                  onClick={() => removeMember(m._id)}
+                  className="ml-1 hover:text-danger font-bold text-xs"
+                >
+                  ×
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <button
+        type="button"
+        ref={dropdownBtnRef}
+        onClick={() => setShow((s) => !s)}
+        className="w-full max-w-[250px] px-3 py-2 text-sm border border-light-border dark:border-dark-border rounded-lg bg-light-bg dark:bg-dark-bg-secondary hover:bg-light-surface dark:hover:bg-dark-surface flex justify-between items-center focus:ring-2 focus:ring-brand-primary dark:focus:ring-brand-secondary text-light-text-secondary dark:text-dark-text-secondary"
+      >
+        <span className="truncate">
+          {selected.length ? `${selected.length} selected` : "Select team members"}
+        </span>
+        <svg className="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
+
+      {show && (
+        <div
+          ref={dropdownRef}
+          className="absolute top-full left-0 mt-1 w-[250px] max-h-60 overflow-y-auto
+                     bg-white dark:bg-dark-bg-secondary border border-light-border dark:border-dark-border
+                     rounded-lg shadow-xl z-50"
+        >
+          <div className="p-1">
+            {members.length === 0 ? (
+              <div className="p-3 text-light-text-muted dark:text-dark-text-muted text-center text-sm">
+                No members
+              </div>
+            ) : (
+              members.map((tm) => (
+                <label
+                  key={tm._id}
+                  className="flex items-center p-2 hover:bg-light-surface dark:hover:bg-dark-surface cursor-pointer rounded-md"
+                >
+                  <input
+                    type="checkbox"
+                    checked={selected.includes(tm._id)}
+                    onChange={() => toggleMember(tm._id)}
+                    className="mr-2 w-4 h-4 text-brand-primary dark:text-brand-secondary border-light-border dark:border-dark-border rounded focus:ring-brand-primary dark:focus:ring-brand-secondary"
+                  />
+                  <div className="flex items-center min-w-0 flex-1">
+                    <div className="w-6 h-6 bg-light-surface dark:bg-dark-surface rounded-full mr-2 flex items-center justify-center text-xs font-medium text-light-text-secondary dark:text-dark-text-secondary">
+                      {tm.name?.charAt(0)?.toUpperCase() || "•"}
+                    </div>
+                    <span className="text-sm font-medium text-light-text-primary dark:text-dark-text-primary truncate">
+                      {tm.name}
+                    </span>
+                  </div>
+                </label>
+              ))
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
