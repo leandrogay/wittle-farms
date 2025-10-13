@@ -3,6 +3,7 @@ const { Schema, model, Types } = mongoose;
 
 const ProjectSchema = new Schema({
   name: { type: String, required: true, trim: true },
+  department: [{ type: Types.ObjectId, ref: "Department", required: true }],
   description: { type: String, default: '' },
   department: [{ type: Types.ObjectId, ref: 'Department', default: null, index: true}],
   deadline: { type: Date },

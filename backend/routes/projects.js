@@ -1,6 +1,7 @@
-import { Router } from 'express';
-import mongoose from 'mongoose';
-import Project from '../models/Project.js';
+// routes/projects.js
+import { Router } from "express";
+import mongoose from "mongoose";
+import Project from "../models/Project.js";
 
 const router = Router();
 
@@ -59,11 +60,8 @@ router.get('/', async (req, res) => {
   }
 });
 
-/**
- * READ Single Project
- * GET /api/projects/:id
- */
-router.get('/:id', async (req, res) => {
+/** READ ONE (with populate) */
+router.get("/:id", async (req, res) => {
   try {
     const project = await populateProjectFields(
       Project.findById(req.params.id)
@@ -137,11 +135,8 @@ router.put('/:id', async (req, res) => {
   }
 });
 
-/**
- * DELETE Project
- * DELETE /api/projects/:id
- */
-router.delete('/:id', async (req, res) => {
+/** DELETE */
+router.delete("/:id", async (req, res) => {
   try {
     const project = await Project.findByIdAndDelete(req.params.id);
     

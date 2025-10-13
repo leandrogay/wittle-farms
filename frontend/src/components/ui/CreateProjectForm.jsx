@@ -1,6 +1,10 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "../../context/AuthContext.jsx";
-import { createProject, getAllTeamMembers } from "../../services/api.js";
+import {
+  createProject,
+  getAllTeamMembers,
+  getDepartments,
+} from "../../services/api.js";
 
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
@@ -21,25 +25,33 @@ export default function CreateProjectForm({
   const isEdit = !!project;
 
   const [members, setMembers] = useState([]);
+  const [departments, setDepartments] = useState([]);
+  const [departmentIds, setDepartmentIds] = useState([]);
+  const [deadline, setDeadline] = useState("");
+
   const [showMemberDropdown, setShowMemberDropdown] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
   const [noEndDate, setNoEndDate] = useState(() => (isEdit ? !project?.endDate : false));
 
+  const dropdownRef = useRef(null);
+  const dropdownBtnRef = useRef(null);
+
   const [formData, setFormData] = useState(() => {
     if (isEdit) {
       return {
         name: project?.name ?? "",
         description: project?.description ?? "",
-        status: project?.status ?? "Planned",
         priority: project?.priority ?? "Medium",
         visibility: project?.visibility ?? "Team",
         projectLead:
           typeof project?.projectLead === "string"
             ? project.projectLead
             : project?.projectLead?._id ?? "",
-        teamMembers: (project?.teamMembers || []).map((m) => (typeof m === "string" ? m : m?._id)),
+        teamMembers: (project?.teamMembers || []).map((m) =>
+          typeof m === "string" ? m : m?._id
+        ),
         startDate: project?.startDate
           ? dayjs(project.startDate).tz().format("YYYY-MM-DD")
           : dayjs().tz().format("YYYY-MM-DD"),
@@ -51,7 +63,6 @@ export default function CreateProjectForm({
     return {
       name: "",
       description: "",
-      status: "Planned",
       priority: "Medium",
       visibility: "Team",
       projectLead: user.id,
@@ -63,14 +74,32 @@ export default function CreateProjectForm({
     };
   });
 
+  // Load members & departments
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
-        const list = await getAllTeamMembers();
-        if (!cancelled) setMembers(Array.isArray(list) ? list : []);
+        const [memberList, deptList] = await Promise.all([
+          getAllTeamMembers(),
+          getDepartments(),
+        ]);
+
+        if (!cancelled) {
+          setMembers(Array.isArray(memberList) ? memberList : []);
+          setDepartments(Array.isArray(deptList) ? deptList : []);
+          if (isEdit && Array.isArray(project?.department)) {
+            setDepartmentIds(
+              project.department
+                .map((d) => (typeof d === "string" ? d : d?._id))
+                .filter(Boolean)
+            );
+          }
+          if (isEdit && project?.deadline) {
+            setDeadline(dayjs(project.deadline).tz().format("YYYY-MM-DDTHH:mm"));
+          }
+        }
       } catch (e) {
-        if (!cancelled) setError(e.message || "Failed to load team members");
+        if (!cancelled) setError(e.message || "Failed to load form data");
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -78,7 +107,26 @@ export default function CreateProjectForm({
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [isEdit, project]);
+
+  // close dropdown on outside click / Esc
+  useEffect(() => {
+    function onDocClick(e) {
+      if (!showMemberDropdown) return;
+      const insideMenu = dropdownRef.current?.contains(e.target);
+      const insideBtn = dropdownBtnRef.current?.contains(e.target);
+      if (!insideMenu && !insideBtn) setShowMemberDropdown(false);
+    }
+    function onEsc(e) {
+      if (e.key === "Escape") setShowMemberDropdown(false);
+    }
+    document.addEventListener("mousedown", onDocClick);
+    document.addEventListener("keydown", onEsc);
+    return () => {
+      document.removeEventListener("mousedown", onDocClick);
+      document.removeEventListener("keydown", onEsc);
+    };
+  }, [showMemberDropdown]);
 
   const memberMap = useMemo(() => {
     const m = new Map();
@@ -119,16 +167,43 @@ export default function CreateProjectForm({
     setFormData((p) => ({ ...p, attachments: dt.files }));
   }
 
+  // ---------- VALIDATION ----------
+  const isValid =
+    formData.name.trim().length > 0 &&
+    departmentIds.length > 0 &&
+    !!formData.projectLead &&
+    !!formData.startDate;
+
   async function handleSubmit(e) {
     e.preventDefault();
+    if (!isValid) {
+      setError("Please complete all required fields: Name, Department(s), Project Lead, Start Date.");
+      return;
+    }
     setSaving(true);
     setError(null);
     try {
       const payload = {
         name: formData.name,
-        description: formData.description,
+        description: formData.description ?? "",
+        departmentIds,                       // helper key
+        department: departmentIds,           // common key
+        departments: departmentIds,          // alias
+        ...(departmentIds.length === 1 ? { departmentId: departmentIds[0] } : {}),
+        ...(deadline
+          ? {
+              deadline: dayjs
+                .tz(deadline, "YYYY-MM-DDTHH:mm", "Asia/Singapore")
+                .toISOString(),
+            }
+          : {}),
         createdBy: user.id,
         teamMembers: formData.teamMembers,
+        visibility: formData.visibility,
+        priority: formData.priority,
+        startDate: formData.startDate || undefined,
+        endDate: formData.endDate || undefined,
+        projectLead: formData.projectLead || undefined,
       };
   
       const project = await createProject(payload);
@@ -173,7 +248,7 @@ export default function CreateProjectForm({
         )}
 
         <div className="flex-1 overflow-y-auto">
-          <form onSubmit={handleSubmit} className="p-4">
+          <form onSubmit={handleSubmit} className="p-4 bg-white dark:bg-dark-bg-secondary rounded-b-lg">
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
               {/* Left */}
               <div className="lg:col-span-2 space-y-4">
@@ -206,6 +281,44 @@ export default function CreateProjectForm({
                   />
                 </div>
 
+                {/* Departments */}
+                <div>
+                  <label className="block text-sm font-semibold mb-1 text-light-text-primary dark:text-dark-text-primary">
+                    Department(s) *
+                  </label>
+                  <div className="border rounded-lg p-2 bg-light-bg dark:bg-dark-bg-secondary border-light-border dark:border-dark-border max-h-40 overflow-y-auto">
+                    {departments.length === 0 ? (
+                      <div className="text-sm text-light-text-muted dark:text-dark-text-muted">
+                        No departments available
+                      </div>
+                    ) : (
+                      departments.map((d) => (
+                        <label key={d._id} className="flex items-center gap-2 py-1 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={departmentIds.includes(d._id)}
+                            onChange={() => {
+                              setDepartmentIds((prev) =>
+                                prev.includes(d._id)
+                                  ? prev.filter((x) => x !== d._id)
+                                  : [...prev, d._id]
+                              );
+                            }}
+                            className="w-4 h-4 text-brand-primary dark:text-brand-secondary border-light-border dark:border-dark-border rounded"
+                          />
+                          <span className="text-sm text-light-text-primary dark:text-dark-text-primary">
+                            {d.name}
+                          </span>
+                        </label>
+                      ))
+                    )}
+                  </div>
+                  <p className="mt-1 text-xs text-light-text-muted dark:text-dark-text-muted">
+                    Select at least one department.
+                  </p>
+                </div>
+
+                {/* Attachments */}
                 <div>
                   <label className="block text-sm font-semibold mb-1 text-light-text-primary dark:text-dark-text-primary">
                     {isEdit ? "Update Attachments" : "Attachments"}
@@ -308,7 +421,9 @@ export default function CreateProjectForm({
                     {members
                       .filter((m) => formData.teamMembers.includes(m._id))
                       .map((m) => (
-                        <option key={m._id} value={m._id}>{m.name}</option>
+                        <option key={m._id} value={m._id}>
+                          {m.name}
+                        </option>
                       ))}
                   </select>
                 </div>
@@ -381,6 +496,7 @@ export default function CreateProjectForm({
                   )}
                 </div>
 
+                {/* Dates */}
                 <div className="space-y-3">
                   <div>
                     <label className="block text-sm font-semibold mb-1 text-light-text-primary dark:text-dark-text-primary">
@@ -434,7 +550,8 @@ export default function CreateProjectForm({
               </button>
               <button
                 type="submit"
-                disabled={saving}
+                disabled={saving || !isValid}
+                aria-disabled={saving || !isValid}
                 className={`px-4 py-2 text-sm rounded-lg font-medium shadow-sm ${
                   isEdit 
                     ? "bg-success text-white hover:bg-emerald-600" 

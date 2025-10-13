@@ -457,7 +457,6 @@ export async function updateTaskDates(taskId, { startAt, endAt, allDay }) {
 }
 
 /* ===================== Projects ===================== */
-
 export async function getProjectById(id) {
   const res = await fetch(`${API_BASE}/api/projects/${id}?populate=1`, {
     credentials: "include",
@@ -466,49 +465,11 @@ export async function getProjectById(id) {
   return res.json();
 }
 
-export async function createProject(formData) {
-  try {
-    // Build minimal payload the API expects
-    const now = new Date().toISOString();
-    const payload = {
-      name: formData.name,
-      description: formData.description ?? "",
-      createdBy: formData.createdBy,        // <-- user.id
-      teamMembers: formData.teamMembers ?? [],
-      createdAt: now,                        // harmless frontend timestamps
-      updatedAt: now,
-    };
-
-    const res = await fetch(`${API_BASE}/api/projects`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      credentials: "include",
-      body: JSON.stringify(payload),
-    });
-
-    if (!res.ok) throw new Error(await res.text().catch(() => "Failed to create project"));
-    const created = await res.json();
-
-    // If backend already returns populated fields, just return it.
-    const isPopulated =
-      created &&
-      created.createdBy &&
-      typeof created.createdBy === "object" &&
-      Array.isArray(created.teamMembers) &&
-      created.teamMembers.every((m) => typeof m === "object");
-
-    if (isPopulated) return created;
-
-    // Otherwise fetch the populated version to match the desired format.
-    const id = created?._id || created?.id;
-    if (!id) return created; // fallback
-
-    const populated = await getProjectById(id);
-    return populated;
-  } catch (err) {
-    console.error("[createProject]", err);
-    throw err;
-  }
+/** Get selectable departments */
+export async function getDepartments() {
+  const res = await fetch(`${API_BASE}/api/departments`, { credentials: "include" });
+  if (!res.ok) throw new Error(await res.text().catch(() => "Failed to fetch departments"));
+  return res.json();
 }
 
 export async function getAllTeamMembers() {
