@@ -1,5 +1,6 @@
 import Task from '../models/Task.js';
 import Notification from '../models/Notification.js';
+import User from '../models/User.js';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime.js';
 import { sendEmail } from '../utils/mailer.js';
@@ -17,7 +18,6 @@ export async function checkAndCreateReminders() {
     status: { $ne: 'Done' },
     deadline: { $exists: true, $ne: null }
   })
-  .populate('assignedTeamMembers', 'name email')
   .lean();
 
   const notifications = [];
@@ -30,20 +30,23 @@ export async function checkAndCreateReminders() {
     for (const offset of task.reminderOffsets) {
       const reminderTime = deadline.subtract(offset, 'minute');
       
-      if (Math.abs(now.diff(reminderTime, 'minute')) <= 1) {
-        for (const member of task.assignedTeamMembers) {
+      // Check if reminder time has passed (is in the past or now) 
+      // Allow up to 10 minutes grace period to catch missed reminders
+      if (now.isAfter(reminderTime) && now.diff(reminderTime, 'minute') <= 10) {
+        for (const memberId of task.assignedTeamMembers) {
           const existingNotification = await Notification.findOne({
-            userId: member._id,
+            userId: memberId,
             taskId: task._id,
             type: 'reminder',
-            scheduledFor: new Date(reminderTime)
+            reminderOffset: offset // Use offset to identify unique reminders
           });
 
             if (!existingNotification) {
               const notification = {
-                userId: member._id,
+                userId: memberId,
                 taskId: task._id,
                 type: 'reminder',
+                reminderOffset: offset, // Add offset to track which reminder this is
                 message: `Task "${task.title}" is due in ${formatTimeRemaining(offset)}`,
                 scheduledFor: new Date(reminderTime),
                 read: false,
@@ -60,9 +63,9 @@ export async function checkAndCreateReminders() {
       deadline.isBefore(now, 'minute') && 
       deadline.isAfter(now.subtract(1, 'minute'), 'minute')
     ) {
-      for (const member of task.assignedTeamMembers) {
+      for (const memberId of task.assignedTeamMembers) {
         const existingNotification = await Notification.findOne({
-          userId: member._id,
+          userId: memberId,
           taskId: task._id,
           type: 'overdue',
           scheduledFor: new Date(deadline)
@@ -70,7 +73,7 @@ export async function checkAndCreateReminders() {
 
         if (!existingNotification) {
           const notification = {
-            userId: member._id,
+            userId: memberId,
             taskId: task._id,
             type: 'overdue',
             message: `Task "${task.title}" is now overdue!`,

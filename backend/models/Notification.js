@@ -19,6 +19,13 @@ const NotificationSchema = new Schema({
     enum: ['reminder', 'overdue'], 
     required: true 
   },
+  reminderOffset: {
+    type: Number,
+    required: function() {
+      return this.type === 'reminder';
+    },
+    index: true
+  },
   message: { 
     type: String, 
     required: true 

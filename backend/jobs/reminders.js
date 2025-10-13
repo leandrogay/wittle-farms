@@ -52,24 +52,26 @@ async function sendUpcomingTaskReminders() {
       // Send within ±1 minute of reminder time
       if (Math.abs(now.diff(reminderTime, "minute")) <= 1) {
         for (const member of task.assignedTeamMembers || []) {
+          // Check if we've already sent a reminder for this specific task/user/offset combination
           const exists = await Notification.findOne({
             userId: member._id,
             taskId: task._id,
             type: "reminder",
-            scheduledFor: reminderTime.toDate(),
+            reminderOffset: offset, // Check by exact offset to prevent duplicates
           });
           if (!exists) {
-            const message = `Task "${task.title}" is due in ${formatOffset(offset)}.`;
+            const offsetMessage = `Task "${task.title}" is due in ${formatOffset(offset)}.`;
             await sendEmail({
               to: member.email,
               subject: `Reminder: ${task.title} due soon`,
-              html: `<p>Hi ${member.name || "there"},</p><p>${message}</p><p>Deadline: ${deadline.format("DD MMM YYYY HH:mm")}</p>`,
+              html: `<p>Hi ${member.name || "there"},</p><p>${offsetMessage}</p><p>Deadline: ${deadline.format("DD MMM YYYY HH:mm")}</p>`,
             });
             await Notification.create({
               userId: member._id,
               taskId: task._id,
               type: "reminder",
-              message,
+              reminderOffset: offset,
+              message: offsetMessage,
               scheduledFor: reminderTime.toDate(),
               sent: true,
             });
