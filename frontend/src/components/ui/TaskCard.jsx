@@ -1,6 +1,8 @@
 import dayjs from "dayjs";
 import TaskFormButton from "./TaskFormButton";
 import DeleteTaskButton from "./DeleteTaskButton";
+import {useState} from "react";
+import TaskComments from "./TaskComments";
 
 const priorityStyles = {
   Low: "bg-priority-low-bg dark:bg-priority-low-bg-dark text-priority-low-text dark:text-priority-low-text-dark ring-1 ring-priority-low-border dark:ring-priority-low-border-dark",
@@ -36,7 +38,7 @@ function labelFromMinutes(m) {
   return `${m} minute(s) before`;
 }
 
-export default function TaskCard({ task, onTaskUpdated, onTaskDeleted }) {
+export default function TaskCard({ task, onTaskUpdated, onTaskDeleted, currentUser }) {
   const priority = task?.priority || "No priority";
   const pClass =
     priorityStyles[priority] ||
@@ -68,6 +70,9 @@ export default function TaskCard({ task, onTaskUpdated, onTaskDeleted }) {
           when: deadline.subtract(m, "minute"),
         }))
       : [];
+  
+  // const { currentUser } = useAuth();
+  const [showComments, setShowComments] = useState(false); 
 
   return (
     <article
@@ -185,6 +190,18 @@ export default function TaskCard({ task, onTaskUpdated, onTaskDeleted }) {
 
       {/* Actions */}
       <div className="mt-4 flex flex-wrap gap-3 justify-end">
+        {/* Toggle comments */}
+        <button
+          type="button"
+          onClick={() => setShowComments((v) => !v)}
+          className="rounded-xl border px-3 py-2 text-sm font-semibold
+                     bg-light-bg dark:bg-dark-bg
+                     text-light-text-primary dark:text-dark-text-primary
+                     ring-1 ring-light-border dark:ring-dark-border hover:opacity-90"
+          aria-expanded={showComments}
+        >
+          {showComments ? "Hide comments" : "Show comments"}
+        </button>
         <TaskFormButton task={task} onTaskUpdated={onTaskUpdated}>
           Edit Task
         </TaskFormButton>
@@ -192,6 +209,18 @@ export default function TaskCard({ task, onTaskUpdated, onTaskDeleted }) {
           Delete Task
         </DeleteTaskButton>
       </div>
+
+      {/* Comments */}
+      {showComments && (
+        <section className="mt-6">
+          <h3 className="mb-2 text-lg font-semibold text-light-text-primary dark:text-dark-text-primary">
+            Comments
+          </h3>
+          <div className="rounded-2xl border p-3 bg-light-surface dark:bg-dark-surface ring-1 ring-light-border dark:ring-dark-border">
+            <TaskComments taskId={task?._id} currentUser={currentUser} />
+          </div>
+        </section>
+      )}
     </article>
   );
 }

@@ -592,3 +592,82 @@ export async function sendOverdueAlerts(projectId) {
   return res.json();
 }
 
+/*
+*
+* Comment API functions
+*
+*/
+
+export async function listTaskComments(taskId, { cursor, limit = 20 } = {}) {
+  if (!taskId) throw new Error("taskId is required");
+  const qs = new URLSearchParams();
+  if (cursor) qs.set("cursor", cursor);
+  if (limit) qs.set("limit", String(limit));
+  const res = await fetch(`${API_BASE}/api/tasks/${taskId}/comments?${qs.toString()}`, {
+     credentials: "include",
+  });
+  if (!res.ok) throw new Error(await res.text().catch(() => "Failed to fetch comments"));
+  return res.json(); 
+}
+
+export async function createTaskComment(taskId, payload) {
+  if (!taskId) throw new Error("taskId is required");
+  if (!payload?.body || !payload.body.trim()) throw new Error("Comment body is required");
+
+  const hasFiles = Array.isArray(payload.attachments) &&
+                  payload.attachments.some(f => typeof File !== "undefined" && f instanceof File);
+
+  let headers, reqBody;
+
+  if (hasFiles) {
+    const fd = new FormData();
+    fd.append("body", payload.body);
+    if (payload.authorId) fd.append("author", payload.authorId); 
+    (payload.mentions ?? []).forEach(m => fd.append("mentions", m));
+    (payload.attachments ?? []).forEach(f => fd.append("attachments", f));
+    reqBody = fd; 
+  } else {
+    headers = { "Content-Type": "application/json" };
+    reqBody = JSON.stringify({
+      body: payload.body,
+      author: payload.authorId,   
+      mentions: payload.mentions ?? [],
+      attachments: [],
+    });
+  }
+
+  const res = await fetch(`${API_BASE}/api/tasks/${taskId}/comments`, {
+    method: "POST",
+    credentials: "include",
+    ...(headers ? { headers } : {}),
+    body: reqBody,
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(text || "Failed to create comment");
+  }
+  return res.json();
+}
+
+export async function updateTaskComment(taskId, commentId, { body }) {
+  if (!taskId || !commentId) throw new Error("taskId and commentId are required");
+  if (!body || !body.trim()) throw new Error("Comment body is required");
+  const res = await fetch(`${API_BASE}/api/tasks/${taskId}/comments/${commentId}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ body }),
+    credentials: "include",
+  });
+  if (!res.ok) throw new Error(await res.text().catch(() => "Failed to update comment"));
+  return res.json();
+}
+
+export async function deleteTaskComment(taskId, commentId) {
+  if (!taskId || !commentId) throw new Error("taskId and commentId are required");
+  const res = await fetch(`${API_BASE}/api/tasks/${taskId}/comments/${commentId}`, {
+    method: "DELETE",
+    credentials: "include",
+  });
+  if (!res.ok) throw new Error(await res.text().catch(() => "Failed to delete comment"));
+  return res.json(); 
+}
