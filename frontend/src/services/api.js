@@ -26,7 +26,13 @@ function toFormDataIfFiles(obj) {
   Object.entries(obj).forEach(([key, value]) => {
     if (key === "attachments") {
       Array.from(value).forEach(file => fd.append("attachments", file));
-    } else if (Array.isArray(value)) {
+    }
+    else if (key === "reminderOffsets") {
+      // Always send as JSON string so the server sees the whole array reliably.
+      const arr = Array.isArray(value) ? value : [];
+      fd.append("reminderOffsets", JSON.stringify(arr));
+    }
+    else if (Array.isArray(value)) {
       value.forEach(v => fd.append(key, v));
     } else {
       fd.append(key, value);
@@ -71,6 +77,14 @@ export async function getTasks() {
   const res = await fetch(`${API_BASE}/api/tasks`);
   if (!res.ok) {
     throw new Error("Failed to fetch tasks");
+  }
+  return res.json();
+}
+
+export async function getProjects() {
+  const res = await fetch(`${API_BASE}/api/projects`);
+  if (!res.ok) {
+    throw new Error("Failed to fetch projects");
   }
   return res.json();
 }
@@ -332,7 +346,7 @@ export async function refreshAccessToken() {
 export async function authFetch(path, options = {}) {
   let token = getToken();
   if (!token || isExpiringSoon(token)) {
-    try { await refreshAccessToken(); } catch {}
+    try { await refreshAccessToken(); } catch { }
     token = getToken();
   }
   // first refresh
@@ -417,17 +431,19 @@ export async function resetPassword(token, password) {
 }
 
 export async function getCalendarTasks({ start, end, userIds, projectId, status }) {
-  const url = new URL("/api/calendar", BASE);
-  url.searchParams.set("start", start);
-  url.searchParams.set("end", end);
-  if (Array.isArray(userIds) && userIds.length) url.searchParams.set("userIds", userIds.join(","));
-  if (projectId) url.searchParams.set("projectId", projectId);
-  if (status) url.searchParams.set("status", status);
+  const q = new URLSearchParams();
+  q.set("start", start);
+  q.set("end", end);
+  if (Array.isArray(userIds) && userIds.length) q.set("userIds", userIds.join(","));
+  if (projectId) q.set("projectId", projectId);
+  if (status) q.set("status", status);
 
-  const res = await fetch(url, { credentials: "include" });
-  if (!res.ok) throw new Error(`GET /api/calendar failed: ${res.status} ${await res.text()}`);
-  return res.json(); // -> { tasks: [...] }
+  const path = `/api/calendar?${q.toString()}`;
+  const res = await authFetch(path, { method: "GET" });  // <— ensures Bearer token & refresh
+  if (!res.ok) throw new Error(`GET ${path} failed: ${res.status} ${await res.text().catch(() => "")}`);
+  return res.json();
 }
+
 
 export async function updateTaskDates(taskId, { startAt, endAt, allDay }) {
   const res = await fetch(`${BASE}/api/tasks/${taskId}`, {
@@ -456,103 +472,31 @@ export async function getDepartments() {
   return res.json();
 }
 
-/** Get selectable users (team members) */
 export async function getAllTeamMembers() {
   const res = await fetch(`${API_BASE}/api/users`, { credentials: "include" });
   if (!res.ok) throw new Error(await res.text().catch(() => "Failed to fetch team members"));
   const data = await res.json();
   return Array.isArray(data)
     ? data.map((u) => ({
-        _id: u._id || u.id,
-        name: u.name || u.fullName || u.email || "Unnamed",
-        email: u.email,
-        role: u.role,
-      }))
+      _id: u._id || u.id,
+      name: u.name || u.fullName || u.email || "Unnamed",
+      email: u.email,
+    }))
     : [];
 }
 
-/** Create project; if backend ignores departments on POST, PATCH them then refetch */
-export async function createProject(formData) {
-  const res = await fetch(`${API_BASE}/api/projects`, {
+
+// (Manager) Send Overdue Task Alerts via Gmail
+export async function sendOverdueAlerts(projectId) {
+  const API_BASE = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || "http://localhost:3000";
+  const res = await fetch(`${API_BASE}/api/notifications/overdue?project=${encodeURIComponent(projectId)}`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
     credentials: "include",
-    body: JSON.stringify(formData),
+    headers: { "Content-Type": "application/json" },
   });
-
-  if (!res.ok) throw new Error(await res.text().catch(() => "Failed to create project"));
-  let created = await res.json();
-  const id = created?._id || created?.id;
-
-  // Determine if departments were intended vs actually present
-  const wantDepts =
-    (Array.isArray(formData.department) && formData.department.length) ||
-    (Array.isArray(formData.departments) && formData.departments.length) ||
-    (Array.isArray(formData.departmentIds) && formData.departmentIds.length) ||
-    formData.departmentId;
-
-  const haveDeptsNow =
-    Array.isArray(created?.department) ? created.department.length > 0 :
-    Array.isArray(created?.departments) ? created.departments.length > 0 :
-    !!created?.departmentId;
-
-  // Fallback: update departments if missing
-  if (id && wantDepts && !haveDeptsNow) {
-    const deptIds =
-      formData.department ?? formData.departments ?? formData.departmentIds ?? (formData.departmentId ? [formData.departmentId] : []);
-    try {
-      const upd = await fetch(`${API_BASE}/api/projects/${id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({
-          department: deptIds,
-          departments: deptIds,
-          ...(deptIds?.length === 1 ? { departmentId: deptIds[0] } : {}),
-        }),
-      });
-      if (upd.ok) created = await upd.json();
-    } catch { /* ignore, we will refetch populated below */ }
+  if (!res.ok) {
+    throw new Error(await res.text().catch(() => "Failed to send overdue alerts"));
   }
-
-  // If already populated, return; else refetch populated
-  const populated =
-    created &&
-    typeof created.createdBy === "object" &&
-    Array.isArray(created.teamMembers) &&
-    created.teamMembers.every((m) => typeof m === "object") &&
-    (
-      (Array.isArray(created.department) && created.department.every((d) => typeof d === "object")) ||
-      (Array.isArray(created.departments) && created.departments.every((d) => typeof d === "object"))
-    );
-
-  if (populated) return created;
-  return id ? await getProjectById(id) : created;
+  return res.json();
 }
 
-export async function updateProject(projectId, formData) {
-  const res = await fetch(`${API_BASE}/api/projects/${projectId}`, {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    credentials: "include",
-    body: JSON.stringify(formData),
-  });
-
-  if (!res.ok) throw new Error(await res.text().catch(() => "Failed to update project"));
-  const updated = await res.json();
-
-  const isPopulated =
-    updated &&
-    typeof updated.createdBy === "object" &&
-    Array.isArray(updated.teamMembers) &&
-    updated.teamMembers.every((m) => typeof m === "object") &&
-    (
-      (Array.isArray(updated.department) && updated.department.every((d) => typeof d === "object")) ||
-      (Array.isArray(updated.departments) && updated.departments.every((d) => typeof d === "object"))
-    );
-
-  if (isPopulated) return updated;
-
-  const id = updated?._id || updated?.id;
-  return id ? await getProjectById(id) : updated;
-}

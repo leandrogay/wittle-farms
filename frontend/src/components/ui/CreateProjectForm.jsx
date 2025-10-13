@@ -183,7 +183,6 @@ export default function CreateProjectForm({
     setSaving(true);
     setError(null);
     try {
-      // Send multiple keys for compatibility across backends
       const payload = {
         name: formData.name,
         description: formData.description ?? "",
@@ -206,13 +205,9 @@ export default function CreateProjectForm({
         endDate: formData.endDate || undefined,
         projectLead: formData.projectLead || undefined,
       };
-
-      if (formData.projectLead && !payload.teamMembers.includes(formData.projectLead)) {
-        payload.teamMembers = Array.from(new Set([formData.projectLead, ...payload.teamMembers]));
-      }
-
-      const created = await createProject(payload);
-      onCreated?.(created);
+  
+      const project = await createProject(payload);
+      onCreated?.(project);
       alert("Project created successfully!");
       onCancel?.();
     } catch (e) {
@@ -235,8 +230,8 @@ export default function CreateProjectForm({
     .filter(Boolean);
 
   return (
-    <div className="w-[800px] max-h-[90vh] overflow-visible mx-auto">
-      <div className="bg-white dark:bg-dark-bg rounded-lg shadow-sm border border-light-border dark:border-dark-border flex flex-col max-h-[90vh]">
+    <div className="w-[800px] max-h-[90vh] overflow-hidden mx-auto">
+      <div className="bg-light-bg dark:bg-dark-bg rounded-lg shadow-sm border border-light-border dark:border-dark-border flex flex-col max-h-[90vh]">
         <div className="p-4 border-b border-light-border dark:border-dark-border">
           <h2 className="text-xl font-bold text-light-text-primary dark:text-dark-text-primary">
             {isEdit ? "Edit Project" : "Create New Project"}
@@ -267,7 +262,7 @@ export default function CreateProjectForm({
                     value={formData.name}
                     onChange={handleChange}
                     required
-                    placeholder="e.g. Annual Report Spectacular"
+                    placeholder="e.g. Q4 Website Revamp"
                     className="w-full px-3 py-2 text-sm border border-light-border dark:border-dark-border rounded-lg bg-light-bg dark:bg-dark-bg-secondary text-light-text-primary dark:text-dark-text-primary focus:ring-2 focus:ring-brand-primary dark:focus:ring-brand-secondary"
                   />
                 </div>
@@ -329,19 +324,34 @@ export default function CreateProjectForm({
                     {isEdit ? "Update Attachments" : "Attachments"}
                   </label>
                   <div className="border-2 border-dashed border-light-border dark:border-dark-border rounded-lg p-3 bg-light-surface dark:bg-dark-surface">
-                    <input
-                      type="file"
-                      name="attachments"
-                      multiple
+                    <input 
+                      type="file" 
+                      name="attachments" 
+                      multiple 
                       onChange={handleChange}
                       className="w-full text-xs text-light-text-secondary dark:text-dark-text-secondary file:mr-3 file:py-1 file:px-3 file:rounded-full file:border-0 file:text-xs file:font-medium file:bg-brand-primary file:text-white hover:file:bg-blue-700"
                     />
                     <p className="text-xs text-light-text-muted dark:text-dark-text-muted mt-1">
-                      {isEdit
-                        ? "Upload additional files or replace existing ones"
-                        : "Upload files, images, or documents"}
+                      {isEdit ? "Upload additional files or replace existing ones" : "Upload files, images, or documents"}
                     </p>
                   </div>
+
+                  {formData.attachments?.length > 0 && (
+                    <div className="mt-2 flex flex-wrap gap-1 max-h-20 overflow-y-auto">
+                      {Array.from(formData.attachments).map((file, idx) => (
+                        <div key={idx} className="flex items-center bg-light-surface dark:bg-dark-surface text-light-text-primary dark:text-dark-text-primary text-xs px-2 py-1 rounded-full border border-light-border dark:border-dark-border">
+                          <span className="truncate max-w-[100px]">{file.name}</span>
+                          <button 
+                            type="button" 
+                            onClick={() => removeAttachment(idx)} 
+                            className="ml-1 text-light-text-muted dark:text-dark-text-muted hover:text-danger font-bold text-sm"
+                          >
+                            ×
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -349,11 +359,28 @@ export default function CreateProjectForm({
               <div className="space-y-4 w-full max-w-[250px]">
                 <div>
                   <label className="block text-sm font-semibold mb-1 text-light-text-primary dark:text-dark-text-primary">
+                    Status
+                  </label>
+                  <select 
+                    name="status" 
+                    value={formData.status} 
+                    onChange={handleChange}
+                    className="w-full px-3 py-2 text-sm border border-light-border dark:border-dark-border rounded-lg bg-light-bg dark:bg-dark-bg-secondary text-light-text-primary dark:text-dark-text-primary focus:ring-2 focus:ring-brand-primary dark:focus:ring-brand-secondary"
+                  >
+                    <option>Planned</option>
+                    <option>Active</option>
+                    <option>On Hold</option>
+                    <option>Completed</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold mb-1 text-light-text-primary dark:text-dark-text-primary">
                     Priority
                   </label>
-                  <select
-                    name="priority"
-                    value={formData.priority}
+                  <select 
+                    name="priority" 
+                    value={formData.priority} 
                     onChange={handleChange}
                     className="w-full px-3 py-2 text-sm border border-light-border dark:border-dark-border rounded-lg bg-light-bg dark:bg-dark-bg-secondary text-light-text-primary dark:text-dark-text-primary focus:ring-2 focus:ring-brand-primary dark:focus:ring-brand-secondary"
                   >
@@ -364,12 +391,12 @@ export default function CreateProjectForm({
                 </div>
 
                 <div>
-                  <label className="block text sm font-semibold mb-1 text-light-text-primary dark:text-dark-text-primary">
+                  <label className="block text-sm font-semibold mb-1 text-light-text-primary dark:text-dark-text-primary">
                     Visibility
                   </label>
-                  <select
-                    name="visibility"
-                    value={formData.visibility}
+                  <select 
+                    name="visibility" 
+                    value={formData.visibility} 
                     onChange={handleChange}
                     className="w-full px-3 py-2 text-sm border border-light-border dark:border-dark-border rounded-lg bg-light-bg dark:bg-dark-bg-secondary text-light-text-primary dark:text-dark-text-primary focus:ring-2 focus:ring-brand-primary dark:focus:ring-brand-secondary"
                   >
@@ -381,12 +408,12 @@ export default function CreateProjectForm({
 
                 <div>
                   <label className="block text-sm font-semibold mb-1 text-light-text-primary dark:text-dark-text-primary">
-                    Project Lead * (Lead must be a team member)
+                    Project Lead *
                   </label>
-                  <select
-                    name="projectLead"
-                    value={formData.projectLead}
-                    onChange={handleChange}
+                  <select 
+                    name="projectLead" 
+                    value={formData.projectLead} 
+                    onChange={handleChange} 
                     required
                     className="w-full px-3 py-2 text-sm border border-light-border dark:border-dark-border rounded-lg bg-light-bg dark:bg-dark-bg-secondary text-light-text-primary dark:text-dark-text-primary focus:ring-2 focus:ring-brand-primary dark:focus:ring-brand-secondary"
                   >
@@ -401,33 +428,72 @@ export default function CreateProjectForm({
                   </select>
                 </div>
 
-                {/* Team Members dropdown */}
-                <TeamMembersPicker
-                  members={members}
-                  selected={formData.teamMembers}
-                  toggleMember={toggleMember}
-                  removeMember={removeMember}
-                  show={showMemberDropdown}
-                  setShow={setShowMemberDropdown}
-                  dropdownRef={dropdownRef}
-                  dropdownBtnRef={dropdownBtnRef}
-                  selectedMembers={selectedMembers}
-                />
-
-                {/* Deadline */}
-                <div>
+                <div className="assignee-dropdown-container relative">
                   <label className="block text-sm font-semibold mb-1 text-light-text-primary dark:text-dark-text-primary">
-                    Deadline
+                    Team Members
                   </label>
-                  <input
-                    type="datetime-local"
-                    value={deadline}
-                    onChange={(e) => setDeadline(e.target.value)}
-                    className="w-full px-3 py-2 text-sm border border-light-border dark:border-dark-border rounded-lg bg-light-bg dark:bg-dark-bg-secondary text-light-text-primary dark:text-dark-text-primary focus:ring-2 focus:ring-brand-primary dark:focus:ring-brand-secondary"
-                  />
-                  <p className="mt-1 text-xs text-light-text-muted dark:text-dark-text-muted">
-                    Optional — used for reporting/overdue calculations
-                  </p>
+
+                  {selectedMembers.length > 0 && (
+                    <div className="mb-2 w-[250px]">
+                      <div className="grid grid-cols-2 gap-1 max-h-20 overflow-y-auto">
+                        {selectedMembers.map((m) => (
+                          <div key={m._id} className="flex items-center bg-brand-primary/10 dark:bg-brand-secondary/10 text-brand-primary dark:text-brand-secondary text-xs px-1 py-1 rounded-full border border-brand-primary/20 dark:border-brand-secondary/20">
+                            <div className="w-3 h-3 bg-brand-primary/20 dark:bg-brand-secondary/20 rounded-full mr-1 flex items-center justify-center text-[10px]">
+                              {m.name?.charAt(0)?.toUpperCase() || "•"}
+                            </div>
+                            <span className="truncate">{m.name}</span>
+                            <button 
+                              type="button" 
+                              onClick={() => removeMember(m._id)} 
+                              className="ml-1 text-brand-primary dark:text-brand-secondary hover:text-danger font-bold text-xs"
+                            >
+                              ×
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={() => setShowMemberDropdown((s) => !s)}
+                    className="w-full max-w-[250px] px-3 py-2 text-sm border border-light-border dark:border-dark-border rounded-lg bg-light-bg dark:bg-dark-bg-secondary hover:bg-light-surface dark:hover:bg-dark-surface flex justify-between items-center focus:ring-2 focus:ring-brand-primary dark:focus:ring-brand-secondary text-light-text-secondary dark:text-dark-text-secondary"
+                  >
+                    <span className="truncate">
+                      {formData.teamMembers.length ? `${formData.teamMembers.length} selected` : "Select team members"}
+                    </span>
+                    <svg className="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+
+                  {showMemberDropdown && (
+                    <div className="absolute z-20 w-[250px] mt-1 bg-light-bg dark:bg-dark-bg-secondary border border-light-border dark:border-dark-border rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                      <div className="p-1">
+                        {members.length === 0 ? (
+                          <div className="p-3 text-light-text-muted dark:text-dark-text-muted text-center text-sm">No members</div>
+                        ) : (
+                          members.map((tm) => (
+                            <label key={tm._id} className="flex items-center p-2 hover:bg-light-surface dark:hover:bg-dark-surface cursor-pointer rounded-md">
+                              <input
+                                type="checkbox"
+                                checked={formData.teamMembers.includes(tm._id)}
+                                onChange={() => toggleMember(tm._id)}
+                                className="mr-2 w-4 h-4 text-brand-primary dark:text-brand-secondary border-light-border dark:border-dark-border rounded focus:ring-brand-primary dark:focus:ring-brand-secondary"
+                              />
+                              <div className="flex items-center min-w-0 flex-1">
+                                <div className="w-6 h-6 bg-light-surface dark:bg-dark-surface rounded-full mr-2 flex items-center justify-center text-xs font-medium text-light-text-secondary dark:text-dark-text-secondary">
+                                  {tm.name?.charAt(0)?.toUpperCase() || "•"}
+                                </div>
+                                <span className="text-sm font-medium text-light-text-primary dark:text-dark-text-primary truncate">{tm.name}</span>
+                              </div>
+                            </label>
+                          ))
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Dates */}
@@ -487,10 +553,10 @@ export default function CreateProjectForm({
                 disabled={saving || !isValid}
                 aria-disabled={saving || !isValid}
                 className={`px-4 py-2 text-sm rounded-lg font-medium shadow-sm ${
-                  isEdit
-                    ? "bg-success text-white hover:bg-emerald-600"
+                  isEdit 
+                    ? "bg-success text-white hover:bg-emerald-600" 
                     : "bg-brand-primary text-white hover:bg-blue-700"
-                } ${(!isValid || saving) ? "opacity-50 cursor-not-allowed hover:bg-brand-primary" : ""}`}
+                }`}
               >
                 {saving ? (isEdit ? "Saving..." : "Creating...") : isEdit ? "Save Changes" : "Create Project"}
               </button>
@@ -498,104 +564,6 @@ export default function CreateProjectForm({
           </form>
         </div>
       </div>
-    </div>
-  );
-}
-
-function TeamMembersPicker({
-  members,
-  selected,
-  toggleMember,
-  removeMember,
-  show,
-  setShow,
-  dropdownRef,
-  dropdownBtnRef,
-  selectedMembers,
-}) {
-  return (
-    <div className="assignee-dropdown-container relative">
-      <label className="block text-sm font-semibold mb-1 text-light-text-primary dark:text-dark-text-primary">
-        Team Members
-      </label>
-
-      {selectedMembers.length > 0 && (
-        <div className="mb-2 w-[250px]">
-          <div className="grid grid-cols-2 gap-1 max-h-20 overflow-y-auto">
-            {selectedMembers.map((m) => (
-              <div
-                key={m._id}
-                className="flex items-center bg-brand-primary/10 dark:bg-brand-secondary/10 text-brand-primary dark:text-brand-secondary text-xs px-1 py-1 rounded-full border border-brand-primary/20 dark:border-brand-secondary/20"
-              >
-                <div className="w-3 h-3 bg-brand-primary/20 dark:bg-brand-secondary/20 rounded-full mr-1 flex items-center justify-center text-[10px]">
-                  {m.name?.charAt(0)?.toUpperCase() || "•"}
-                </div>
-                <span className="truncate">{m.name}</span>
-                <button
-                  type="button"
-                  onClick={() => removeMember(m._id)}
-                  className="ml-1 hover:text-danger font-bold text-xs"
-                >
-                  ×
-                </button>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      <button
-        type="button"
-        ref={dropdownBtnRef}
-        onClick={() => setShow((s) => !s)}
-        className="w-full max-w-[250px] px-3 py-2 text-sm border border-light-border dark:border-dark-border rounded-lg bg-light-bg dark:bg-dark-bg-secondary hover:bg-light-surface dark:hover:bg-dark-surface flex justify-between items-center focus:ring-2 focus:ring-brand-primary dark:focus:ring-brand-secondary text-light-text-secondary dark:text-dark-text-secondary"
-      >
-        <span className="truncate">
-          {selected.length ? `${selected.length} selected` : "Select team members"}
-        </span>
-        <svg className="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-        </svg>
-      </button>
-
-      {show && (
-        <div
-          ref={dropdownRef}
-          className="absolute top-full left-0 mt-1 w-[250px] max-h-60 overflow-y-auto
-                     bg-white dark:bg-dark-bg-secondary border border-light-border dark:border-dark-border
-                     rounded-lg shadow-xl z-50"
-        >
-          <div className="p-1">
-            {members.length === 0 ? (
-              <div className="p-3 text-light-text-muted dark:text-dark-text-muted text-center text-sm">
-                No members
-              </div>
-            ) : (
-              members.map((tm) => (
-                <label
-                  key={tm._id}
-                  className="flex items-center p-2 hover:bg-light-surface dark:hover:bg-dark-surface cursor-pointer rounded-md"
-                >
-                  <input
-                    type="checkbox"
-                    checked={selected.includes(tm._id)}
-                    onChange={() => toggleMember(tm._id)}
-                    className="mr-2 w-4 h-4 text-brand-primary dark:text-brand-secondary border-light-border dark:border-dark-border rounded focus:ring-brand-primary dark:focus:ring-brand-secondary"
-                  />
-                  <div className="flex items-center min-w-0 flex-1">
-                    <div className="w-6 h-6 bg-light-surface dark:bg-dark-surface rounded-full mr-2 flex items-center justify-center text-xs font-medium text-light-text-secondary dark:text-dark-text-secondary">
-                      {tm.name?.charAt(0)?.toUpperCase() || "•"}
-                    </div>
-                    <span className="text-sm font-medium text-light-text-primary dark:text-dark-text-primary truncate">
-                      {tm.name}
-                    </span>
-                  </div>
-                </label>
-              ))
-            )}
-          </div>
-        </div>
-      )}
     </div>
   );
 }

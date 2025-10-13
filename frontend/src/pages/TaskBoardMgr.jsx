@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import dayjs from "dayjs";
-import { getManagerProjects, getProjectTasks } from "../services/api.js";
+import { getManagerProjects, getProjectTasks, sendOverdueAlerts } from "../services/api.js";
 import TaskCard from "../components/ui/TaskCard.jsx";
 import TaskForm from "../components/ui/TaskForm.jsx";
 import { useAuth } from "../context/AuthContext.jsx";
@@ -12,26 +12,32 @@ function ProjectPicker({ projects, valueId, onChange }) {
   return (
     <div className="relative">
       <div className="flex items-center gap-2">
-        <span className="text-sm text-gray-600">Project:</span>
+        <span className="text-sm font-medium text-light-text-secondary dark:text-dark-text-secondary">
+          Project:
+        </span>
         <button
           type="button"
-          className="inline-flex items-center gap-2 rounded-xl border-2 border-blue-600 px-3 py-2 text-sm font-semibold"
+          className="inline-flex items-center gap-2 rounded-xl border-2 border-brand-primary dark:border-brand-secondary bg-light-bg dark:bg-dark-bg px-4 py-2 text-sm font-semibold text-light-text-primary dark:text-dark-text-primary hover:bg-brand-primary/5 dark:hover:bg-brand-secondary/5 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
           aria-expanded={open}
           onClick={() => setOpen((v) => !v)}
           disabled={projects.length === 0}
           title={projects.length === 0 ? "You haven't created any projects yet" : ""}
         >
-          {current?.name ?? (projects.length ? "Choose project" : "No projects")}
+          <span className="truncate max-w-[200px]">
+            {current?.name ?? (projects.length ? "Choose project" : "No projects")}
+          </span>
           <span className={`transition-transform ${open ? "rotate-180" : ""}`}>▾</span>
         </button>
       </div>
 
       {open && projects.length > 0 && (
-        <div className="absolute right-0 z-40 mt-2 w-72 rounded-xl border bg-white p-1 shadow-xl">
+        <div className="absolute right-0 z-40 mt-2 w-72 rounded-xl border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-bg p-1 shadow-2xl">
           {projects.map((p) => (
             <button
               key={p._id}
-              className={`w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-gray-100 ${p._id === valueId ? "bg-indigo-50 font-semibold" : ""
+              className={`w-full rounded-lg px-3 py-2 text-left text-sm transition-colors ${p._id === valueId
+                ? "bg-brand-primary dark:bg-brand-secondary text-white font-semibold"
+                : "text-light-text-primary dark:text-dark-text-primary hover:bg-light-surface dark:hover:bg-dark-surface"
                 }`}
               onClick={() => {
                 onChange(p._id);
@@ -53,65 +59,86 @@ function SquareTaskTile({ task, onOpen, section }) {
 
   const status = normalizeStatus(task.status);
   const statusClass =
-    status === "To Do" ? "text-gray-500"
-      : status === "In Progress" ? "text-blue-500"
-        : status === "Done" ? "text-green-500"
+    status === "To Do"
+      ? "text-light-text-muted dark:text-dark-text-muted"
+      : status === "In Progress"
+        ? "text-info"
+        : status === "Done"
+          ? "text-success"
           : "";
 
+  const priorityColors = {
+    Low: "text-success",
+    Medium: "text-warning",
+    High: "text-danger",
+  };
+
   const deadlineChip = !hasDate ? (
-    <span className="inline-flex items-center rounded-lg bg-gray-50 px-2.5 py-1 text-xs font-medium text-gray-700">
-      {hasDate ? "Deadline: " : ""}{deadlineStr}
+    <span className="inline-flex items-center rounded-lg bg-light-surface dark:bg-dark-surface px-3 py-1.5 text-xs font-semibold text-light-text-muted dark:text-dark-text-muted border border-light-border dark:border-dark-border">
+      📅 {deadlineStr}
     </span>
   ) : section === "overdue" ? (
-    <span className="inline-flex items-center rounded-lg bg-red-50 px-2.5 py-1 text-xs font-medium text-red-700">
-      Deadline: {deadlineStr}
+    <span className="inline-flex items-center rounded-lg bg-priority-high-bg dark:bg-priority-high-bg-dark px-3 py-1.5 text-xs font-semibold text-priority-high-text dark:text-priority-high-text-dark border border-priority-high-border dark:border-priority-high-border-dark">
+      ⚠️ Deadline: {deadlineStr}
     </span>
   ) : section === "today" ? (
-    <span className="inline-flex items-center rounded-lg bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-700">
-      Due Today: {deadlineStr}
+    <span className="inline-flex items-center rounded-lg bg-priority-medium-bg dark:bg-priority-medium-bg-dark px-3 py-1.5 text-xs font-semibold text-priority-medium-text dark:text-priority-medium-text-dark border border-priority-medium-border dark:border-priority-medium-border-dark">
+      📅 Due Today: {deadlineStr}
     </span>
   ) : section === "completed" ? (
-    <span className="inline-flex items-center rounded-lg bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-700">
-      Deadline: {deadlineStr}
+    <span className="inline-flex items-center rounded-lg bg-light-surface dark:bg-dark-surface px-3 py-1.5 text-xs font-semibold text-light-text-muted dark:text-dark-text-muted border border-light-border dark:border-dark-border">
+      ✓ {deadlineStr}
     </span>
   ) : (
-    <span className="inline-flex items-center rounded-lg bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-700">
-      Deadline: {deadlineStr}
+    <span className="inline-flex items-center rounded-lg bg-brand-primary/10 dark:bg-brand-secondary/10 px-3 py-1.5 text-xs font-semibold text-brand-primary dark:text-brand-secondary border border-brand-primary/20 dark:border-brand-secondary/20">
+      📅 Deadline: {deadlineStr}
     </span>
   );
 
   return (
-    <article className="border rounded-2xl shadow-sm bg-white overflow-hidden transition hover:shadow-md h-full">
+    <article className="border border-light-border dark:border-dark-border rounded-2xl shadow-sm bg-light-bg dark:bg-dark-bg overflow-hidden transition-all hover:shadow-md hover:border-brand-primary dark:hover:border-brand-secondary h-full group">
       <button
         type="button"
         onClick={() => onOpen(task)}
-        className="w-full p-4 flex flex-col justify-between text-left h-full"
+        className="w-full p-5 flex flex-col justify-between text-left h-full"
         aria-label={`Open task ${task?.title ?? ""}`}
       >
-        <div className="space-y-2">
-          <div className="text-base sm:text-lg font-semibold line-clamp-2 hover:underline">
+        <div className="space-y-3">
+          <div className="text-base sm:text-lg font-bold line-clamp-2 text-light-text-primary dark:text-dark-text-primary group-hover:text-brand-primary dark:group-hover:text-brand-secondary transition-colors">
             {task.title || "Untitled task"}
           </div>
 
-          <div className="text-sm">
-            <div className="font-medium">Status:</div>
-            <div className={`text-base sm:text-lg font-semibold ${statusClass}`}>{task.status}</div>
+          <div className="text-sm space-y-1">
+            <div className="font-medium text-light-text-secondary dark:text-dark-text-secondary">
+              Status:
+            </div>
+            <div className={`text-base font-semibold ${statusClass}`}>{task.status}</div>
           </div>
 
-          <div className="text-sm">
-            <div className="font-medium">Priority:</div>
+          <div className="text-sm space-y-1">
+            <div className="font-medium text-light-text-secondary dark:text-dark-text-secondary">
+              Priority:
+            </div>
             <div>
-              {task.priority === "Low" && <span className="text-green-600 font-semibold">Low</span>}
-              {task.priority === "Medium" && <span className="text-yellow-600 font-semibold">Medium</span>}
-              {task.priority === "High" && <span className="text-red-600 font-semibold">High</span>}
+              {task.priority === "Low" && (
+                <span className={`font-semibold ${priorityColors.Low}`}>Low</span>
+              )}
+              {task.priority === "Medium" && (
+                <span className={`font-semibold ${priorityColors.Medium}`}>Medium</span>
+              )}
+              {task.priority === "High" && (
+                <span className={`font-semibold ${priorityColors.High}`}>High</span>
+              )}
               {!["Low", "Medium", "High"].includes(task.priority) && (
-                <span className="text-gray-600 font-semibold">None</span>
+                <span className="text-light-text-muted dark:text-dark-text-muted font-semibold">
+                  None
+                </span>
               )}
             </div>
           </div>
         </div>
 
-        <div className="mt-2">{deadlineChip}</div>
+        <div className="mt-4">{deadlineChip}</div>
       </button>
     </article>
   );
@@ -185,7 +212,6 @@ export default function TaskBoardMgr() {
   useEffect(() => {
     if (!selectedProjectId) return;
     reloadTasks(selectedProjectId);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedProjectId]);
 
   const sortedTasks = useMemo(() => {
@@ -273,15 +299,37 @@ export default function TaskBoardMgr() {
     return ["All", ...Array.from(set)];
   }, [tasks]);
 
-  if (authLoading || projLoading) return <p className="p-4 text-gray-600">Loading…</p>;
-  if (projError) return <p className="p-4 text-red-600">{projError}</p>;
+  if (authLoading || projLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="flex flex-col items-center gap-3">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-primary dark:border-brand-secondary"></div>
+          <p className="text-light-text-secondary dark:text-dark-text-secondary">Loading…</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (projError) {
+    return (
+      <div className="p-4">
+        <div className="rounded-lg bg-priority-high-bg dark:bg-priority-high-bg-dark border border-priority-high-border dark:border-priority-high-border-dark p-4">
+          <p className="text-priority-high-text dark:text-priority-high-text-dark font-semibold">
+            {projError}
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   const currentProjectName = projects.find((p) => p._id === selectedProjectId)?.name;
 
   return (
     <section className="p-4 space-y-6">
       <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <h1 className="text-2xl font-semibold">Taskboard (Manager)</h1>
+        <h1 className="text-2xl font-bold text-light-text-primary dark:text-dark-text-primary">
+          Taskboard (Manager)
+        </h1>
 
         <div className="flex flex-col sm:flex-row sm:items-center gap-3">
           <ProjectPicker
@@ -291,38 +339,45 @@ export default function TaskBoardMgr() {
           />
 
           <div className="flex flex-wrap items-center gap-3">
-            <label className="text-sm text-gray-600">
+            <label className="text-sm font-medium text-light-text-secondary dark:text-dark-text-secondary">
               Status:
               <select
-                className="ml-2 rounded-lg border px-2 py-1 text-sm"
+                className="ml-2 rounded-lg border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-bg-secondary text-light-text-primary dark:text-dark-text-primary px-3 py-1.5 text-sm focus:ring-2 focus:ring-brand-primary dark:focus:ring-brand-secondary transition-all"
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
               >
                 {statusOptions.map((opt) => (
-                  <option key={opt} value={opt}>{opt}</option>
+                  <option key={opt} value={opt}>
+                    {opt}
+                  </option>
                 ))}
               </select>
             </label>
 
-            <label className="text-sm text-gray-600">
+            <label className="text-sm font-medium text-light-text-secondary dark:text-dark-text-secondary">
               Priority:
               <select
-                className="ml-2 rounded-lg border px-2 py-1 text-sm"
+                className="ml-2 rounded-lg border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-bg-secondary text-light-text-primary dark:text-dark-text-primary px-3 py-1.5 text-sm focus:ring-2 focus:ring-brand-primary dark:focus:ring-brand-secondary transition-all"
                 value={priorityFilter}
                 onChange={(e) => setPriorityFilter(e.target.value)}
               >
                 {priorityOptions.map((opt) => (
-                  <option key={opt} value={opt}>{opt}</option>
+                  <option key={opt} value={opt}>
+                    {opt}
+                  </option>
                 ))}
               </select>
             </label>
 
             {(statusFilter !== "All" || priorityFilter !== "All") && (
               <button
-                className="rounded-lg border px-2.5 py-1 text-sm hover:bg-gray-50"
-                onClick={() => { setStatusFilter("All"); setPriorityFilter("All"); }}
+                className="rounded-lg border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-bg-secondary text-light-text-primary dark:text-dark-text-primary px-3 py-1.5 text-sm hover:bg-light-surface dark:hover:bg-dark-surface transition-all font-medium"
+                onClick={() => {
+                  setStatusFilter("All");
+                  setPriorityFilter("All");
+                }}
               >
-                Clear
+                Clear Filters
               </button>
             )}
           </div>
@@ -330,7 +385,7 @@ export default function TaskBoardMgr() {
           <button
             disabled={!selectedProjectId}
             onClick={() => setShowCreate(true)}
-            className="px-4 py-2 rounded-lg text-sm font-semibold bg-blue-600 text-white shadow hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-4 py-2 rounded-lg text-sm font-semibold bg-brand-primary dark:bg-brand-secondary text-white shadow hover:bg-blue-700 dark:hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
             title={
               selectedProjectId
                 ? "Create a new task in this project"
@@ -345,79 +400,106 @@ export default function TaskBoardMgr() {
       </header>
 
       {projects.length === 0 && (
-        <div className="rounded-lg border bg-amber-50 text-amber-900 p-4">
-          You currently don’t have any projects that you created. Create one to start adding tasks.
+        <div className="rounded-lg border border-warning bg-priority-medium-bg dark:bg-priority-medium-bg-dark p-6 text-center">
+          <p className="text-priority-medium-text dark:text-priority-medium-text-dark font-semibold">
+            You currently don't have any projects that you created. Create one to start adding tasks.
+          </p>
         </div>
       )}
 
-      {tasksLoading && <p className="text-gray-600">Loading tasks…</p>}
-      {tasksError && <p className="text-red-600">{tasksError}</p>}
+      {tasksLoading && (
+        <div className="flex items-center justify-center py-8">
+          <div className="flex flex-col items-center gap-3">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-primary dark:border-brand-secondary"></div>
+            <p className="text-light-text-secondary dark:text-dark-text-secondary">Loading tasks…</p>
+          </div>
+        </div>
+      )}
+
+      {tasksError && (
+        <div className="rounded-lg bg-priority-high-bg dark:bg-priority-high-bg-dark border border-priority-high-border dark:border-priority-high-border-dark p-4">
+          <p className="text-priority-high-text dark:text-priority-high-text-dark font-semibold">
+            {tasksError}
+          </p>
+        </div>
+      )}
 
       {!tasksLoading && !tasksError && projects.length > 0 && selectedProjectId && (
         <div className="space-y-8">
           {overdue.length > 0 && (
-            <>
-              <div className="flex items-center gap-3">
-                <h2 className="text-lg font-semibold text-red-700">Overdue</h2>
-                <div className="h-px bg-red-200 flex-1" />
+            <div>
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-1 h-6 bg-danger rounded-full"></div>
+                <h2 className="text-lg font-bold text-danger">Overdue ({overdue.length})</h2>
+                <div className="h-px bg-danger/20 flex-1" />
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {overdue.map((t) => (
                   <SquareTaskTile key={t._id} task={t} onOpen={setActiveTask} section="overdue" />
                 ))}
               </div>
-            </>
+            </div>
           )}
 
           {todayDue.length > 0 && (
-            <>
-              <div className="flex items-center gap-3">
-                <h2 className="text-lg font-semibold text-amber-700">Due Today</h2>
-                <div className="h-px bg-amber-200 flex-1" />
+            <div>
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-1 h-6 bg-warning rounded-full"></div>
+                <h2 className="text-lg font-bold text-warning">Due Today ({todayDue.length})</h2>
+                <div className="h-px bg-warning/20 flex-1" />
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {todayDue.map((t) => (
                   <SquareTaskTile key={t._id} task={t} onOpen={setActiveTask} section="today" />
                 ))}
               </div>
-            </>
+            </div>
           )}
 
-          <div className="flex items-center gap-3">
-            <h2 className="text-lg font-semibold">Upcoming</h2>
-            <div className="h-px bg-gray-200 flex-1" />
-          </div>
-          {upcoming.length > 0 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {upcoming.map((t) => (
-                <SquareTaskTile key={t._id} task={t} onOpen={setActiveTask} section="upcoming" />
-              ))}
+          <div>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-1 h-6 bg-brand-primary dark:bg-brand-secondary rounded-full"></div>
+              <h2 className="text-lg font-bold text-light-text-primary dark:text-dark-text-primary">
+                Upcoming ({upcoming.length})
+              </h2>
+              <div className="h-px bg-light-border dark:bg-dark-border flex-1" />
             </div>
-          ) : (
-            overdue.length === 0 && todayDue.length === 0 && (
-              <p className="text-gray-500">No tasks match the filters.</p>
-            )
-          )}
+            {upcoming.length > 0 ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {upcoming.map((t) => (
+                  <SquareTaskTile key={t._id} task={t} onOpen={setActiveTask} section="upcoming" />
+                ))}
+              </div>
+            ) : (
+              overdue.length === 0 &&
+              todayDue.length === 0 && (
+                <p className="text-light-text-muted dark:text-dark-text-muted">
+                  No tasks match the filters.
+                </p>
+              )
+            )}
+          </div>
 
           {completed.length > 0 && (
-            <>
-              <div className="flex items-center gap-3">
-                <h2 className="text-lg font-semibold text-green-700">Completed</h2>
-                <div className="h-px bg-gray-200 flex-1" />
+            <div>
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-1 h-6 bg-success rounded-full"></div>
+                <h2 className="text-lg font-bold text-success">Completed ({completed.length})</h2>
+                <div className="h-px bg-success/20 flex-1" />
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {completed.map((t) => (
                   <SquareTaskTile key={t._id} task={t} onOpen={setActiveTask} section="completed" />
                 ))}
               </div>
-            </>
+            </div>
           )}
         </div>
       )}
 
       {showCreate && (
         <div
-          className="fixed inset-0 z-[60] grid place-items-center bg-black/50"
+          className="fixed inset-0 z-[60] grid place-items-center bg-black/50 dark:bg-black/70 backdrop-blur-sm"
           onMouseDown={(e) => {
             if (e.target === e.currentTarget) setShowCreate(false);
           }}
@@ -438,29 +520,36 @@ export default function TaskBoardMgr() {
 
       {activeTask && (
         <div
-          className="fixed inset-0 z-[70] grid place-items-center bg-black/50"
+          className="fixed inset-0 z-[70] grid place-items-center bg-black/50 dark:bg-black/70 backdrop-blur-sm"
           onMouseDown={(e) => e.target === e.currentTarget && setActiveTask(null)}
           aria-modal="true"
           role="dialog"
         >
-          <div className="w-[min(90vw,740px)] rounded-2xl bg-white shadow-2xl p-4">
-            <h2 className="text-lg font-semibold mb-3">{activeTask?.title || "Task details"}</h2>
+          <div className="w-[min(90vw,740px)] rounded-2xl bg-light-bg dark:bg-dark-bg shadow-2xl p-6 border border-light-border dark:border-dark-border max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-bold text-light-text-primary dark:text-dark-text-primary">
+                {activeTask?.title || "Task Details"}
+              </h2>
+              <button
+                onClick={() => setActiveTask(null)}
+                className="text-light-text-muted dark:text-dark-text-muted hover:text-danger transition-colors text-2xl font-bold"
+              >
+                ×
+              </button>
+            </div>
             <TaskCard
               task={activeTask}
               onTaskUpdated={async () => {
                 await reloadTasks();
               }}
               onTaskDeleted={(deletedId) => {
-                // Remove task immediately from state
-                setTasks(prev => prev.filter(t => t._id !== deletedId));
-                // Close the modal
+                setTasks((prev) => prev.filter((t) => t._id !== deletedId));
                 setActiveTask(null);
               }}
             />
           </div>
         </div>
       )}
-
     </section>
   );
 }
