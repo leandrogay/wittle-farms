@@ -6,9 +6,9 @@ export default function RoleRedirect() {
   if (!user) return <Navigate to="/login" replace />;
   switch (user.role) {
     case "Staff":
-      return <Navigate to="/tasks" replace />;
+      return <Navigate to="/home" replace />;
     case "Manager":
-      return <Navigate to="/taskboard-mgr" replace />;
+      return <Navigate to="/home" replace />;
     case "Director":
       return <Navigate to="/home" replace />;
     default:

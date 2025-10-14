@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import FeatureCard from "../components/ui/FeatureCard.jsx";
+import { useAuth } from "../context/AuthContext.jsx";
 
 /* ====== Simple SVG Icons ====== */
 function BoardIcon(props) {
@@ -41,84 +42,152 @@ function TaskIcon(props) {
 }
 
 export default function Home() {
+  const { user } = useAuth();
+  const role = user?.role;
+
+  // Build the card set based on role (mirrors your Header routes)
+  let cards = [];
+  if (role === "Staff") {
+    cards = [
+      {
+        title: "My Tasks",
+        to: "/tasks",
+        description: "See and manage your assigned tasks.",
+        icon: TaskIcon,
+        cta: "Open Tasks",
+      },
+      {
+        title: "Calendar",
+        to: "/calendar",
+        description: "View your deadlines and events.",
+        icon: CalendarIcon,
+        cta: "View Calendar",
+      },
+    ];
+  } else if (role === "Manager") {
+    cards = [
+      {
+        title: "Taskboard",
+        to: "/taskboard-mgr",
+        description: "Manage and organize your team's tasks.",
+        icon: BoardIcon,
+        cta: "Open Taskboard",
+      },
+      {
+        title: "Team Calendar",
+        to: "/calendar",
+        description: "View and schedule team events and deadlines.",
+        icon: CalendarIcon,
+        cta: "View Calendar",
+      },
+    ];
+    // Optional: only Managers can create projects
+    cards.push({
+      title: "Create Project",
+      to: "/create-project",
+      description: "Start a new project and assign team members.",
+      icon: ProjectIcon,
+      cta: "Create Project",
+    });
+  } else if (role === "Director") {
+    cards = [
+      {
+        title: "Calendar",
+        to: "/calendar",
+        description: "Company-wide events and important dates.",
+        icon: CalendarIcon,
+        cta: "View Calendar",
+      },
+      {
+        title: "Dashboard",
+        to: "/dashboard",
+        description: "High-level metrics and insights.",
+        icon: BoardIcon,
+        cta: "Open Dashboard",
+      },
+    ];
+  } else {
+    // Fallback (no role / unauthenticated)
+    cards = [
+      {
+        title: "Calendar",
+        to: "/calendar",
+        description: "Browse public events.",
+        icon: CalendarIcon,
+        cta: "View Calendar",
+      },
+    ];
+  }
+
   return (
     <main className="px-4 py-8 sm:px-6 lg:px-8">
       <section className="mx-auto max-w-6xl">
         {/* Hero Section */}
         <header className="mb-10">
           <h1 className="text-4xl font-bold tracking-tight text-light-text-primary dark:text-dark-text-primary">
-            Welcome Back
+            {user?.name ? `Welcome back, ${user.name}` : "Welcome"}
           </h1>
           <p className="mt-3 max-w-2xl text-lg text-light-text-secondary dark:text-dark-text-secondary">
-            What would you like to do today?
+            {role
+              ? `You're signed in as ${role}.`
+              : "Sign in to see personalized shortcuts."}
           </p>
         </header>
 
-        {/* Feature Cards Grid */}
+        {/* Feature Cards Grid (role-based) */}
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          <FeatureCard
-            title="Taskboard"
-            to="/taskboard-mgr"
-            description="Manage and organize your team's tasks efficiently."
-            icon={BoardIcon}
-            cta="Open Taskboard"
-          />
-          
-          <FeatureCard
-            title="Team Calendar"
-            to="/calendar"
-            description="View and schedule team events and deadlines."
-            icon={CalendarIcon}
-            cta="View Calendar"
-          />
-          
-          <FeatureCard
-            title="Create Project"
-            to="/create-project"
-            description="Start a new project and assign team members."
-            icon={ProjectIcon}
-            cta="Create Project"
-          />
+          {cards.map((c) => (
+            <FeatureCard
+              key={c.title}
+              title={c.title}
+              to={c.to}
+              description={c.description}
+              icon={c.icon}
+              cta={c.cta}
+            />
+          ))}
         </div>
 
-        {/* Quick Stats Section (Optional) */}
-        <section className="mt-12 grid grid-cols-1 gap-6 sm:grid-cols-3">
-          <div className="rounded-2xl border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-bg p-6 shadow-sm">
-            <div className="flex items-center gap-3">
-              <div className="rounded-lg bg-brand-primary/10 dark:bg-brand-secondary/10 p-3">
-                <TaskIcon className="h-6 w-6 text-brand-primary dark:text-brand-secondary" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold text-light-text-primary dark:text-dark-text-primary">—</p>
-                <p className="text-sm text-light-text-secondary dark:text-dark-text-secondary">Active Tasks</p>
+        {/* Quick Stats — show only to Manager/Director (hide for Staff by default) */}
+        {(role === "Manager" || role === "Director") && (
+          <section className="mt-12 grid grid-cols-1 gap-6 sm:grid-cols-3">
+            <div className="rounded-2xl border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-bg p-6 shadow-sm">
+              <div className="flex items-center gap-3">
+                <div className="rounded-lg bg-brand-primary/10 dark:bg-brand-secondary/10 p-3">
+                  <TaskIcon className="h-6 w-6 text-brand-primary dark:text-brand-secondary" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold text-light-text-primary dark:text-dark-text-primary">—</p>
+                  <p className="text-sm text-light-text-secondary dark:text-dark-text-secondary">Active Tasks</p>
+                </div>
               </div>
             </div>
-          </div>
 
-          <div className="rounded-2xl border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-bg p-6 shadow-sm">
-            <div className="flex items-center gap-3">
-              <div className="rounded-lg bg-success/10 p-3">
-                <ProjectIcon className="h-6 w-6 text-success" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold text-light-text-primary dark:text-dark-text-primary">—</p>
-                <p className="text-sm text-light-text-secondary dark:text-dark-text-secondary">Projects</p>
+            <div className="rounded-2xl border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-bg p-6 shadow-sm">
+              <div className="flex items-center gap-3">
+                <div className="rounded-lg bg-success/10 p-3">
+                  <ProjectIcon className="h-6 w-6 text-success" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold text-light-text-primary dark:text-dark-text-primary">—</p>
+                  <p className="text-sm text-light-text-secondary dark:text-dark-text-secondary">Projects</p>
+                </div>
               </div>
             </div>
-          </div>
 
-          <div className="rounded-2xl border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-bg p-6 shadow-sm">
-            <div className="flex items-center gap-3">
-              <div className="rounded-lg bg-warning/10 p-3">
-                <CalendarIcon className="h-6 w-6 text-warning" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold text-light-text-primary dark:text-dark-text-primary">—</p>
-                <p className="text-sm text-light-text-secondary dark:text-dark-text-secondary">Due This Week</p>
+            <div className="rounded-2xl border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-bg p-6 shadow-sm">
+              <div className="flex items-center gap-3">
+                <div className="rounded-lg bg-warning/10 p-3">
+                  <CalendarIcon className="h-6 w-6 text-warning" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold text-light-text-primary dark:text-dark-text-primary">—</p>
+                  <p className="text-sm text-light-text-secondary dark:text-dark-text-secondary">Due This Week</p>
+                </div>
               </div>
             </div>
-          </div>
-        </section>
+          </section>
+        )}
       </section>
     </main>
   );
