@@ -193,6 +193,37 @@ function formatTimeRemaining(minutes) {
   }
 }
 
+export async function createCommentNotifications({ taskId, commentId, authorId, commentBody }) {
+  // Fetch task for assignees & title
+  const task = await Task.findById(taskId).select('assignedTeamMembers title').lean();
+  if (!task) return [];
+
+  // Get author name (for message)
+  const author = await User.findById(authorId).select('name').lean();
+  const authorName = author?.name ?? 'Someone';
+
+  // Recipients: only staff assigned to the task, excluding the author
+  const recipients = (task.assignedTeamMembers || [])
+    .map(String)
+    .filter(uid => uid !== String(authorId));
+
+  if (recipients.length === 0) return [];
+
+  const message = `${authorName} commented on "${task.title}": ${commentBody.slice(0, 140)}`;
+
+  const docs = recipients.map(userId => ({
+    userId,
+    taskId,
+    type: 'comment',
+    commentId,
+    message,
+    scheduledFor: new Date(), // immediate
+  }));
+
+  const created = await Notification.insertMany(docs, { ordered: false });
+  return created;
+}
+
 /** Build a simple HTML email */
 function buildEmailHtml({ notification }) {
   const taskTitle = notification.taskId?.title ?? 'Task';

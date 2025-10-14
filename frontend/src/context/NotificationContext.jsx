@@ -62,3 +62,17 @@ export function useNotifications() {
   }
   return context;
 }
+
+export default function NotificationsProvider({ userId, children }) {
+  useEffect(() => {
+    if (!userId) return;
+    const unsub = subscribeToNotifications(userId, (notif) => {
+      // Show toast or badge update
+      toast(`${notif.message}`);
+      // Optionally, update a notifications store/state here
+    });
+    return () => unsub();
+  }, [userId]);
+
+  return children;
+}
