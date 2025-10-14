@@ -6,10 +6,10 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 
 // Import models
-import Project from './models/Project.js';
-import Task from './models/Task.js';
-import User from './models/User.js';
-import Notification from './models/Notification.js';
+import Project from '../models/Project.js';
+import Task from '../models/Task.js';
+import User from '../models/User.js';
+import Notification from '../models/Notification.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);

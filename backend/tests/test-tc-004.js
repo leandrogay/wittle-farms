@@ -6,10 +6,10 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 
 // Import models
-import Project from './models/Project.js';
-import Task from './models/Task.js';
-import User from './models/User.js';
-import Notification from './models/Notification.js';
+import Project from '../models/Project.js';
+import Task from '../models/Task.js';
+import User from '../models/User.js';
+import Notification from '../models/Notification.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -37,7 +37,7 @@ async function createTestTask() {
     }
     console.log('✅ Found user:', user.email);
 
-    // Clean up ALL existing notifications for this user (clean slate for TC-003)
+    // Clean up ALL existing notifications for this user (clean slate for TC-004)
     const existingNotifications = await Notification.find({ userId: user._id });
     if (existingNotifications.length > 0) {
       await Notification.deleteMany({ userId: user._id });
@@ -60,8 +60,8 @@ async function createTestTask() {
 
     // Create the task with single 1 hour reminder
     const taskData = {
-      title: "LF-50 TC-003",
-      description: "Test case for single 1 hour reminder notification functionality",
+      title: "LF-50 TC-004",
+      description: "Test case for mark notification as read functionality",
       assignedProject: project._id,
       assignedTeamMembers: [user._id],
       createdBy: user._id,
@@ -81,7 +81,7 @@ async function createTestTask() {
     console.log('   - Project:', project.name);
     console.log('   - Task ID:', task._id.toString());
 
-    console.log('\n🎯 Test Case TC-003 Setup Complete!');
+    console.log('\n🎯 Test Case TC-004 Setup Complete!');
     console.log('⏰ The cron job will automatically create the notification when the reminder time arrives.');
     console.log('👉 Now log in as littlefarms.inappreminder@gmail.com and check for notifications.');
 
