@@ -6,10 +6,10 @@ import Project from '../models/Project.js';
 const router = Router();
 
 // populate helper (always return rich objects)
-const populateProject = (q) =>
-  q.populate('createdBy', 'name email')
-   .populate('teamMembers', 'name email')
-   .populate('department', 'name');
+const populateProject = (query) =>
+  query.populate('createdBy', 'name email')
+    .populate('teamMembers', 'name email')
+    .populate('department', 'name');
 
 // normalize department aliases from client -> string[] of ids
 function normalizeDeptIds(body) {

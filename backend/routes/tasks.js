@@ -8,6 +8,14 @@ import Attachment from '../models/Attachment.js';
 const router = Router();
 const upload = multer({ storage: multer.memoryStorage() });
 
+// Populate helper - centralized task population logic
+const populateTask = (query) =>
+  query
+    .populate('assignedTeamMembers', 'name email')
+    .populate('createdBy', 'name email')
+    .populate('assignedProject', 'name')
+    .populate('attachments');
+
 /** Convert incoming reminderOffsets (array | string | CSV) to a clean number[] (minutes, >0) */
 function coerceReminderOffsets(input) {
   if (input == null) return [];
@@ -45,7 +53,7 @@ router.post('/', upload.array('attachments'), async (req, res) => {
       allDay,
       startAt,
       endAt,
-      reminderOffsets, // optional
+      reminderOffsets,
     } = req.body;
 
     // Required
@@ -124,11 +132,7 @@ router.post('/', upload.array('attachments'), async (req, res) => {
       await task.save();
     }
 
-    const populatedTask = await Task.findById(task._id)
-      .populate('assignedTeamMembers', 'name email')
-      .populate('createdBy', 'name email')
-      .populate('assignedProject', 'name')
-      .populate('attachments');
+    const populatedTask = await populateTask(Task.findById(task._id));
 
     const io = req.app.get('io');
     io?.emit?.('calendar:task:created', { task: populatedTask });
@@ -152,12 +156,9 @@ router.get('/', async (req, res) => {
     if (createdBy) filter.createdBy = new mongoose.Types.ObjectId(createdBy);
     if (assignee) filter.assignedTeamMembers = new mongoose.Types.ObjectId(assignee);
 
-    const tasks = await Task.find(filter)
-      .sort({ deadline: 1, createdAt: -1 })
-      .populate('assignedTeamMembers', 'name email')
-      .populate('createdBy', 'name email')
-      .populate('assignedProject', 'name')
-      .lean();
+    const tasks = await populateTask(
+      Task.find(filter).sort({ deadline: 1, createdAt: -1 })
+    ).lean();
 
     res.json(tasks);
   } catch (e) {
@@ -168,11 +169,7 @@ router.get('/', async (req, res) => {
 /** READ one task */
 router.get('/:id', async (req, res) => {
   try {
-    const task = await Task.findById(req.params.id)
-      .populate('assignedTeamMembers', 'name email')
-      .populate('createdBy', 'name email')
-      .populate('assignedProject', 'name')
-      .lean();
+    const task = await populateTask(Task.findById(req.params.id)).lean();
 
     if (!task) return res.status(404).json({ error: 'Task not found' });
     res.json(task);
@@ -200,7 +197,7 @@ router.put('/:id', upload.array('attachments'), async (req, res) => {
       allDay,
       startAt,
       endAt,
-      reminderOffsets, // optional
+      reminderOffsets,
     } = req.body;
 
     const existing = await Task.findById(req.params.id);
@@ -249,14 +246,7 @@ router.put('/:id', upload.array('attachments'), async (req, res) => {
       ? (deadline ? new Date(deadline) : null)
       : existing.deadline;
 
-    // Reminders:
-    // - If client provided reminderOffsets:
-    //     * if nextDeadline and cleaned is empty => default to 7/3/1
-    //     * if nextDeadline and cleaned not empty => use cleaned
-    //     * if no nextDeadline => []
-    // - If client did NOT provide reminderOffsets:
-    //     * if nextDeadline is null => clear reminders []
-    //     * else if nextDeadline exists and existing has no reminders => default to 7/3/1
+    // Reminders logic
     if (reminderOffsets !== undefined) {
       const cleaned = coerceReminderOffsets(reminderOffsets);
       updateData.reminderOffsets = nextDeadline
@@ -309,11 +299,7 @@ router.put('/:id', upload.array('attachments'), async (req, res) => {
       await task.save();
     }
 
-    const populatedTask = await Task.findById(task._id)
-      .populate('assignedTeamMembers', 'name email')
-      .populate('createdBy', 'name email')
-      .populate('assignedProject', 'name')
-      .populate('attachments');
+    const populatedTask = await populateTask(Task.findById(task._id));
 
     const io = req.app.get('io');
     io?.emit?.('calendar:task:updated', { task: populatedTask });
