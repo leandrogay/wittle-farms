@@ -33,12 +33,12 @@ function CheckIcon(props) {
 
 export default function Dashboard() {
   const { user } = useAuth();
-  
+
   const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [activeProject, setActiveProject] = useState(null);
-  
+
   const [departmentFilter, setDepartmentFilter] = useState("All");
   const [sortBy, setSortBy] = useState("deadline-asc");
 
@@ -47,7 +47,7 @@ export default function Dashboard() {
       try {
         setLoading(true);
         const data = await getProjects();
-        
+
         const myProjects = Array.isArray(data) ? data : [];
         setProjects(myProjects);
       } catch (err) {
@@ -70,7 +70,7 @@ export default function Dashboard() {
       })
       .flat()
       .filter(d => d && typeof d === 'string' && d.trim() !== "");
-    
+
     return ["All", ...new Set(deptNames)].sort();
   }, [projects]);
 
@@ -82,7 +82,7 @@ export default function Dashboard() {
     if (departmentFilter !== "All") {
       result = result.filter(p => {
         if (Array.isArray(p.department)) {
-          return p.department.some(d => 
+          return p.department.some(d =>
             (d?.name || d) === departmentFilter
           );
         }
@@ -140,14 +140,14 @@ export default function Dashboard() {
 
   // Calculate stats
   const totalProjects = projects.length;
-  
+
   const activeProjects = projects.filter(p => {
     if (!p.deadline) return true;
     const deadline = dayjs(p.deadline);
     const now = dayjs();
     return !now.isAfter(deadline, "day");
   }).length;
-  
+
   const upcomingDeadlines = projects.filter(p => {
     if (!p.deadline) return false;
     const deadline = dayjs(p.deadline);
@@ -272,10 +272,13 @@ export default function Dashboard() {
             </select>
           </label>
 
-          {departmentFilter !== "All" && (
+          {(departmentFilter !== "All" || sortBy) !== "deadline-asc" && (
             <button
               className="rounded-lg border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-bg-secondary text-light-text-primary dark:text-dark-text-primary px-3 py-1.5 text-sm hover:bg-light-surface dark:hover:bg-dark-surface transition-all font-medium"
-              onClick={() => setDepartmentFilter("All")}
+              onClick={() => {
+                setDepartmentFilter("All");
+                setSortBy("deadline-asc");
+              }}
             >
               Clear Filters
             </button>
