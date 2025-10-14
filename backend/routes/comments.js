@@ -1,5 +1,5 @@
 import { Router } from "express";
-import mongoose, {isValidObjectId}, { isValidObjectId } from "mongoose";
+import mongoose, { isValidObjectId } from "mongoose";
 import Comment from "../models/Comment.js";
 import Task from "../models/Task.js";
 import { createCommentNotifications } from "../services/notificationService.js";
