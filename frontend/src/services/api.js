@@ -636,9 +636,9 @@ export async function createTaskComment(taskId, payload) {
     });
   }
 
-  const res = await fetch(`${API_BASE}/api/tasks/${taskId}/comments`, {
+  const res = await authFetch(`/api/tasks/${taskId}/comments`, {
     method: "POST",
-    credentials: "include",
+  
     ...(headers ? { headers } : {}),
     body: reqBody,
   });
@@ -649,24 +649,35 @@ export async function createTaskComment(taskId, payload) {
   return res.json();
 }
 
-export async function updateTaskComment(taskId, commentId, { body }) {
-  if (!taskId || !commentId) throw new Error("taskId and commentId are required");
-  if (!body || !body.trim()) throw new Error("Comment body is required");
-  const res = await fetch(`${API_BASE}/api/tasks/${taskId}/comments/${commentId}`, {
+// export async function updateTaskComment(taskId, commentId, { body }) {
+//   if (!taskId || !commentId) throw new Error("taskId and commentId are required");
+//   if (!body || !body.trim()) throw new Error("Comment body is required");
+//   const me = JSON.parse(localStorage.getItem("me") || "null"); // optional cache if you keep it
+//   const author = me?.user?._id || me?._id;
+//   const res = await authFetch(`/api/tasks/${taskId}/comments/${commentId}`, {
+//     method: "PUT",
+//     headers: { "Content-Type": "application/json" },
+//     body: JSON.stringify({ body, ...(author ? { author } : {}) }),
+//   });
+//   if (!res.ok) throw new Error(await res.text().catch(() => "Failed to update comment"));
+//   return res.json();
+// }
+export async function updateTaskComment(taskId, commentId, { body, authorId }) {
+  const res = await authFetch(`/api/tasks/${taskId}/comments/${commentId}`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ body }),
-    credentials: "include",
+    body: JSON.stringify({ body, ...(authorId ? { author: authorId } : {}) }),
   });
   if (!res.ok) throw new Error(await res.text().catch(() => "Failed to update comment"));
-  return res.json();
+  return res.json(); // <- returns populated author
 }
 
-export async function deleteTaskComment(taskId, commentId) {
+export async function deleteTaskComment(taskId, commentId, { authorId } = {}) {
   if (!taskId || !commentId) throw new Error("taskId and commentId are required");
-  const res = await fetch(`${API_BASE}/api/tasks/${taskId}/comments/${commentId}`, {
+  const res = await authFetch(`/api/tasks/${taskId}/comments/${commentId}`, {
     method: "DELETE",
-    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(authorId ? { author: authorId } : {}),
   });
   if (!res.ok) throw new Error(await res.text().catch(() => "Failed to delete comment"));
   return res.json(); 

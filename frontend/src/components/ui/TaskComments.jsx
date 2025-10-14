@@ -5,23 +5,24 @@ import {
   createTaskComment,
   updateTaskComment,
   deleteTaskComment,
-  getMe, 
+  getMe,
 } from "../../services/api";
 
+// Socket (one client for the module)
 const socket = io(import.meta.env.VITE_API_BASE_URL || "http://localhost:3000", {
   withCredentials: true,
 });
 
-//dedupe -> prevents the 2 child error 
+// Helpers
 const sortDesc = (a, b) => new Date(b.createdAt) - new Date(a.createdAt);
 const dedupeById = (arr) => {
   const map = new Map();
-  for (const c of arr) map.set(c._id, c); 
+  for (const c of arr) map.set(c._id, c);
   return Array.from(map.values()).sort(sortDesc);
 };
 
 function pickUser(me) {
-  const u = me?.user ?? me; 
+  const u = me?.user ?? me;
   if (!u || typeof u !== "object") return { id: null, name: "", email: "" };
   return {
     id: u._id ?? u.id ?? null,
@@ -48,34 +49,30 @@ export default function TaskComments({ taskId, currentUser }) {
         cursor: nextCursor,
         limit: 20,
       });
-      //setItems((prev) => [...prev, ...page]);
-      setItems(prev => dedupeById([...prev, ...page]));
+      setItems((prev) => dedupeById([...prev, ...page]));
       setNextCursor(nc);
     } finally {
       setLoading(false);
     }
   }
 
+  // (Re)load when task changes
   useEffect(() => {
     setItems([]);
     setNextCursor(null);
     void loadMore();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [taskId]);
 
+  // Resolve current user
   useEffect(() => {
     let cancelled = false;
     if (!currentUser) {
       setLoadingMe(true);
       getMe()
-        .then((raw) => {
-          if (!cancelled) setMe(pickUser(raw));
-        })
-        .catch(() => {
-          if (!cancelled) setMe(null);
-        })
-        .finally(() => {
-          if (!cancelled) setLoadingMe(false);
-        });
+        .then((raw) => !cancelled && setMe(pickUser(raw)))
+        .catch(() => !cancelled && setMe(null))
+        .finally(() => !cancelled && setLoadingMe(false));
     } else {
       setMe(pickUser(currentUser));
       setLoadingMe(false);
@@ -85,13 +82,20 @@ export default function TaskComments({ taskId, currentUser }) {
     };
   }, [currentUser]);
 
+  // Realtime events
   useEffect(() => {
-    const onCreate = ({ taskId: t, comment }) => t === taskId && setItems(prev => (prev.some(c => c._id === comment._id) ? prev : [comment, ...prev].sort(sortDesc)));
-    //setItems((prev) => [comment, ...prev]);
-    const onUpdate = ({ taskId: t, comment }) =>
-      t === taskId && setItems((prev) => prev.map((c) => (c._id === comment._id ? comment : c)));
-    const onDelete = ({ taskId: t, commentId }) =>
-      t === taskId && setItems((prev) => prev.filter((c) => c._id !== commentId));
+    const onCreate = ({ taskId: t, comment }) => {
+      if (t !== taskId) return;
+      setItems((prev) => dedupeById([comment, ...prev]));
+    };
+    const onUpdate = ({ taskId: t, comment }) => {
+      if (t !== taskId) return;
+      setItems((prev) => prev.map((c) => (c._id === comment._id ? comment : c)));
+    };
+    const onDelete = ({ taskId: t, commentId }) => {
+      if (t !== taskId) return;
+      setItems((prev) => prev.filter((c) => c._id !== commentId));
+    };
 
     socket.on("task:comment:created", onCreate);
     socket.on("task:comment:updated", onUpdate);
@@ -117,6 +121,7 @@ export default function TaskComments({ taskId, currentUser }) {
       return;
     }
 
+    // Optimistic add
     const tempId = `tmp-${Date.now()}`;
     setItems((prev) => [
       {
@@ -131,16 +136,45 @@ export default function TaskComments({ taskId, currentUser }) {
 
     try {
       const saved = await createTaskComment(taskId, { body: val, authorId: me.id });
-      //setItems((prev) => prev.map((c) => (c._id === tempId ? saved : c)));
-      setItems(prev => dedupeById(prev.map(c => (c._id === tempId ? saved : c))));
+      setItems((prev) => dedupeById(prev.map((c) => (c._id === tempId ? saved : c))));
     } catch (err) {
       setItems((prev) => prev.filter((c) => c._id !== tempId));
       alert(err?.message || "Failed to post comment");
     }
   }
 
+  async function onEdit(comment) {
+    const next = window.prompt("Edit comment:", comment.body);
+    if (!next) return;
+    const trimmed = next.trim();
+    if (!trimmed || trimmed === comment.body) return;
+
+    try {
+      const updated = await updateTaskComment(taskId, comment._id, {
+        body: trimmed,
+        authorId: me?.id,
+      });
+      setItems((prev) => prev.map((i) => (i._id === comment._id ? updated : i)));
+    } catch (err) {
+      alert(err?.message || "Failed to update comment");
+    }
+  }
+
+  async function onDelete(comment) {
+    if (!window.confirm("Delete this comment?")) return;
+    const snapshot = items;
+    setItems((prev) => prev.filter((i) => i._id !== comment._id));
+    try {
+      await deleteTaskComment(taskId, comment._id, { authorId: me?.id });
+    } catch (err) {
+      setItems(snapshot); // rollback
+      alert(err?.message || "Failed to delete comment");
+    }
+  }
+
   return (
     <div className="space-y-4">
+      {/* Composer */}
       <form onSubmit={handleSubmit} className="flex gap-2">
         <input
           ref={inputRef}
@@ -154,51 +188,38 @@ export default function TaskComments({ taskId, currentUser }) {
         </button>
       </form>
 
+      {/* List */}
       <ul className="space-y-3">
         {items.map((c) => {
-          const isOwner = me?.id && String(c.author?._id) === String(me.id);
+          const ownerId = me?.id ? String(me.id) : null;
+          const authorId = c.author?._id ? String(c.author._id) : null;
+          const isOwner = ownerId && authorId && ownerId === authorId;
+
           return (
-            <li key={c._id} className="rounded-2xl border p-3 bg-[--color-light-surface] dark:bg-[--color-dark-surface]">
+            <li
+              key={c._id}
+              className="rounded-2xl border p-3 bg-[--color-light-surface] dark:bg-[--color-dark-surface]"
+            >
               <div className="text-sm text-slate-600 dark:text-[--color-dark-text-secondary]">
                 <strong className="text-slate-900 dark:text-[--color-dark-text-primary]">
                   {c.author?.name || (isOwner ? "You" : "Unknown")}
                 </strong>{" "}
                 · {new Date(c.createdAt).toLocaleString()}
-                {c.editedAt ? " · (edited)" : null}
+                {c.editedAt ? (
+                  <span className="ml-1 text-xs text-slate-500 dark:text-[--color-dark-text-muted]">(edited)</span>
+                ) : null}
               </div>
-              <div className="mt-1 whitespace-pre-wrap text-slate-900 dark:text-[--color-dark-text-primary]">{c.body}</div>
+
+              <div className="mt-1 whitespace-pre-wrap text-slate-900 dark:text-[--color-dark-text-primary]">
+                {c.body}
+              </div>
 
               {isOwner && (
                 <div className="mt-2 flex gap-3 text-sm text-[--color-brand-primary]">
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      const next = window.prompt("Edit comment:", c.body);
-                      if (!next || !next.trim() || next === c.body) return;
-                      try {
-                        const updated = await updateTaskComment(taskId, c._id, { body: next.trim() });
-                        setItems((prev) => prev.map((i) => (i._id === c._id ? updated : i)));
-                      } catch {
-                        alert("Failed to update comment");
-                      }
-                    }}
-                  >
+                  <button type="button" onClick={() => onEdit(c)}>
                     Edit
                   </button>
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      if (!window.confirm("Delete this comment?")) return;
-                      const snap = items;
-                      setItems((prev) => prev.filter((i) => i._id !== c._id));
-                      try {
-                        await deleteTaskComment(taskId, c._id);
-                      } catch {
-                        setItems(snap);
-                        alert("Failed to delete comment");
-                      }
-                    }}
-                  >
+                  <button type="button" onClick={() => onDelete(c)}>
                     Delete
                   </button>
                 </div>
@@ -218,3 +239,4 @@ export default function TaskComments({ taskId, currentUser }) {
     </div>
   );
 }
+

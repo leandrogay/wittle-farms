@@ -1,5 +1,5 @@
 import { Router } from "express";
-import mongoose from "mongoose";
+import mongoose, {isValidObjectId} from "mongoose";
 import Comment from "../models/Comment.js";
 import Task from "../models/Task.js";
 
@@ -64,55 +64,95 @@ router.post("/:taskId/comments", async (req, res) => {
   }
 });
 
+// router.put('/:taskId/comments/:commentId', async (req, res) => {
+//   try {
+//     const { taskId, commentId } = req.params;
+//     const { body, author } = req.body;
+
+//   if (!isValidObjectId(taskId) || !isValidObjectId(commentId)) {
+//     return res.status(400).json({ error: 'Invalid task or comment id' });
+//   }
+//   if (!body || !body.trim()) {
+//     return res.status(400).json({ error: 'Comment body is required' });
+//   }
+
+//   const userId = req.user?._id;
+//   if (!userId || !isValidObjectId(userId) ) return res.status(401).json({ error: 'Not authenticated' });
+
+//     const comment = await Comment.findOne({ _id: commentId, task: taskId });
+//     if (!comment) return res.status(404).json({ error: 'Comment not found' });
+
+//   if (String(comment.author) !== String(userId)) {
+//     return res.status(403).json({ error: 'Not allowed to edit this comment' });
+//   }
+
+//     comment.body = body.trim();
+//     comment.editedAt = new Date();
+//     await comment.save();
+
+//     const populated = await Comment.findById(comment._id)
+//       .populate('author', 'name email')
+//       .lean();
+
+//     const io = req.app.get('io');
+//     io?.emit?.('task:comment:updated', { taskId, comment: populated });
+
+//     res.json(populated);
+//   } catch (e) {
+//     res.status(400).json({ error: e.message });
+//   }
+// });
 router.put('/:taskId/comments/:commentId', async (req, res) => {
   try {
     const { taskId, commentId } = req.params;
-    const { body } = req.body;
+    const { body, author } = req.body;
 
-  if (!isValidObjectId(taskId) || !isValidObjectId(commentId)) {
-    return res.status(400).json({ error: 'Invalid task or comment id' });
-  }
-  if (!body || !body.trim()) {
-    return res.status(400).json({ error: 'Comment body is required' });
-  }
+    if (!isValidObjectId(taskId) || !isValidObjectId(commentId)) {
+      return res.status(400).json({ error: 'Invalid task or comment id' });
+    }
+    if (!body || !body.trim()) {
+      return res.status(400).json({ error: 'Comment body is required' });
+    }
 
-  const userId = req.user?._id;
-  if (!userId) return res.status(401).json({ error: 'Not authenticated' });
+    const userId = req.user?._id || author;
+    if (!userId || !isValidObjectId(userId)) {
+      return res.status(401).json({ error: 'Not authenticated' });
+    }
 
-    const comment = await Comment.findOne({ _id: commentId, task: taskId });
-    if (!comment) return res.status(404).json({ error: 'Comment not found' });
+    const existing = await Comment.findOne({ _id: commentId, task: taskId });
+    if (!existing) return res.status(404).json({ error: 'Comment not found' });
+    if (String(existing.author) !== String(userId)) {
+      return res.status(403).json({ error: 'Not allowed to edit this comment' });
+    }
 
-  if (String(comment.author) !== String(userId)) {
-    return res.status(403).json({ error: 'Not allowed to edit this comment' });
-  }
+    await Comment.updateOne(
+      { _id: commentId },
+      { $set: { body, editedAt: new Date() } }
+    );
 
-    comment.body = body.trim();
-    comment.editedAt = new Date();
-    await comment.save();
-
-    const populated = await Comment.findById(comment._id)
+    const updated = await Comment.findById(commentId)
       .populate('author', 'name email')
       .lean();
 
-    const io = req.app.get('io');
-    io?.emit?.('task:comment:updated', { taskId, comment: populated });
-
-    res.json(populated);
+    res.json(updated);
   } catch (e) {
-    res.status(400).json({ error: e.message });
+    res.status(500).json({ error: e.message });
   }
 });
 
 router.delete('/:taskId/comments/:commentId', async (req, res) => {
   try {
     const { taskId, commentId } = req.params;
+    const { author } = req.body;
 
   if (!isValidObjectId(taskId) || !isValidObjectId(commentId)) {
     return res.status(400).json({ error: 'Invalid task or comment id' });
   }
 
-  const userId = req.user?._id;
-  if (!userId) return res.status(401).json({ error: 'Not authenticated' });
+  const userId = req.user?._id || author;
+  if (!userId || !isValidObjectId(userId)) {
+    return res.status(401).json({ error: 'Not authenticated' });
+  }
 
     const comment = await Comment.findOne({ _id: commentId, task: taskId });
     if (!comment) return res.status(404).json({ error: 'Comment not found' });
