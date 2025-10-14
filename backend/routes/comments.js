@@ -1,5 +1,5 @@
 import { Router } from "express";
-import mongoose, { isValidObjectId } from "mongoose";
+import mongoose, {isValidObjectId}, { isValidObjectId } from "mongoose";
 import Comment from "../models/Comment.js";
 import Task from "../models/Task.js";
 import { createCommentNotifications } from "../services/notificationService.js";
@@ -71,16 +71,15 @@ router.post('/:taskId/comments', async (req, res) => {
     io?.emit?.('task:comment:created', { taskId, comment: populated });
 
     res.status(201).json(populated);
-  } catch (err) {
-    console.error('[comments:create] failed:', err);
-    res.status(500).json({ error: 'Failed to create comment' });
+  } catch (e) {
+    res.status(400).json({ error: e.message });
   }
 });
 
 router.put('/:taskId/comments/:commentId', async (req, res) => {
   try {
     const { taskId, commentId } = req.params;
-    const { body } = req.body;
+    const { body, author } = req.body;
 
     if (!isValidObjectId(taskId) || !isValidObjectId(commentId)) {
       return res.status(400).json({ error: 'Invalid task or comment id' });
@@ -89,43 +88,45 @@ router.put('/:taskId/comments/:commentId', async (req, res) => {
       return res.status(400).json({ error: 'Comment body is required' });
     }
 
-    const userId = req.user?._id;
-    if (!userId) return res.status(401).json({ error: 'Not authenticated' });
-
-    const comment = await Comment.findOne({ _id: commentId, task: taskId });
-    if (!comment) return res.status(404).json({ error: 'Comment not found' });
-
-    if (String(comment.author) !== String(userId)) {
-      return res.status(403).json({ error: 'Not allowed to edit this comment' });
+      const userId = req.user?._id || author;
+      if (!userId || !isValidObjectId(userId)) {
+      return res.status(401).json({ error: 'Not authenticated' });
     }
 
-    comment.body = body.trim();
-    comment.editedAt = new Date();
-    await comment.save();
+    const existing = await Comment.findOne({ _id: commentId, task: taskId });
+    if (!existing) return res.status(404).json({ error: 'Comment not found' });
+      if (String(existing.author) !== String(userId)) {
+        return res.status(403).json({ error: 'Not allowed to edit this comment' });
+      }
 
-    const populated = await Comment.findById(comment._id)
+    await Comment.updateOne(
+      { _id: commentId },
+      { $set: { body, editedAt: new Date() } }
+    );
+
+    const updated = await Comment.findById(commentId)
       .populate('author', 'name email')
       .lean();
 
-    const io = req.app.get('io');
-    io?.emit?.('task:comment:updated', { taskId, comment: populated });
-
-    res.json(populated);
+    res.json(updated);
   } catch (e) {
-    res.status(400).json({ error: e.message });
+    res.status(500).json({ error: e.message });
   }
 });
 
 router.delete('/:taskId/comments/:commentId', async (req, res) => {
   try {
     const { taskId, commentId } = req.params;
+    const { author } = req.body;
 
     if (!isValidObjectId(taskId) || !isValidObjectId(commentId)) {
       return res.status(400).json({ error: 'Invalid task or comment id' });
     }
 
-    const userId = req.user?._id;
-    if (!userId) return res.status(401).json({ error: 'Not authenticated' });
+    const userId = req.user?._id || author;
+    if (!userId || !isValidObjectId(userId)) {
+    return res.status(401).json({ error: 'Not authenticated' });
+  }
 
     const comment = await Comment.findOne({ _id: commentId, task: taskId });
     if (!comment) return res.status(404).json({ error: 'Comment not found' });
