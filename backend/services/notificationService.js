@@ -1,6 +1,7 @@
 import Task from '../models/Task.js';
 import Notification from '../models/Notification.js';
 import User from '../models/User.js';
+import Project from '../models/Project.js';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime.js';
 import { sendEmail } from '../utils/mailer.js';
@@ -13,12 +14,12 @@ dayjs.extend(relativeTime);
  */
 export async function checkAndCreateReminders() {
   const now = dayjs();
-  
-  const tasks = await Task.find({ 
+
+  const tasks = await Task.find({
     status: { $ne: 'Done' },
     deadline: { $exists: true, $ne: null }
   })
-  .lean();
+    .lean();
 
   const notifications = [];
 
@@ -26,10 +27,10 @@ export async function checkAndCreateReminders() {
     if (!task.deadline || !task.reminderOffsets || !task.assignedTeamMembers?.length) continue;
 
     const deadline = dayjs(task.deadline);
-    
+
     for (const offset of task.reminderOffsets) {
       const reminderTime = deadline.subtract(offset, 'minute');
-      
+
       // Check if reminder time has passed (is in the past or now) 
       // Allow up to 10 minutes grace period to catch missed reminders
       if (now.isAfter(reminderTime) && now.diff(reminderTime, 'minute') <= 10) {
@@ -41,26 +42,26 @@ export async function checkAndCreateReminders() {
             reminderOffset: offset // Use offset to identify unique reminders
           });
 
-            if (!existingNotification) {
-              const notification = {
-                userId: memberId,
-                taskId: task._id,
-                type: 'reminder',
-                reminderOffset: offset, // Add offset to track which reminder this is
-                message: `Task "${task.title}" is due in ${formatTimeRemaining(offset)}`,
-                scheduledFor: new Date(reminderTime),
-                read: false,
-                sent: false
-              };
-              
-              notifications.push(notification);
-            }
+          if (!existingNotification) {
+            const notification = {
+              userId: memberId,
+              taskId: task._id,
+              type: 'reminder',
+              reminderOffset: offset, // Add offset to track which reminder this is
+              message: `Task "${task.title}" is due in ${formatTimeRemaining(offset)}`,
+              scheduledFor: new Date(reminderTime),
+              read: false,
+              sent: false
+            };
+
+            notifications.push(notification);
+          }
         }
       }
     }
 
     if (
-      deadline.isBefore(now, 'minute') && 
+      deadline.isBefore(now, 'minute') &&
       deadline.isAfter(now.subtract(1, 'minute'), 'minute')
     ) {
       for (const memberId of task.assignedTeamMembers) {
@@ -81,7 +82,7 @@ export async function checkAndCreateReminders() {
             read: false,
             sent: false
           };
-          
+
           notifications.push(notification);
         }
       }
@@ -99,13 +100,13 @@ export async function checkAndCreateReminders() {
  * Get all unread notifications for a user
  */
 export async function getUnreadNotifications(userId) {
-  return await Notification.find({ 
-    userId, 
-    read: false 
+  return await Notification.find({
+    userId,
+    read: false
   })
-  .populate('taskId', 'title deadline')
-  .sort('-scheduledFor')
-  .lean();
+    .populate('taskId', 'title deadline')
+    .sort('-scheduledFor')
+    .lean();
 }
 
 /**
@@ -194,8 +195,10 @@ function formatTimeRemaining(minutes) {
 }
 
 export async function createCommentNotifications({ taskId, commentId, authorId, commentBody }) {
-  // Fetch task for assignees & title
-  const task = await Task.findById(taskId).select('assignedTeamMembers title').lean();
+  // Fetch task for assignees, project & title
+  const task = await Task.findById(taskId)
+    .select('assignedTeamMembers title assignedProject')
+    .lean();
   if (!task) return [];
 
   // Get author name (for message)
@@ -203,10 +206,35 @@ export async function createCommentNotifications({ taskId, commentId, authorId, 
   const authorName = author?.name ?? 'Someone';
 
   // Recipients: only staff assigned to the task, excluding the author
-  const recipients = (task.assignedTeamMembers || [])
+  // --- Staff assignees: notify, excluding author
+  const assigneeIds = (task.assignedTeamMembers || [])
     .map(String)
-    .filter(uid => uid !== String(authorId));
+    .filter((uid) => uid !== String(authorId));
 
+  // --- Project managers: notify, excluding author
+  let managerIds = [];
+  if (task.assignedProject) {
+    // NOTE: adjust these field names to match your Project schema.
+    // We try several common possibilities and merge what exists.
+    const proj = await Project.findById(task.assignedProject)
+      .select('managers manager owners owner lead projectManagers createdBy')
+      .lean();
+    if (proj) {
+      const possibles = [
+        ...(proj.managers || []),
+        ...(proj.projectManagers || []),
+        ...(proj.owners || []),
+        proj.manager,
+        proj.owner,
+        proj.lead,
+        proj.createdBy,
+      ].filter(Boolean);
+      managerIds = possibles.map(String).filter((uid) => uid !== String(authorId));
+    }
+  }
+  // Final recipients: assignees ∪ managers (unique, no author)
+  const uniq = new Set([...assigneeIds, ...managerIds]);
+  const recipients = Array.from(uniq);
   if (recipients.length === 0) return [];
 
   const message = `${authorName} commented on "${task.title}": ${commentBody.slice(0, 140)}`;
