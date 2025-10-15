@@ -34,15 +34,39 @@ export default function TaskForm({
     isEdit ? !task?.deadline : false
   );
 
+  // -------- Reminder helpers --------
   const MINUTES = { minute: 1, hour: 60, day: 1440 };
-  const [newReminderValue, setNewReminderValue] = useState(0);
-  const [newReminderUnit, setNewReminderUnit] = useState("day");
+  const SG_TZ = "Asia/Singapore";
 
   function labelFromMinutes(m) {
     if (m % MINUTES.day === 0) return `${m / MINUTES.day} day(s) before`;
     if (m % MINUTES.hour === 0) return `${m / MINUTES.hour} hour(s) before`;
     return `${m} minute(s) before`;
   }
+
+  function getDeadlineDayjs(localDeadlineStr) {
+    return dayjs.tz(localDeadlineStr, "YYYY-MM-DDTHH:mm", SG_TZ);
+  }
+
+  /** Latest offset (in minutes) that would still be in the future right now. */
+  function getMaxOffsetMinutesFromNow(localDeadlineStr) {
+    if (!localDeadlineStr) return 0;
+    const now = dayjs().tz(SG_TZ);
+    const dl = getDeadlineDayjs(localDeadlineStr);
+    const diffMin = dl.diff(now, "minute");
+    return Math.max(0, diffMin);
+  }
+
+  function humanizeMaxOffset(m) {
+    if (m <= 0) return "no reminders allowed (deadline is in the past)";
+    if (m % MINUTES.day === 0) return `${m / MINUTES.day} day(s) before`;
+    if (m % MINUTES.hour === 0) return `${m / MINUTES.hour} hour(s) before`;
+    return `${m} minute(s) before`;
+  }
+
+  const [newReminderValue, setNewReminderValue] = useState(0);
+  const [newReminderUnit, setNewReminderUnit] = useState("day");
+  const [reminderError, setReminderError] = useState("");
 
   const [formData, setFormData] = useState(() => {
     if (isEdit) {
@@ -60,7 +84,9 @@ export default function TaskForm({
           ? dayjs(task.deadline).tz().format("YYYY-MM-DDTHH:mm")
           : "",
         createdBy: user.id,
-        reminderOffsets: Array.isArray(task.reminderOffsets) ? task.reminderOffsets : [],
+        reminderOffsets: Array.isArray(task.reminderOffsets)
+          ? task.reminderOffsets
+          : [],
         attachments: [],
       };
     }
@@ -79,6 +105,7 @@ export default function TaskForm({
     };
   });
 
+  // Load projects
   useEffect(() => {
     let cancelled = false;
     async function loadProjects() {
@@ -101,6 +128,7 @@ export default function TaskForm({
     };
   }, [user.id, isEdit]);
 
+  // Load team members when project changes
   useEffect(() => {
     let cancelled = false;
 
@@ -186,6 +214,11 @@ export default function TaskForm({
     }));
   }
 
+  function fmtDays(m) {
+    const days = Math.floor(m / 1440);
+    return `${days} day(s) before`;
+  }
+
   function toggleNoDueDate(checked) {
     setNoDueDate(checked);
     if (checked) {
@@ -197,6 +230,21 @@ export default function TaskForm({
     formData.assignedTeamMembers.includes(tm._id)
   );
 
+  // --- Auto-prune past reminders whenever deadline toggles/changes
+  useEffect(() => {
+    if (noDueDate || !formData.deadline) return;
+
+    const maxMin = getMaxOffsetMinutesFromNow(formData.deadline);
+
+    setFormData((prev) => ({
+      ...prev,
+      reminderOffsets: (prev.reminderOffsets || [])
+        .map(Number)
+        .filter((n) => Number.isFinite(n) && n > 0 && n <= maxMin)
+        .sort((a, b) => b - a),
+    }));
+  }, [noDueDate, formData.deadline]);
+
   async function handleSubmit(e) {
     e.preventDefault();
 
@@ -206,7 +254,7 @@ export default function TaskForm({
 
       if (hasDeadline) {
         payload.deadline = dayjs
-          .tz(formData.deadline, "YYYY-MM-DDTHH:mm", "Asia/Singapore")
+          .tz(formData.deadline, "YYYY-MM-DDTHH:mm", SG_TZ)
           .toISOString();
 
         let offsets = Array.isArray(formData.reminderOffsets)
@@ -218,45 +266,50 @@ export default function TaskForm({
           offsets.push(pending);
         }
 
-        payload.reminderOffsets = [...new Set(offsets)]
+        // Base cleanup
+        offsets = [...new Set(offsets)]
           .map(Number)
-          .filter((n) => Number.isFinite(n) && n > 0)
-          .sort((a, b) => b - a);
+          .filter((n) => Number.isFinite(n) && n > 0);
+
+        // Defense-in-depth: remove ones that would be in the past
+        const maxMin = getMaxOffsetMinutesFromNow(formData.deadline);
+        const before = offsets.length;
+        offsets = offsets.filter((n) => n <= maxMin).sort((a, b) => b - a);
+        if (before !== offsets.length) {
+          alert(
+            "Some reminders were removed because they would have triggered in the past."
+          );
+        }
+
+        payload.reminderOffsets = offsets;
       } else {
         delete payload.deadline;
-        payload.reminderOffsets = (Array.isArray(formData.reminderOffsets) ? formData.reminderOffsets : [])
+        payload.reminderOffsets = (Array.isArray(formData.reminderOffsets)
+          ? formData.reminderOffsets
+          : []
+        )
           .map(Number)
-          .filter(n => Number.isFinite(n) && n > 0);
-      }
-
-      console.log("[TASK SUBMIT PAYLOAD]", payload);
-      {
-        const mins = Array.isArray(payload.reminderOffsets) ? payload.reminderOffsets : [];
-        const days = mins.map(m => +(m / 1440).toFixed(4));
-        console.log("[TASK SUBMIT] reminderOffsets (min):", mins, "→ days:", days);
+          .filter((n) => Number.isFinite(n) && n > 0);
       }
 
       if (isEdit) {
         const data = await updateTask(task._id, payload);
-        console.log("[SERVER UPDATE RESULT] reminderOffsets (min):", data?.reminderOffsets,
-              "→ days:", (data?.reminderOffsets || []).map(m => m / 1440));
         onUpdated?.(data);
         alert("Task updated successfully!");
       } else {
         const data = await createTask(payload);
-        console.log("[SERVER CREATE RESULT] reminderOffsets (min):", data?.reminderOffsets,
-              "→ days:", (data?.reminderOffsets || []).map(m => m / 1440));
         onCreated?.(data);
         alert("Task created successfully!");
       }
 
       onCancel();
     } catch (err) {
-      alert(`${isEdit ? "Error updating task: " : "Error creating task: "}${err.message}`);
+      alert(
+        `${isEdit ? "Error updating task: " : "Error creating task: "}${err.message
+        }`
+      );
     }
   }
-
-
 
   useEffect(() => {
     function handleClickOutside(event) {
@@ -280,6 +333,20 @@ export default function TaskForm({
       </div>
     );
   }
+
+  // Render-time values for UX
+  const maxOffsetNow =
+    !noDueDate && formData.deadline
+      ? getMaxOffsetMinutesFromNow(formData.deadline)
+      : 0;
+  const pendingMinutes =
+    Number(newReminderValue) * MINUTES[newReminderUnit] || 0;
+  const addDisabled =
+    noDueDate ||
+    !formData.deadline ||
+    !Number.isFinite(pendingMinutes) ||
+    pendingMinutes <= 0 ||
+    pendingMinutes > maxOffsetNow;
 
   return (
     <div className="w-[800px] max-h-[90vh] overflow-hidden mx-auto">
@@ -339,24 +406,6 @@ export default function TaskForm({
                       isEdit
                         ? "Update task description..."
                         : "Describe the task in detail..."
-                    }
-                    className="w-full px-3 py-2 text-sm border border-light-border dark:border-dark-border rounded-lg bg-light-bg dark:bg-dark-bg-secondary text-light-text-primary dark:text-dark-text-primary focus:ring-2 focus:ring-brand-primary dark:focus:ring-brand-secondary focus:border-transparent resize-none transition-all"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-semibold text-light-text-primary dark:text-dark-text-primary mb-1">
-                    Additional Notes
-                  </label>
-                  <textarea
-                    name="notes"
-                    rows={2}
-                    value={formData.notes}
-                    onChange={handleChange}
-                    placeholder={
-                      isEdit
-                        ? "Update additional notes..."
-                        : "Any additional information or context..."
                     }
                     className="w-full px-3 py-2 text-sm border border-light-border dark:border-dark-border rounded-lg bg-light-bg dark:bg-dark-bg-secondary text-light-text-primary dark:text-dark-text-primary focus:ring-2 focus:ring-brand-primary dark:focus:ring-brand-secondary focus:border-transparent resize-none transition-all"
                   />
@@ -641,9 +690,11 @@ export default function TaskForm({
                                   type="button"
                                   className="ml-1 text-light-text-muted dark:text-dark-text-muted hover:text-danger"
                                   onClick={() =>
-                                    setFormData(prev => ({
+                                    setFormData((prev) => ({
                                       ...prev,
-                                      reminderOffsets: (prev.reminderOffsets || []).filter(x => x !== m),
+                                      reminderOffsets: (
+                                        prev.reminderOffsets || []
+                                      ).filter((x) => x !== m),
                                     }))
                                   }
                                   title="Remove reminder"
@@ -683,22 +734,59 @@ export default function TaskForm({
                         </select>
                         <button
                           type="button"
+                          disabled={addDisabled}
                           onClick={() => {
+                            setReminderError("");
+
+                            if (noDueDate || !formData.deadline) return;
+
                             const minutes =
                               Number(newReminderValue) * MINUTES[newReminderUnit];
-                            if (!Number.isFinite(minutes) || minutes <= 0) return;
+
+                            if (
+                              !Number.isFinite(minutes) ||
+                              minutes <= 0
+                            ) {
+                              return;
+                            }
+
+                            const maxMin = getMaxOffsetMinutesFromNow(
+                              formData.deadline
+                            );
+
+                            if (minutes > maxMin) {
+                              setReminderError(
+                                `That reminder would be in the past. Latest allowed is ${fmtDays(maxMin)}.`
+                              );
+                              return;
+                            }
+
                             setFormData((prev) => ({
                               ...prev,
                               reminderOffsets: [
-                                ...new Set([...(prev.reminderOffsets || []), minutes]),
-                              ],
+                                ...new Set([
+                                  ...(prev.reminderOffsets || []),
+                                  minutes,
+                                ]),
+                              ].sort((a, b) => b - a),
                             }));
                           }}
-                          className="px-3 py-2 text-sm rounded-lg bg-light-surface dark:bg-dark-surface border border-light-border dark:border-dark-border hover:bg-light-bg-secondary dark:hover:bg-dark-bg-secondary"
+                          className={`px-3 py-2 text-sm rounded-lg bg-light-surface dark:bg-dark-surface border border-light-border dark:border-dark-border hover:bg-light-bg-secondary dark:hover:bg-dark-bg-secondary ${addDisabled ? "opacity-60 cursor-not-allowed" : ""}`}
                         >
                           Add
                         </button>
                       </div>
+
+                      {!noDueDate && formData.deadline && (
+                        <p className="mt-1 text-xs">
+                          Latest valid reminder right now: <b>{fmtDays(maxOffsetNow)}</b>
+                        </p>
+                      )}
+                      {reminderError && (
+                        <p className="mt-1 text-xs text-danger">
+                          {reminderError}
+                        </p>
+                      )}
                     </>
                   )}
                 </div>
