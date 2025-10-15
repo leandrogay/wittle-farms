@@ -17,6 +17,8 @@ import ResetPassword from "./pages/ResetPassword.jsx";
 import ResetLinkExpired from "./pages/ResetLinkExpired";
 import Calendar from "./pages/Calendar.jsx";
 import CreateProject from "./pages/CreateProject.jsx";
+import Timeline from "./pages/Timeline.jsx";
+
 
 import { AuthProvider } from "./context/AuthContext.jsx";
 import { NotificationProvider } from "./context/NotificationContext.jsx";
@@ -40,44 +42,48 @@ createRoot(document.getElementById("root")).render(
         <BrowserRouter>
           <NotificationProvider>
             <Routes>
-            <Route path="/login" element={<Login />} />
-            <Route path="/register" element={<Register />} />
-            <Route path="/unauthorized" element={<Unauthorized />} />
-            <Route path="/forgot-password" element={<ForgotPassword />} />
-            <Route path="/reset-password" element={<ResetPassword />} />
-            <Route path="/reset-link-expired" element={<ResetLinkExpired />} />
+              <Route path="/login" element={<Login />} />
+              <Route path="/register" element={<Register />} />
+              <Route path="/unauthorized" element={<Unauthorized />} />
+              <Route path="/forgot-password" element={<ForgotPassword />} />
+              <Route path="/reset-password" element={<ResetPassword />} />
+              <Route path="/reset-link-expired" element={<ResetLinkExpired />} />
 
-            <Route element={<App />}>
-              {/* Auth-protected area */}
-              <Route element={<RequireAuth />}>
-                {/* Landing: send user to the correct page by role */}
-                <Route index element={<RoleRedirect />} />
+              <Route element={<App />}>
+                {/* Auth-protected area */}
+                <Route element={<RequireAuth />}>
+                  {/* Landing: send user to the correct page by role */}
+                  <Route index element={<RoleRedirect />} />
 
-                <Route path="home" element={<Home />} />
+                  <Route path="home" element={<Home />} />
 
-                <Route element={<RequireRole roles={["Staff"]} />}>
-                  <Route path="tasks" element={<Tasks />} />
-                </Route>
+                  <Route element={<RequireRole roles={["Staff"]} />}>
+                    <Route path="tasks" element={<Tasks />} />
+                  </Route>
 
-                <Route element={<RequireRole roles={["Manager"]} />}>
-                  <Route path="taskboard-mgr" element={<TaskBoardMgr />} />
-                  <Route path="create-project" element={<CreateProject />} />
-                </Route>
+                  <Route element={<RequireRole roles={["Manager"]} />}>
+                    <Route path="taskboard-mgr" element={<TaskBoardMgr />} />
+                    <Route path="create-project" element={<CreateProject />} />
+                  </Route>
 
-                <Route element={<RequireRole roles={["Staff", "Manager", "Director"]} />}>
-                  <Route path="calendar" element={<Calendar />} />
-                </Route>
+                  <Route element={<RequireRole roles={["Staff", "Manager"]} />}>
+                    <Route path="timeline" element={<Timeline />} />
+                  </Route>
 
-                <Route element={<RequireRole roles={["Director"]} />}>
-                  <Route path="dashboard" element={<Dashboard />} />
+                  <Route element={<RequireRole roles={["Staff", "Manager", "Director"]} />}>
+                    <Route path="calendar" element={<Calendar />} />
+                  </Route>
+
+                  <Route element={<RequireRole roles={["Director"]} />}>
+                    <Route path="dashboard" element={<Dashboard />} />
+                  </Route>
                 </Route>
               </Route>
-            </Route>
 
-            {/* Fallback */}
-            <Route path="*" element={<Navigate to="/login" replace />} />
-          </Routes>
-            </NotificationProvider>
+              {/* Fallback */}
+              <Route path="*" element={<Navigate to="/login" replace />} />
+            </Routes>
+          </NotificationProvider>
         </BrowserRouter>
       </ThemeProvider>
     </AuthProvider>

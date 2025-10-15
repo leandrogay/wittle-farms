@@ -25,10 +25,9 @@ export default function Header() {
           to="/home"
           end
           className={({ isActive }) =>
-            `px-4 py-2 rounded-lg font-medium transition-all ${
-              isActive
-                ? "bg-brand-primary text-white dark:bg-brand-secondary shadow-sm"
-                : "text-light-text-primary dark:text-dark-text-primary hover:bg-light-bg dark:hover:bg-dark-bg"
+            `px-4 py-2 rounded-lg font-medium transition-all ${isActive
+              ? "bg-brand-primary text-white dark:bg-brand-secondary shadow-sm"
+              : "text-light-text-primary dark:text-dark-text-primary hover:bg-light-bg dark:hover:bg-dark-bg"
             }`
           }
         >
@@ -40,10 +39,9 @@ export default function Header() {
             <NavLink
               to="/tasks"
               className={({ isActive }) =>
-                `px-4 py-2 rounded-lg font-medium transition-all ${
-                  isActive
-                    ? "bg-brand-primary text-white dark:bg-brand-secondary shadow-sm"
-                    : "text-light-text-primary dark:text-dark-text-primary hover:bg-light-bg dark:hover:bg-dark-bg"
+                `px-4 py-2 rounded-lg font-medium transition-all ${isActive
+                  ? "bg-brand-primary text-white dark:bg-brand-secondary shadow-sm"
+                  : "text-light-text-primary dark:text-dark-text-primary hover:bg-light-bg dark:hover:bg-dark-bg"
                 }`
               }
             >
@@ -52,14 +50,24 @@ export default function Header() {
             <NavLink
               to="/calendar"
               className={({ isActive }) =>
-                `px-4 py-2 rounded-lg font-medium transition-all ${
-                  isActive
-                    ? "bg-brand-primary text-white dark:bg-brand-secondary shadow-sm"
-                    : "text-light-text-primary dark:text-dark-text-primary hover:bg-light-bg dark:hover:bg-dark-bg"
+                `px-4 py-2 rounded-lg font-medium transition-all ${isActive
+                  ? "bg-brand-primary text-white dark:bg-brand-secondary shadow-sm"
+                  : "text-light-text-primary dark:text-dark-text-primary hover:bg-light-bg dark:hover:bg-dark-bg"
                 }`
               }
             >
               Calendar
+            </NavLink>
+            <NavLink
+              to="/timeline"
+              className={({ isActive }) =>
+                `px-4 py-2 rounded-lg font-medium transition-all ${isActive
+                  ? "bg-brand-primary text-white dark:bg-brand-secondary shadow-sm"
+                  : "text-light-text-primary dark:text-dark-text-primary hover:bg-light-bg dark:hover:bg-dark-bg"
+                }`
+              }
+            >
+              Timeline
             </NavLink>
           </>
         )}
@@ -69,10 +77,9 @@ export default function Header() {
             <NavLink
               to="/taskboard-mgr"
               className={({ isActive }) =>
-                `px-4 py-2 rounded-lg font-medium transition-all ${
-                  isActive
-                    ? "bg-brand-primary text-white dark:bg-brand-secondary shadow-sm"
-                    : "text-light-text-primary dark:text-dark-text-primary hover:bg-light-bg dark:hover:bg-dark-bg"
+                `px-4 py-2 rounded-lg font-medium transition-all ${isActive
+                  ? "bg-brand-primary text-white dark:bg-brand-secondary shadow-sm"
+                  : "text-light-text-primary dark:text-dark-text-primary hover:bg-light-bg dark:hover:bg-dark-bg"
                 }`
               }
             >
@@ -81,10 +88,9 @@ export default function Header() {
             <NavLink
               to="/create-project"
               className={({ isActive }) =>
-                `px-4 py-2 rounded-lg font-medium transition-all ${
-                  isActive
-                    ? "bg-brand-primary text-white dark:bg-brand-secondary shadow-sm"
-                    : "text-light-text-primary dark:text-dark-text-primary hover:bg-light-bg dark:hover:bg-dark-bg"
+                `px-4 py-2 rounded-lg font-medium transition-all ${isActive
+                  ? "bg-brand-primary text-white dark:bg-brand-secondary shadow-sm"
+                  : "text-light-text-primary dark:text-dark-text-primary hover:bg-light-bg dark:hover:bg-dark-bg"
                 }`
               }
             >
@@ -93,14 +99,24 @@ export default function Header() {
             <NavLink
               to="/calendar"
               className={({ isActive }) =>
-                `px-4 py-2 rounded-lg font-medium transition-all ${
-                  isActive
-                    ? "bg-brand-primary text-white dark:bg-brand-secondary shadow-sm"
-                    : "text-light-text-primary dark:text-dark-text-primary hover:bg-light-bg dark:hover:bg-dark-bg"
+                `px-4 py-2 rounded-lg font-medium transition-all ${isActive
+                  ? "bg-brand-primary text-white dark:bg-brand-secondary shadow-sm"
+                  : "text-light-text-primary dark:text-dark-text-primary hover:bg-light-bg dark:hover:bg-dark-bg"
                 }`
               }
             >
               Calendar
+            </NavLink>
+            <NavLink
+              to="/timeline"
+              className={({ isActive }) =>
+                `px-4 py-2 rounded-lg font-medium transition-all ${isActive
+                  ? "bg-brand-primary text-white dark:bg-brand-secondary shadow-sm"
+                  : "text-light-text-primary dark:text-dark-text-primary hover:bg-light-bg dark:hover:bg-dark-bg"
+                }`
+              }
+            >
+              Timeline
             </NavLink>
           </>
         )}
@@ -110,10 +126,9 @@ export default function Header() {
             <NavLink
               to="/calendar"
               className={({ isActive }) =>
-                `px-4 py-2 rounded-lg font-medium transition-all ${
-                  isActive
-                    ? "bg-brand-primary text-white dark:bg-brand-secondary shadow-sm"
-                    : "text-light-text-primary dark:text-dark-text-primary hover:bg-light-bg dark:hover:bg-dark-bg"
+                `px-4 py-2 rounded-lg font-medium transition-all ${isActive
+                  ? "bg-brand-primary text-white dark:bg-brand-secondary shadow-sm"
+                  : "text-light-text-primary dark:text-dark-text-primary hover:bg-light-bg dark:hover:bg-dark-bg"
                 }`
               }
             >
@@ -123,10 +138,9 @@ export default function Header() {
             <NavLink
               to="/dashboard"
               className={({ isActive }) =>
-                `px-4 py-2 rounded-lg font-medium transition-all ${
-                  isActive
-                    ? "bg-brand-primary text-white dark:bg-brand-secondary shadow-sm"
-                    : "text-light-text-primary dark:text-dark-text-primary hover:bg-light-bg dark:hover:bg-dark-bg"
+                `px-4 py-2 rounded-lg font-medium transition-all ${isActive
+                  ? "bg-brand-primary text-white dark:bg-brand-secondary shadow-sm"
+                  : "text-light-text-primary dark:text-dark-text-primary hover:bg-light-bg dark:hover:bg-dark-bg"
                 }`
               }
             >

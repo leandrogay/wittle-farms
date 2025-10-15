@@ -24,6 +24,7 @@ const TaskSchema = new Schema(
     allDay: { type: Boolean, default: false },
     startAt: { type: Date, index: true },
     endAt: { type: Date, index: true },
+    completedAt: { type: Date, index: true },
 
     // Minutes before deadline (custom only)
     reminderOffsets: {

@@ -241,6 +241,19 @@ router.put('/:id', upload.array('attachments'), async (req, res) => {
     if (startAt !== undefined) updateData.startAt = startAt ? new Date(startAt) : null;
     if (endAt !== undefined) updateData.endAt = endAt ? new Date(endAt) : null;
 
+    // === INSERT THIS BLOCK HERE (right after updateData is computed) ===
+    const prevStatus = existing.status;
+    const nextStatus = (status !== undefined) ? status : prevStatus;
+
+    // maintain completedAt automatically
+    if (prevStatus !== 'Done' && nextStatus === 'Done') {
+      updateData.completedAt = new Date();
+    }
+    if (prevStatus === 'Done' && nextStatus !== 'Done') {
+      updateData.completedAt = null;
+    }
+    // === END INSERT ===
+
     // Determine what the deadline will be AFTER this update
     const nextDeadline = (deadline !== undefined)
       ? (deadline ? new Date(deadline) : null)

@@ -25,6 +25,8 @@ import departmentRouter from './routes/departments.js';
 import calendarRoute from './routes/calendar.js';
 import notificationsRouter from './routes/overdue-notifis.js';
 import commentsRouter from './routes/comments.js';
+import timelineRouter from './routes/timeline.js';
+
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -50,6 +52,8 @@ app.use('/api/projects', projectRouter);
 app.use('/api/departments', departmentRouter);
 app.use('/api/notifications', notificationsRouter);
 app.use('/api/tasks', commentsRouter);
+app.use('/api/timeline', timelineRouter);
+
 
 console.log('Loaded ENV:', process.env.MONGO_URI);
 
