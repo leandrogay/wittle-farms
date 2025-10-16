@@ -88,6 +88,11 @@ export default function TaskForm({
           ? task.reminderOffsets
           : [],
         attachments: [],
+        priority: String(
+          Number.isFinite(Number(task.priority))
+          ? Math.max(1, Math.min(10, Math.trunc(Number(task.priority))))
+          : 5
+        ),
       };
     }
     return {
@@ -97,7 +102,7 @@ export default function TaskForm({
       assignedProject: "",
       assignedTeamMembers: [],
       status: "To Do",
-      priority: "Low",
+      priority: "5",
       deadline: "",
       createdBy: user.id,
       attachments: [],
@@ -168,6 +173,11 @@ export default function TaskForm({
 
   function handleChange(e) {
     const { name, value, files, options, type } = e.target;
+    if (name === "priority") {
+      const n = Math.max(1, Math.min(10, Math.trunc(Number(value) || 5)));
+      setFormData((prev) => ({ ...prev, priority: String(n) }));
+      return;
+    }
 
     if (type === "file") {
       setFormData((prev) => ({ ...prev, [name]: files }));
@@ -250,6 +260,7 @@ export default function TaskForm({
 
     try {
       const payload = { ...formData };
+      payload.priority = Math.max(1, Math.min(10, Math.trunc(Number(formData.priority) || 5)));
       const hasDeadline = !noDueDate && !!formData.deadline;
 
       if (hasDeadline) {
@@ -620,17 +631,25 @@ export default function TaskForm({
 
                   <div>
                     <label className="block text-sm font-semibold text-light-text-primary dark:text-dark-text-primary mb-1">
-                      Priority
+                      Priority Bucket
                     </label>
+                    <p className="text-xs text-light-text-muted dark:text-dark-text-muted mb-1">1 is least important, 10 is most important</p>
                     <select
                       name="priority"
                       value={formData.priority}
                       onChange={handleChange}
                       className="w-full px-3 py-2 text-sm border border-light-border dark:border-dark-border rounded-lg bg-light-bg dark:bg-dark-bg-secondary text-light-text-primary dark:text-dark-text-primary focus:ring-2 focus:ring-brand-primary dark:focus:ring-brand-secondary focus:border-transparent transition-all"
                     >
-                      <option value="Low">Low</option>
-                      <option value="Medium">Medium</option>
-                      <option value="High">High</option>
+                      <option value="1">1</option>
+                      <option value="2">2</option>
+                      <option value="3">3</option>
+                      <option value="4">4</option>
+                      <option value="5">5</option>
+                      <option value="6">6</option>
+                      <option value="7">7</option>
+                      <option value="8">8</option>
+                      <option value="9">9</option>
+                      <option value="10">10</option>
                     </select>
                   </div>
                 </div>

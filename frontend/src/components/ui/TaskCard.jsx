@@ -1,7 +1,7 @@
 import dayjs from "dayjs";
 import TaskFormButton from "./TaskFormButton";
 import DeleteTaskButton from "./DeleteTaskButton";
-import {useState} from "react";
+import { useState } from "react";
 import TaskComments from "./TaskComments";
 
 const priorityStyles = {
@@ -10,6 +10,14 @@ const priorityStyles = {
     "bg-priority-medium-bg dark:bg-priority-medium-bg-dark text-priority-medium-text dark:text-priority-medium-text-dark ring-1 ring-priority-medium-border dark:ring-priority-medium-border-dark",
   High: "bg-priority-high-bg dark:bg-priority-high-bg-dark text-priority-high-text dark:text-priority-high-text-dark ring-1 ring-priority-high-border dark:ring-priority-high-border-dark",
 };
+
+function getPriorityBucket(p) {
+  const n = Math.trunc(Number(p));
+  if (!Number.isFinite(n)) return null;
+  if (n <= 3) return "Low";
+  if (n <= 7) return "Medium";
+  return "High";
+}
 
 const MINUTES = { minute: 1, hour: 60, day: 1440 };
 // default system reminders: 7d, 3d, 1d (in minutes)
@@ -39,10 +47,11 @@ function labelFromMinutes(m) {
 }
 
 export default function TaskCard({ task, onTaskUpdated, onTaskDeleted, currentUser }) {
-  const priority = task?.priority || "No priority";
-  const pClass =
-    priorityStyles[priority] ||
-    "bg-light-surface dark:bg-dark-surface text-light-text-primary dark:text-dark-text-primary ring-1 ring-light-border dark:ring-dark-border";
+  const priorityValue = Number(task?.priority);
+  const priorityBucket = getPriorityBucket(priorityValue);
+  const pClass = priorityBucket
+    ? priorityStyles[priorityBucket]
+    : "bg-light-surface dark:bg-dark-surface text-light-text-primary dark:text-dark-text-primary ring-1 ring-light-border dark:ring-dark-border";
 
   const now = dayjs();
   const deadline = task?.deadline ? dayjs(task.deadline) : null;
@@ -54,9 +63,9 @@ export default function TaskCard({ task, onTaskUpdated, onTaskDeleted, currentUs
   // Normalize what came from the API
   const rawOffsets = Array.isArray(task?.reminderOffsets)
     ? task.reminderOffsets
-        .map(Number)
-        .filter((n) => Number.isFinite(n) && n > 0)
-        .sort((a, b) => b - a)
+      .map(Number)
+      .filter((n) => Number.isFinite(n) && n > 0)
+      .sort((a, b) => b - a)
     : [];
 
   // If there IS a deadline and NO custom reminders, show the system defaults (7/3/1)
@@ -65,20 +74,19 @@ export default function TaskCard({ task, onTaskUpdated, onTaskDeleted, currentUs
   const computedReminders =
     deadline && effectiveOffsets.length > 0
       ? effectiveOffsets.map((m) => ({
-          minutes: m,
-          label: labelFromMinutes(m),
-          when: deadline.subtract(m, "minute"),
-        }))
+        minutes: m,
+        label: labelFromMinutes(m),
+        when: deadline.subtract(m, "minute"),
+      }))
       : [];
-  
+
   // const { currentUser } = useAuth();
-  const [showComments, setShowComments] = useState(false); 
+  const [showComments, setShowComments] = useState(false);
 
   return (
     <article
-      className={`rounded-2xl border p-6 shadow-sm bg-light-bg dark:bg-dark-bg ${
-        isOverdue ? "border-danger ring-2 ring-danger/20" : "border-light-border dark:border-dark-border"
-      }`}
+      className={`rounded-2xl border p-6 shadow-sm bg-light-bg dark:bg-dark-bg ${isOverdue ? "border-danger ring-2 ring-danger/20" : "border-light-border dark:border-dark-border"
+        }`}
     >
       <p className="text-sm font-medium text-light-text-muted dark:text-dark-text-muted">
         Project: {task?.assignedProject?.name ?? "—"}
@@ -91,17 +99,23 @@ export default function TaskCard({ task, onTaskUpdated, onTaskDeleted, currentUs
       <FieldRow label="Notes">{task?.notes ?? "—"}</FieldRow>
 
       <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <Badge className={pClass}>
-          <span className="sr-only">Priority:</span>
-          <span className="text-sm font-bold">{priority}</span>
+        <Badge className={pClass}> 
+          {Number.isFinite(priorityValue) ? (
+            <>
+             <span className="text-sm font-bold">{priorityValue}</span>
+              <span className="text-sm font-medium"> · {priorityBucket}</span>
+            </>
+          ) : (
+            <span className="text-sm font-medium">No priority</span>
+          )}
         </Badge>
+
         {deadlineText && (
           <Badge
-            className={`${
-              isOverdue
-                ? "bg-priority-high-bg dark:bg-priority-high-bg-dark text-priority-high-text dark:text-priority-high-text-dark ring-1 ring-priority-high-border dark:ring-priority-high-border-dark"
-                : "bg-light-surface dark:bg-dark-surface text-light-text-primary dark:text-dark-text-primary ring-1 ring-light-border dark:ring-dark-border"
-            }`}
+            className={`${isOverdue
+              ? "bg-priority-high-bg dark:bg-priority-high-bg-dark text-priority-high-text dark:text-priority-high-text-dark ring-1 ring-priority-high-border dark:ring-priority-high-border-dark"
+              : "bg-light-surface dark:bg-dark-surface text-light-text-primary dark:text-dark-text-primary ring-1 ring-light-border dark:ring-dark-border"
+              }`}
           >
             <span className="font-semibold">Deadline:</span>{" "}
             <span className="font-medium">{deadlineText}</span>

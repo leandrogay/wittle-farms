@@ -47,7 +47,6 @@ function coercePriority(input) {
  * POST /api/tasks
  */
 router.post('/', upload.array('attachments'), async (req, res) => {
-  const coercedPriority = coercePriority(priority);
   try {
     const {
       title,
@@ -64,6 +63,7 @@ router.post('/', upload.array('attachments'), async (req, res) => {
       endAt,
       reminderOffsets,
     } = req.body;
+    const coercedPriority = coercePriority(priority);
 
     // Required
     if (!title) return res.status(400).json({ error: 'Title is required' });
