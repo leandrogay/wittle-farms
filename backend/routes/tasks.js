@@ -34,11 +34,20 @@ function coerceReminderOffsets(input) {
     .sort((a, b) => b - a);
 }
 
+function coercePriority(input) {
+  if (input == null || input === '') return undefined;
+  const n = Number(input);
+  if (!Number.isFinite(n)) return undefined;
+  // clamp to 1..10
+  return Math.max(1, Math.min(10, Math.trunc(n)));
+}
+
 /**
  * CREATE Task
  * POST /api/tasks
  */
 router.post('/', upload.array('attachments'), async (req, res) => {
+  const coercedPriority = coercePriority(priority);
   try {
     const {
       title,
@@ -105,7 +114,7 @@ router.post('/', upload.array('attachments'), async (req, res) => {
       assignedProject,
       assignedTeamMembers: teamMembers,
       status,
-      priority,
+      priority: coercedPriority ?? undefined,
       deadline: deadline ? new Date(deadline) : null,
       createdBy,
       allDay: (allDay === true || allDay === 'true'),
@@ -234,7 +243,13 @@ router.put('/:id', upload.array('attachments'), async (req, res) => {
     if (assignedProject !== undefined) updateData.assignedProject = assignedProject;
     if (teamMembers !== undefined) updateData.assignedTeamMembers = teamMembers;
     if (status !== undefined) updateData.status = status;
-    if (priority !== undefined) updateData.priority = priority;
+    if (priority !== undefined) {
+      const coerced = coercePriority(priority);
+      if (coerced === undefined) {
+        return res.status(400).json({ error: 'Invalid priority; must be an integer 1–10.' });
+      }
+      updateData.priority = coerced;
+    }
     if (createdBy !== undefined) updateData.createdBy = createdBy;
     if (deadline !== undefined) updateData.deadline = deadline ? new Date(deadline) : null;
     if (allDay !== undefined) updateData.allDay = (allDay === true || allDay === 'true');

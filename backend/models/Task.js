@@ -15,7 +15,13 @@ const TaskSchema = new Schema(
     assignedTeamMembers: [{ type: Types.ObjectId, ref: 'User', default: [], index: true }],
 
     status: { type: String, enum: STATUS, default: 'To Do', index: true },
-    priority: { type: String, enum: PRIORITY, default: 'Low', index: true },
+    priority: {
+      type: Number,
+      min: 1,
+      max: 10,
+      default: 5,
+      index: true,
+    },
     deadline: { type: Date, index: true },
     createdBy: { type: Types.ObjectId, ref: 'User', required: true, index: true },
 
