@@ -5,6 +5,14 @@ import TaskCard from "../components/ui/TaskCard.jsx";
 import TaskForm from "../components/ui/TaskForm.jsx";
 import { useAuth } from "../context/AuthContext.jsx";
 
+function priorityBucket(p) {
+  const n = Math.trunc(Number(p));
+  if (!Number.isFinite(n)) return null;
+  if (n <= 3) return "Low";
+  if (n <= 7) return "Medium";
+  return "High";
+}
+
 function ProjectPicker({ projects, valueId, onChange }) {
   const [open, setOpen] = useState(false);
   const current = projects.find((p) => p._id === valueId);
@@ -120,20 +128,22 @@ function SquareTaskTile({ task, onOpen, section }) {
               Priority:
             </div>
             <div>
-              {task.priority === "Low" && (
-                <span className={`font-semibold ${priorityColors.Low}`}>Low</span>
-              )}
-              {task.priority === "Medium" && (
-                <span className={`font-semibold ${priorityColors.Medium}`}>Medium</span>
-              )}
-              {task.priority === "High" && (
-                <span className={`font-semibold ${priorityColors.High}`}>High</span>
-              )}
-              {!["Low", "Medium", "High"].includes(task.priority) && (
-                <span className="text-light-text-muted dark:text-dark-text-muted font-semibold">
-                  None
-                </span>
-              )}
+              {(() => {
+                const bucket = priorityBucket(task.priority);
+                const n = Number(task?.priority);
+                if (!bucket || !Number.isFinite(n)) {
+                  return (
+                    <span className="text-light-text-muted dark:text-dark-text-muted font-semibold">
+                      None
+                    </span>
+                  );
+                }
+                return (
+                  <span className={`font-semibold ${priorityColors[bucket]}`}>
+                    {n} · {bucket}
+                  </span>
+                );
+              })()}
             </div>
           </div>
         </div>
@@ -216,6 +226,9 @@ export default function TaskBoardMgr() {
 
   const sortedTasks = useMemo(() => {
     return [...tasks].sort((a, b) => {
+      const pa = Number(a.priority) || 0;
+      const pb = Number(b.priority) || 0;
+      if (pb !== pa) return pb - pa;
       const ad = a?.deadline ? new Date(a.deadline).getTime() : Infinity;
       const bd = b?.deadline ? new Date(b.deadline).getTime() : Infinity;
       return ad - bd;
@@ -224,7 +237,12 @@ export default function TaskBoardMgr() {
 
   const filteredTasks = useMemo(() => {
     const statusOK = (st) => statusFilter === "All" || normalizeStatus(st) === statusFilter;
-    const priorityOK = (pr) => priorityFilter === "All" || (pr ?? "None") === priorityFilter;
+    const priorityOK = (pr) => {
+      if (priorityFilter === "All") return true;
+      const n = Number(pr);
+      const f = Number(priorityFilter);
+      return Number.isFinite(n) && n === f;
+    };
 
     return sortedTasks.filter((t) => {
       const taskMatch = statusOK(t.status) && priorityOK(t.priority);
@@ -293,10 +311,15 @@ export default function TaskBoardMgr() {
   }, [tasks]);
 
   const priorityOptions = useMemo(() => {
-    const set = new Set(["Low", "Medium", "High"]);
-    tasks.forEach((t) => set.add(t.priority ?? "None"));
-    tasks.forEach((t) => (t.subtasks ?? []).forEach((s) => set.add(s.priority ?? "None")));
-    return ["All", ...Array.from(set)];
+    const seen = new Set();
+    const add = (v) => {
+      const n = Number(v);
+      if (Number.isFinite(n) && n >= 1 && n <= 10) seen.add(String(n));
+    };
+    tasks.forEach((t) => add(t.priority));
+    tasks.forEach((t) => (t.subtasks ?? []).forEach((s) => add(s.priority)));
+    const ordered = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10"].filter((x) => seen.has(x));
+    return ["All", ...ordered];
   }, [tasks]);
 
   if (authLoading || projLoading) {

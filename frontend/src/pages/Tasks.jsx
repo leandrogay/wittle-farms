@@ -5,6 +5,14 @@ import TaskCard from "../components/ui/TaskCard.jsx";
 import TaskForm from "../components/ui/TaskForm.jsx";
 import { useAuth } from "../context/AuthContext.jsx";
 
+function priorityBucket(p) {
+  const n = Math.trunc(Number(p));
+  if (!Number.isFinite(n)) return null;
+  if (n <= 3) return "Low";
+  if (n <= 7) return "Medium";
+  return "High";
+}
+
 export default function Tasks() {
   const { user } = useAuth();
 
@@ -26,14 +34,14 @@ export default function Tasks() {
 
         const myTasks = Array.isArray(data)
           ? data.filter(
-              (t) =>
-                Array.isArray(t.assignedTeamMembers) &&
-                t.assignedTeamMembers.some(
-                  (m) =>
-                    (typeof m === "string" && m === user.id) ||
-                    (m && m._id === user.id)
-                )
-            )
+            (t) =>
+              Array.isArray(t.assignedTeamMembers) &&
+              t.assignedTeamMembers.some(
+                (m) =>
+                  (typeof m === "string" && m === user.id) ||
+                  (m && m._id === user.id)
+              )
+          )
           : [];
 
         setTasks(myTasks);
@@ -47,15 +55,23 @@ export default function Tasks() {
 
   const sortedTasks = useMemo(() => {
     return [...tasks].sort((a, b) => {
+      const pa = Number(a.priority) || 0;
+      const pb = Number(b.priority) || 0;
+      if (pb !== pa) return pb - pa; 
       const ad = a?.deadline ? new Date(a.deadline).getTime() : Infinity;
       const bd = b?.deadline ? new Date(b.deadline).getTime() : Infinity;
-      return ad - bd;
+      return ad - bd; 
     });
   }, [tasks]);
 
   const filteredTasks = useMemo(() => {
     const statusOK = (st) => statusFilter === "All" || normalizeStatus(st) === statusFilter;
-    const priorityOK = (pr) => priorityFilter === "All" || (pr ?? "None") === priorityFilter;
+    const priorityOK = (pr) => {
+      if (priorityFilter === "All") return true;
+      const n = Number(pr);
+      const f = Number(priorityFilter);
+      return Number.isFinite(n) && n === f;
+    };
     return sortedTasks.filter((t) => statusOK(t.status) && priorityOK(t.priority));
   }, [sortedTasks, statusFilter, priorityFilter]);
 
@@ -81,7 +97,7 @@ export default function Tasks() {
   }, [filteredTasks]);
 
   const statusOptions = ["All", "To Do", "In Progress", "Done"];
-  const priorityOptions = ["All", "Low", "Medium", "High", "None"];
+  const priorityOptions = ["All", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10"];
 
   if (loading) {
     return (
@@ -258,13 +274,13 @@ function SquareTaskTile({ task, onOpen, section }) {
 
   const status = normalizeStatus(task.status);
   const statusClass =
-    status === "To Do" 
+    status === "To Do"
       ? "text-light-text-muted dark:text-dark-text-muted"
-      : status === "In Progress" 
-      ? "text-info"
-      : status === "Done" 
-      ? "text-success"
-      : "";
+      : status === "In Progress"
+        ? "text-info"
+        : status === "Done"
+          ? "text-success"
+          : "";
 
   const priorityColors = {
     Low: "text-success",
@@ -273,18 +289,18 @@ function SquareTaskTile({ task, onOpen, section }) {
   };
 
   const chipColor =
-    section === "overdue" 
+    section === "overdue"
       ? "bg-priority-high-bg dark:bg-priority-high-bg-dark text-priority-high-text dark:text-priority-high-text-dark border border-priority-high-border dark:border-priority-high-border-dark"
-      : section === "today" 
-      ? "bg-priority-medium-bg dark:bg-priority-medium-bg-dark text-priority-medium-text dark:text-priority-medium-text-dark border border-priority-medium-border dark:border-priority-medium-border-dark"
-      : section === "completed" 
-      ? "bg-light-surface dark:bg-dark-surface text-light-text-muted dark:text-dark-text-muted border border-light-border dark:border-dark-border"
-      : "bg-brand-primary/10 dark:bg-brand-secondary/10 text-brand-primary dark:text-brand-secondary border border-brand-primary/20 dark:border-brand-secondary/20";
+      : section === "today"
+        ? "bg-priority-medium-bg dark:bg-priority-medium-bg-dark text-priority-medium-text dark:text-priority-medium-text-dark border border-priority-medium-border dark:border-priority-medium-border-dark"
+        : section === "completed"
+          ? "bg-light-surface dark:bg-dark-surface text-light-text-muted dark:text-dark-text-muted border border-light-border dark:border-dark-border"
+          : "bg-brand-primary/10 dark:bg-brand-secondary/10 text-brand-primary dark:text-brand-secondary border border-brand-primary/20 dark:border-brand-secondary/20";
 
   return (
     <article className="border border-light-border dark:border-dark-border rounded-2xl shadow-sm bg-light-bg dark:bg-dark-bg overflow-hidden transition-all hover:shadow-md hover:border-brand-primary dark:hover:border-brand-secondary h-full group">
-      <button 
-        onClick={() => onOpen(task)} 
+      <button
+        onClick={() => onOpen(task)}
         className="w-full p-5 text-left h-full flex flex-col"
       >
         <div className="space-y-3 flex-1">
@@ -300,12 +316,22 @@ function SquareTaskTile({ task, onOpen, section }) {
           <div className="text-sm space-y-1">
             <div className="font-medium text-light-text-secondary dark:text-dark-text-secondary">Priority:</div>
             <div>
-              {task.priority === "Low" && <span className={`font-semibold ${priorityColors.Low}`}>Low</span>}
-              {task.priority === "Medium" && <span className={`font-semibold ${priorityColors.Medium}`}>Medium</span>}
-              {task.priority === "High" && <span className={`font-semibold ${priorityColors.High}`}>High</span>}
-              {!["Low", "Medium", "High"].includes(task.priority) && (
-                <span className="text-light-text-muted dark:text-dark-text-muted font-semibold">None</span>
-              )}
+              {(() => {
+                const n = Number(task?.priority);
+                const b = priorityBucket(n);
+                if (!Number.isFinite(n) || !b) {
+                  return (
+                    <span className="text-light-text-muted dark:text-dark-text-muted font-semibold">
+                      None
+                    </span>
+                  );
+                }
+                const color =
+                  b === "Low" ? priorityColors.Low :
+                    b === "Medium" ? priorityColors.Medium :
+                      priorityColors.High;
+                return <span className={`font-semibold ${color}`}>{n} · {b}</span>;
+              })()}
             </div>
           </div>
         </div>
