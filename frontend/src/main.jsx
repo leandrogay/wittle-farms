@@ -18,6 +18,7 @@ import ResetLinkExpired from "./pages/ResetLinkExpired";
 import Calendar from "./pages/Calendar.jsx";
 import CreateProject from "./pages/CreateProject.jsx";
 import Timeline from "./pages/Timeline.jsx";
+import Report from "./pages/Report.jsx";
 
 
 import { AuthProvider } from "./context/AuthContext.jsx";
@@ -72,6 +73,7 @@ createRoot(document.getElementById("root")).render(
 
                   <Route element={<RequireRole roles={["Staff", "Manager", "Director"]} />}>
                     <Route path="calendar" element={<Calendar />} />
+                    <Route path="report" element={<Report />} />
                   </Route>
 
                   <Route element={<RequireRole roles={["Director"]} />}>
