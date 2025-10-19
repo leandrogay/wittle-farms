@@ -17,7 +17,11 @@ router.get("/:taskId/mentionable-users", async (req, res) => {
       .lean();
     if (!task) return res.status(404).json({ error: "Task not found" });
 
-    const ids = [task.createdBy, ...(task.assignedTeamMembers || [])].filter(Boolean);
+    const ids = [
+      task.createdBy,
+      ...(task.assignedTeamMembers || []),
+    ].filter(Boolean);
+
     if (!ids.length) return res.json([]);
 
     const q = String(req.query.q || "").toLowerCase();
@@ -25,8 +29,8 @@ router.get("/:taskId/mentionable-users", async (req, res) => {
 
     const rows = users
       .map(u => {
-        const local = (u.email || "").split("@")[0]?.toLowerCase() || "";
-        return { _id: u._id, handle: local, name: u.name || local, email: u.email || "" };
+        const handle = (u.email || "").split("@")[0]?.toLowerCase() || "";
+        return { _id: u._id, handle, name: u.name || handle, email: u.email || "" };
       })
       .filter(u => !q || u.handle.startsWith(q) || u.name.toLowerCase().includes(q));
 

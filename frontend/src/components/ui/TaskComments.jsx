@@ -1,185 +1,191 @@
-import { useEffect, useRef, useState } from "react";
-import io from "socket.io-client";
-import {
-listTaskComments,
-createTaskComment,
-updateTaskComment,
-deleteTaskComment,
-getMe,
-searchMentionableUsers,
-} from "../../services/api";
+  import { useEffect, useRef, useState } from "react";
+  import io from "socket.io-client";
+  import {
+  listTaskComments,
+  createTaskComment,
+  updateTaskComment,
+  deleteTaskComment,
+  getMe,
+  searchMentionableUsers,
+  } from "../../services/api";
 
-const socket = io(import.meta.env.VITE_API_BASE_URL || "http://localhost:3000", {
-withCredentials: true,
-});
+  const socket = io(import.meta.env.VITE_API_BASE_URL || "http://localhost:3000", {
+  withCredentials: true,
+  });
 
-const sortDesc = (a, b) => new Date(b.createdAt) - new Date(a.createdAt);
-const dedupeById = (arr) => {
-const map = new Map();
-for (const c of arr) map.set(c._id, c);
-return Array.from(map.values()).sort(sortDesc);
-};
-const isObjectId = (s) => typeof s === "string" && /^[0-9a-fA-F]{24}$/.test(s);
-const isTempId = (s) => typeof s === "string" && s.startsWith("tmp-");
+  const sortDesc = (a, b) => new Date(b.createdAt) - new Date(a.createdAt);
+  const dedupeById = (arr) => {
+  const map = new Map();
+  for (const c of arr) map.set(c._id, c);
+  return Array.from(map.values()).sort(sortDesc);
+  };
+  const isObjectId = (s) => typeof s === "string" && /^[0-9a-fA-F]{24}$/.test(s);
+  const isTempId = (s) => typeof s === "string" && s.startsWith("tmp-");
 
+  const AT_TOKEN_RE = /(^|[\s(])@([a-z0-9._+-]{0,64})$/i;
 
-const AT_TOKEN_RE = /(^|[\s(])@([a-z0-9._+-]{0,64})$/i;
-function findAtToken(value, caret) {
-const left = value.slice(0, caret);
-const m = AT_TOKEN_RE.exec(left);
-if (!m) return null;
-const start = caret - (m[2].length + 1);
-return { query: m[2].toLowerCase(), start, end: caret }; // query can be ""
-}
+  function findAtToken(value, caret) {
+  const left = value.slice(0, caret);
+  const m = AT_TOKEN_RE.exec(left);
+  if (!m) return null;
+  const start = caret - (m[2].length + 1);
+  return { query: m[2].toLowerCase(), start, end: caret }; // query can be ""
+  }
 
-function renderWithMentions(text) {
+  function renderWithMentions(text) {
   return String(text).split(/(@[a-z0-9._+-]{2,64})/gi).map((p, i) =>
     p.startsWith("@")
       ? <span key={i} className="mention-chip-inline">{p}</span>
       : <span key={i}>{p}</span>
   );
-}
+  }
 
-function pickUser(me) {
-const u = me?.user ?? me;
-if (!u || typeof u !== "object") return { id: null, name: "", email: "" };
-return {
-id: u._id ?? u.id ?? null,
-name: u.name ?? u.username ?? u.email ?? "Unknown",
-email: u.email ?? "",
-};
-}
+  function pickUser(me) {
+  const u = me?.user ?? me;
+  if (!u || typeof u !== "object") return { id: null, name: "", email: "" };
+  return {
+  id: u._id ?? u.id ?? null,
+  name: u.name ?? u.username ?? u.email ?? "Unknown",
+  email: u.email ?? "",
+  };
+  }
 
-export default function TaskComments({ taskId, currentUser }) {
-const [items, setItems] = useState([]);
-const [nextCursor, setNextCursor] = useState(null);
-const [loading, setLoading] = useState(false);
+  export default function TaskComments({ taskId, currentUser }) {
+  const [items, setItems] = useState([]);
+  const [nextCursor, setNextCursor] = useState(null);
+  const [loading, setLoading] = useState(false);
 
-const [me, setMe] = useState(() => (currentUser ? pickUser(currentUser) : null));
-const [loadingMe, setLoadingMe] = useState(!currentUser);
+  const [me, setMe] = useState(() => (currentUser ? pickUser(currentUser) : null));
+  const [loadingMe, setLoadingMe] = useState(!currentUser);
 
-const textareaRef = useRef(null);
-const [text, setText] = useState("");
-const [suggest, setSuggest] = useState({ open: false, items: [], token: null });
-const mentionCache = useRef(new Map()); 
+  const textareaRef = useRef(null);
+  const [text, setText] = useState("");
+  const [suggest, setSuggest] = useState({ open: false, items: [], token: null });
+  const [suggestLoading, setSuggestLoading] = useState(false);
+  const mentionCache = useRef(new Map()); 
 
-async function loadMore() {
-if (loading) return;
-setLoading(true);
-try {
+  async function loadMore() {
+  if (loading) return;
+  setLoading(true);
+  try {
   const { items: page, nextCursor: nc } = await listTaskComments(taskId, {
     cursor: nextCursor,
     limit: 20,
   });
   setItems((prev) => dedupeById([...prev, ...page]));
   setNextCursor(nc);
-} finally {
+  } finally {
   setLoading(false);
-}
-}
+  }
+  }
 
-useEffect(() => {
-setItems([]);
-setNextCursor(null);
-void loadMore();
-// eslint-disable-next-line react-hooks/exhaustive-deps
-}, [taskId]);
+  useEffect(() => {
+  setItems([]);
+  setNextCursor(null);
+  void loadMore();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [taskId]);
 
-useEffect(() => {
-let cancelled = false;
-if (!currentUser) {
+  useEffect(() => {
+  let cancelled = false;
+  if (!currentUser) {
   setLoadingMe(true);
   getMe()
     .then((raw) => !cancelled && setMe(pickUser(raw)))
     .catch(() => !cancelled && setMe(null))
     .finally(() => !cancelled && setLoadingMe(false));
-} else {
+  } else {
   setMe(pickUser(currentUser));
   setLoadingMe(false);
-}
-return () => {
+  }
+  return () => {
   cancelled = true;
-};
-}, [currentUser]);
+  };
+  }, [currentUser]);
 
-useEffect(() => {
-const onCreate = ({ taskId: t, comment }) => {
+  useEffect(() => {
+  const onCreate = ({ taskId: t, comment }) => {
   if (t !== taskId) return;
   setItems((prev) => (prev.some((c) => c._id === comment._id) ? prev : dedupeById([comment, ...prev])));
-};
-const onUpdate = ({ taskId: t, comment }) => {
+  };
+  const onUpdate = ({ taskId: t, comment }) => {
   if (t !== taskId) return;
   setItems((prev) => prev.map((c) => (c._id === comment._id ? comment : c)));
-};
-const onDelete = ({ taskId: t, commentId }) => {
+  };
+  const onDelete = ({ taskId: t, commentId }) => {
   if (t !== taskId) return;
   setItems((prev) => prev.filter((c) => c._id !== commentId));
-};
+  };
 
-socket.on("task:comment:created", onCreate);
-socket.on("task:comment:updated", onUpdate);
-socket.on("task:comment:deleted", onDelete);
-return () => {
+  socket.on("task:comment:created", onCreate);
+  socket.on("task:comment:updated", onUpdate);
+  socket.on("task:comment:deleted", onDelete);
+  return () => {
   socket.off("task:comment:created", onCreate);
   socket.off("task:comment:updated", onUpdate);
   socket.off("task:comment:deleted", onDelete);
-};
-}, [taskId]);
+  };
+  }, [taskId]);
 
-async function onChange(e) {
-const v = e.target.value;
-setText(v);
+  async function loadSuggestions(q, token = null) {
+  try {
+    setSuggestLoading(true);
+    const list = await searchMentionableUsers(taskId, q);      // q may be ""
+    setSuggest({ open: true, items: list, token });            // open the list
+  } catch {
+    setSuggest({ open: false, items: [], token: null });
+  } finally {
+    setSuggestLoading(false);
+  }
+  }
+  async function onChange(e) {
+  const v = e.target.value;
+  setText(v);
 
-const caret = e.target.selectionStart ?? v.length;
-const token = findAtToken(v, caret);
-if (!token) {
-setSuggest({ open: false, items: [], token: null });
-return;
-}
+  const caret = e.target.selectionStart ?? v.length;
+  const token = findAtToken(v, caret);
+  if (!token) {
+  setSuggest({ open: false, items: [], token: null });
+  return;
+  }
 
-const q = token.query;
-try {
-const list = await searchMentionableUsers(taskId, q);
-setSuggest({ open: true, items: list, token });
-} catch {
-setSuggest({ open: false, items: [], token: null });
-}
-}
+  await loadSuggestions(token.query, token);
+  }
 
-function insertHandle(u) {
-if (!suggest.open || !suggest.token) return;
-const before = text.slice(0, suggest.token.start);
-const after = text.slice(suggest.token.end);
-const next = `${before}@${u.handle}${after} `;
-setText(next);
-setSuggest({ open: false, items: [], token: null });
+  function insertHandle(u) {
+  if (!suggest.open || !suggest.token) return;
+  const before = text.slice(0, suggest.token.start);
+  const after = text.slice(suggest.token.end);
+  const next = `${before}@${u.handle}${after} `;
+  setText(next);
+  setSuggest({ open: false, items: [], token: null });
 
-requestAnimationFrame(() => {
+  requestAnimationFrame(() => {
   const el = textareaRef.current;
   if (!el) return;
   const pos = (before + `@${u.handle} `).length;
   el.setSelectionRange(pos, pos);
   el.focus();
-});
-}
+  });
+  }
 
-async function handleSubmit(e) {
-e.preventDefault();
-const val = text.trim();
-if (!val) return;
+  async function handleSubmit(e) {
+  e.preventDefault();
+  const val = text.trim();
+  if (!val) return;
 
-if (loadingMe) {
+  if (loadingMe) {
   alert("Loading… try again in a second.");
   return;
-}
-if (!me?.id) {
+  }
+  if (!me?.id) {
   alert("You must be signed in to comment.");
   return;
-}
+  }
 
-const tempId = `tmp-${Date.now()}`;
-const clientKey = tempId;
-setItems((prev) => [
+  const tempId = `tmp-${Date.now()}`;
+  const clientKey = tempId;
+  setItems((prev) => [
   {
     _id: tempId,
     body: val,
@@ -187,75 +193,80 @@ setItems((prev) => [
     author: { _id: me.id, name: me.name, email: me.email },
   },
   ...prev,
-]);
+  ]);
 
-try {
+  try {
   const saved = await createTaskComment(taskId, { body: val, authorId: me.id, clientKey });
   setItems((prev) => dedupeById(prev.map((c) => (c._id === tempId ? saved : c))));
-} catch (err) {
+  } catch (err) {
   setItems((prev) => prev.filter((c) => c._id !== tempId));
   alert(err?.message || "Failed to post comment");
-} finally {
+  } finally {
   setText("");
-}
-}
+  }
+  }
 
-async function onEdit(comment) {
-if (!isObjectId(taskId)) {
+  async function onEdit(comment) {
+  if (!isObjectId(taskId)) {
   alert("Task is still loading. Try again in a moment.");
   return;
-}
-if (!isObjectId(comment._id) || isTempId(comment._id)) {
+  }
+  if (!isObjectId(comment._id) || isTempId(comment._id)) {
   await loadMore();
   alert("Comment is syncing. Please try again.");
   return;
-}
+  }
 
-const next = window.prompt("Edit comment:", comment.body);
-if (!next) return;
-const trimmed = next.trim();
-if (!trimmed || trimmed === comment.body) return;
+  const next = window.prompt("Edit comment:", comment.body);
+  if (!next) return;
+  const trimmed = next.trim();
+  if (!trimmed || trimmed === comment.body) return;
 
-try {
+  try {
   const updated = await updateTaskComment(taskId, comment._id, { body: trimmed, authorId: me.id });
   setItems((prev) => prev.map((i) => (i._id === comment._id ? updated : i)));
-} catch (err) {
+  } catch (err) {
   alert(err?.message || "Failed to update comment");
-}
-}
+  }
+  }
 
-async function onDelete(comment) {
-if (!isObjectId(taskId) || !isObjectId(comment._id) || isTempId(comment._id)) {
+  async function onDelete(comment) {
+  if (!isObjectId(taskId) || !isObjectId(comment._id) || isTempId(comment._id)) {
   await loadMore();
   alert("Comment is syncing. Please try again.");
   return;
-}
-if (!window.confirm("Delete this comment?")) return;
-const snapshot = items;
-setItems((prev) => prev.filter((i) => i._id !== comment._id));
-try {
+  }
+  if (!window.confirm("Delete this comment?")) return;
+  const snapshot = items;
+  setItems((prev) => prev.filter((i) => i._id !== comment._id));
+  try {
   await deleteTaskComment(taskId, comment._id, { authorId: me?.id });
-} catch (err) {
+  } catch (err) {
   setItems(snapshot);
   alert(err?.message || "Failed to delete comment");
-}
-}
+  }
+  }
 
-return (
-<div className="space-y-4">
+  return (
+  <div className="space-y-4">
   {/* Composer with @mentions */}
-  <form onSubmit={handleSubmit} className="flex flex-col gap-2">
+  <form onSubmit={handleSubmit} className="relative flex flex-col gap-2">  {/* anchor */}
     <textarea
       ref={textareaRef}
       value={text}
       onChange={onChange}
+      onFocus={() => loadSuggestions("")} 
       rows={2}
       placeholder="Write a comment… Use @ to mention"
       className="w-full rounded-xl border px-3 py-2 outline-none focus:ring-2 focus:ring-[--color-brand-primary]"
       disabled={loadingMe}
     />
-    {suggest.open && suggest.items.length > 0 && (
-      <div className="z-20 w-full max-w-xl rounded-xl border p-2 bg-[--color-light-surface] dark:bg-[--color-dark-surface] shadow max-h-60 overflow-auto">
+    {suggest.open && (
+      <div
+        className="absolute z-50 mt-1 max-h-60 w-[min(36rem,100%)] overflow-auto rounded-xl border bg-white p-2 shadow-lg dark:bg-neutral-900"
+        style={{ top: "100%" }}
+      >
+        {suggestLoading && <div className="px-2 py-1 text-xs opacity-70">Loading…</div>}
         {suggest.items.map((u) => (
           <button
             key={u._id}
@@ -322,6 +333,6 @@ return (
       </button>
     </div>
   )}
-</div>
-);
-}
+  </div>
+  );
+  }
