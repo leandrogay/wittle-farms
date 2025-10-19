@@ -13,5 +13,13 @@ const CommentSchema = new Schema(
   { timestamps: true }
 );
 
-CommentSchema.index({ task: 1, createdAt: -1 });
+CommentSchema.add({
+  clientKey: { type: String, index: true },
+});
+
+CommentSchema.index(
+  { clientKey: 1 },
+  { unique: true, partialFilterExpression: { clientKey: { $type: "string" } } }
+);
+
 export default model("Comment", CommentSchema);

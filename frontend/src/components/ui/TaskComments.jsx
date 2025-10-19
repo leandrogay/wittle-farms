@@ -178,6 +178,7 @@ if (!me?.id) {
 }
 
 const tempId = `tmp-${Date.now()}`;
+const clientKey = tempId;
 setItems((prev) => [
   {
     _id: tempId,
@@ -189,7 +190,7 @@ setItems((prev) => [
 ]);
 
 try {
-  const saved = await createTaskComment(taskId, { body: val, authorId: me.id });
+  const saved = await createTaskComment(taskId, { body: val, authorId: me.id, clientKey });
   setItems((prev) => dedupeById(prev.map((c) => (c._id === tempId ? saved : c))));
 } catch (err) {
   setItems((prev) => prev.filter((c) => c._id !== tempId));

@@ -60,9 +60,8 @@ router.get("/:taskId/comments", async (req, res) => {
 router.post('/:taskId/comments', async (req, res) => {
   try {
     const { taskId } = req.params;
-    const { author, body } = req.body;
+    const { author, body, clientKey } = req.body;
     const mentions = await resolveMentionUserIds(taskId, body);
-    const doc = await Comment.create({ task: taskId, author, body: body.trim(), mentions });
 
     if (!mongoose.Types.ObjectId.isValid(taskId)) {
       return res.status(400).json({ error: 'Invalid taskId' });
@@ -80,6 +79,7 @@ router.post('/:taskId/comments', async (req, res) => {
       author,
       body: body.trim(),
       mentions,
+      clientKey: clientKey || undefined,
     });
 
     // Re-fetch populated comment so client has everything (author, timestamps)

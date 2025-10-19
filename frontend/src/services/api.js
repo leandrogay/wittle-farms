@@ -620,7 +620,7 @@ export async function searchMentionableUsers(taskId, q = "") {
   return res.json();              // [{ _id, handle, name, email }]
 }
 
-export async function createTaskComment(taskId, payload) {
+export async function createTaskComment(taskId, payload, clientKey) {
   if (!taskId) throw new Error("taskId is required");
   if (!payload?.body || !payload.body.trim()) throw new Error("Comment body is required");
 
@@ -643,6 +643,7 @@ export async function createTaskComment(taskId, payload) {
       author: payload.authorId,   
       mentions: payload.mentions ?? [],
       attachments: [],
+      clientKey,
     });
   }
 
