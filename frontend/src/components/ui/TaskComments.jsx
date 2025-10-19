@@ -1,27 +1,29 @@
-import { useEffect, useRef, useState } from "react";
-import io from "socket.io-client";
-import {
+  import { useEffect, useRef, useState } from "react";
+  import io from "socket.io-client";
+  import {
   listTaskComments,
   createTaskComment,
   updateTaskComment,
   deleteTaskComment,
   getMe,
-} from "../../services/api";
+  } from "../../services/api";
 
-// Socket (one client for the module)
-const socket = io(import.meta.env.VITE_API_BASE_URL || "http://localhost:3000", {
+  // Socket (one client for the module)
+  const socket = io(import.meta.env.VITE_API_BASE_URL || "http://localhost:3000", {
   withCredentials: true,
-});
+  });
 
-// Helpers
-const sortDesc = (a, b) => new Date(b.createdAt) - new Date(a.createdAt);
-const dedupeById = (arr) => {
+  // Helpers
+  const sortDesc = (a, b) => new Date(b.createdAt) - new Date(a.createdAt);
+  const dedupeById = (arr) => {
   const map = new Map();
   for (const c of arr) map.set(c._id, c);
   return Array.from(map.values()).sort(sortDesc);
-};
+  };
+  const isObjectId = (s) => typeof s === "string" && /^[0-9a-fA-F]{24}$/.test(s);
+  const isTempId = (s) => typeof s === "string" && s.startsWith("tmp-");
 
-function pickUser(me) {
+  function pickUser(me) {
   const u = me?.user ?? me;
   if (!u || typeof u !== "object") return { id: null, name: "", email: "" };
   return {
@@ -29,9 +31,9 @@ function pickUser(me) {
     name: u.name ?? u.username ?? u.email ?? "Unknown",
     email: u.email ?? "",
   };
-}
+  }
 
-export default function TaskComments({ taskId, currentUser }) {
+  export default function TaskComments({ taskId, currentUser }) {
   const [items, setItems] = useState([]);
   const [nextCursor, setNextCursor] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -144,20 +146,27 @@ export default function TaskComments({ taskId, currentUser }) {
   }
 
   async function onEdit(comment) {
-    const next = window.prompt("Edit comment:", comment.body);
-    if (!next) return;
-    const trimmed = next.trim();
-    if (!trimmed || trimmed === comment.body) return;
+  if (!isObjectId(taskId)) {
+    alert("Task is still loading. Try again in a moment.");
+    return;
+  }
+  if (!isObjectId(comment._id) || isTempId(comment._id)) {
+    await loadMore(); 
+    alert("Comment is syncing. Please try again.");
+    return;
+  }
 
-    try {
-      const updated = await updateTaskComment(taskId, comment._id, {
-        body: trimmed,
-        authorId: me?.id,
-      });
-      setItems((prev) => prev.map((i) => (i._id === comment._id ? updated : i)));
-    } catch (err) {
-      alert(err?.message || "Failed to update comment");
-    }
+  const next = window.prompt("Edit comment:", comment.body);
+  if (!next) return;
+  const trimmed = next.trim();
+  if (!trimmed || trimmed === comment.body) return;
+
+  try {
+    const updated = await updateTaskComment(taskId, comment._id, { body: trimmed, authorId: me.id});
+    setItems((prev) => prev.map((i) => (i._id === comment._id ? updated : i)));
+  } catch (err) {
+    alert(err?.message || "Failed to update comment");
+  }
   }
 
   async function onDelete(comment) {
@@ -238,5 +247,5 @@ export default function TaskComments({ taskId, currentUser }) {
       )}
     </div>
   );
-}
+  }
 
