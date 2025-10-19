@@ -3,8 +3,38 @@ import mongoose, { isValidObjectId } from "mongoose";
 import Comment from "../models/Comment.js";
 import Task from "../models/Task.js";
 import { createCommentNotifications } from "../services/notificationService.js";
+import { resolveMentionUserIds } from "../services/resolveMentions.js";
 
 const router = Router();
+
+router.get("/:taskId/mentionable-users", async (req, res) => {
+  try {
+    const { taskId } = req.params;
+    if (!isValidObjectId(taskId)) return res.status(400).json({ error: "Invalid task id" });
+
+    const task = await Task.findById(taskId)
+      .select("createdBy assignedTeamMembers")
+      .lean();
+    if (!task) return res.status(404).json({ error: "Task not found" });
+
+    const ids = [task.createdBy, ...(task.assignedTeamMembers || [])].filter(Boolean);
+    if (!ids.length) return res.json([]);
+
+    const q = String(req.query.q || "").toLowerCase();
+    const users = await User.find({ _id: { $in: ids } }).select("_id email name").limit(20).lean();
+
+    const rows = users
+      .map(u => {
+        const local = (u.email || "").split("@")[0]?.toLowerCase() || "";
+        return { _id: u._id, handle: local, name: u.name || local, email: u.email || "" };
+      })
+      .filter(u => !q || u.handle.startsWith(q) || u.name.toLowerCase().includes(q));
+
+    res.json(rows);
+  } catch (e) {
+    res.status(500).json({ error: "Failed to load users" });
+  }
+});
 
 router.get("/:taskId/comments", async (req, res) => {
   try {
@@ -30,7 +60,9 @@ router.get("/:taskId/comments", async (req, res) => {
 router.post('/:taskId/comments', async (req, res) => {
   try {
     const { taskId } = req.params;
-    const { author, body, mentions = [] } = req.body;
+    const { author, body } = req.body;
+    const mentions = await resolveMentionUserIds(taskId, body);
+    const doc = await Comment.create({ task: taskId, author, body: body.trim(), mentions });
 
     if (!mongoose.Types.ObjectId.isValid(taskId)) {
       return res.status(400).json({ error: 'Invalid taskId' });
@@ -53,6 +85,7 @@ router.post('/:taskId/comments', async (req, res) => {
     // Re-fetch populated comment so client has everything (author, timestamps)
     const populated = await Comment.findById(comment._id)
       .populate('author', 'name email')
+      .populate("mentions", "name email")
       .lean();
 
     // Create notifications for assignees (except author)
@@ -61,6 +94,7 @@ router.post('/:taskId/comments', async (req, res) => {
       commentId: populated._id,
       authorId: author,
       commentBody: body,
+      mentions: mentions
     });
 
     // Emit to each recipient over socket
@@ -99,6 +133,11 @@ router.put('/:taskId/comments/:commentId', async (req, res) => {
         return res.status(403).json({ error: 'Not allowed to edit this comment' });
       }
 
+    existing.body = body.trim();
+    existing.mentions = await resolveMentionUserIds(taskId, body);
+    existing.editedAt = new Date();
+    await existing.save();
+
     await Comment.updateOne(
       { _id: commentId },
       { $set: { body, editedAt: new Date() } }
@@ -106,6 +145,7 @@ router.put('/:taskId/comments/:commentId', async (req, res) => {
 
     const updated = await Comment.findById(commentId)
       .populate('author', 'name email')
+      .populate("mentions", "name email")
       .lean();
 
     res.json(updated);
