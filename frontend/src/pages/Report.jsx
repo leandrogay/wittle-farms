@@ -438,7 +438,7 @@ function ManagerReport({ userId, reportData, reportRef }) {
           Project Performance Details
         </h2>
         <div className="space-y-6">
-          {projectMetrics.map((proj, idx) => (
+          {projectMetrics.map((proj) => (
             <div key={proj.projectId} className="border border-light-border dark:border-dark-border rounded-xl p-4">
               <h3 className="text-lg font-semibold text-light-text-primary dark:text-dark-text-primary mb-3">
                 {proj.projectName}
