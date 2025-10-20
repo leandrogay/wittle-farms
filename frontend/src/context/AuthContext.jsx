@@ -44,7 +44,7 @@ export function AuthProvider({ children }) {
 
     const t = getToken();
     if (t) armTimersForToken(t);
-  }, []);
+  }, [armTimersForToken]);
 
   const login = (userObj, tokenArg) => {
     setUser(userObj);
@@ -66,7 +66,9 @@ export function AuthProvider({ children }) {
     setUser(null);
     try {
       localStorage.removeItem("user");
-    } catch {}
+    } catch (err) {
+      console.warn("[Auth] Failed to remove user from localStorage", err)
+    }
     clearToken(); 
   };
 
@@ -76,7 +78,7 @@ export function AuthProvider({ children }) {
       const fresh = getToken();
       setShowWarn(false);
       armTimersForToken(fresh);
-    } catch (e) {
+    } catch {
       logout();
     }
   }
@@ -117,4 +119,3 @@ export function useAuth() {
   }
   return ctx;
 }
-

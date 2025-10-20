@@ -91,8 +91,8 @@ export default function Timeline({ items = [], onItemClick }) {
         return { rows: norm, minTs: min, maxTs: max };
     }, [items]);
 
-    const span = maxTs - minTs || 1;
-    const pct = (x) => Math.min(100, Math.max(0, (x / span) * 100));
+    // const span = maxTs - minTs || 1;
+    // const pct = (x) => Math.min(100, Math.max(0, (x / span) * 100));
     const fmt = (d) => (d ? (d instanceof Date ? d : new Date(d)).toLocaleString() : "—");
     const fmtDate = (d) => (d ? (d instanceof Date ? d : new Date(d)).toLocaleDateString() : "—");
 
