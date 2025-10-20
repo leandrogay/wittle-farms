@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import { useMemo } from "react";
 
 function toValidDate(v) {
     if (!v) return null;
@@ -7,7 +7,7 @@ function toValidDate(v) {
 }
 
 export default function Timeline({ items = [], onItemClick }) {
-    const { rows, minTs, maxTs } = useMemo(() => {
+    const { rows } = useMemo(() => {
         const norm = items.map((t) => {
             const start =
                 toValidDate(t.startAt) ||

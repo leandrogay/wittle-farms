@@ -97,7 +97,7 @@ export default function Calendar() {
   useEffect(() => {
     const api = calRef.current?.getApi();
     if (api) loadRange(api.view.activeStart, api.view.activeEnd);
-  }, [loadRange]);
+  }, []);
 
   useEffect(() => {
     socketRef.current = io(BASE, { withCredentials: true });

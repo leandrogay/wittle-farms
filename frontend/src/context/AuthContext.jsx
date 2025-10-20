@@ -44,7 +44,7 @@ export function AuthProvider({ children }) {
 
     const t = getToken();
     if (t) armTimersForToken(t);
-  }, [armTimersForToken]);
+  }, []);
 
   const login = (userObj, tokenArg) => {
     setUser(userObj);
