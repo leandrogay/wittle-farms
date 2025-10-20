@@ -12,13 +12,21 @@ export default function App() {
   const ran = useRef(false);
 
   useEffect(() => {
+    // Prevent double execution in Strict Mode
     if (ran.current) return;
     ran.current = true;
-    (async () => {
+
+    const bootstrap = async () => {
       try {
-        if (!localStorage.getItem("auth_token")) {
-          try { await refreshAccessToken(); } catch {}
+        const token = localStorage.getItem("auth_token");
+        if (!token) {
+          try {
+            await refreshAccessToken();
+          } catch (err) {
+            console.warn("Failed to refresh token:", err);
+          }
         }
+
         const { user: me } = await getMe();
         if (me) login(me);
         else logout();
@@ -28,28 +36,35 @@ export default function App() {
       } finally {
         setBootLoading(false);
       }
-    })();
-  }, []);
+    };
 
-  // Initialize socket when app loads and not in loading state
+    bootstrap();
+  }, [login, logout]);
+
   useEffect(() => {
     if (!bootLoading) {
-      initializeSocket();
+      const socket = initializeSocket();
+      return () => socket?.disconnect?.();
     }
   }, [bootLoading]);
+
+  if (bootLoading) {
+    return (
+      <AnimatedBackground>
+        <Header />
+        <div className="flex items-center justify-center h-screen text-gray-100">
+          Loading…
+        </div>
+      </AnimatedBackground>
+    );
+  }
 
   return (
     <AnimatedBackground>
       <Header />
-      {bootLoading ? (
-        <div className="flex items-center justify-center h-screen text-gray-100">
-          Loading…
-        </div>
-      ) : (
-        <main className="page-container">
-          <Outlet />
-        </main>
-      )}
+      <main className="page-container">
+        <Outlet />
+      </main>
     </AnimatedBackground>
   );
 }
