@@ -18,7 +18,6 @@ dayjs.tz.setDefault("Asia/Singapore");
 export default function CreateProjectForm({
   onCancel,
   onCreated,
-  onUpdated,
   project = null,
 }) {
   const { user } = useAuth();
