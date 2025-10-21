@@ -3,7 +3,7 @@ import dayjs from "dayjs";
 import { getTasks } from "../services/api.js";
 import TaskCard from "../components/ui/TaskCard.jsx";
 import TaskForm from "../components/ui/TaskForm.jsx";
-import { useAuth } from "../context/AuthContext.jsx";
+import { useAuth } from "../context/useAuth";
 
 function priorityBucket(p) {
   const n = Math.trunc(Number(p));
@@ -20,7 +20,7 @@ export default function Tasks() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  const [showCreate, setShowCreate] = useState(false);
+  // const [showCreate, setShowCreate] = useState(false);
   const [activeTask, setActiveTask] = useState(null);
 
   const [statusFilter, setStatusFilter] = useState("All");
@@ -94,7 +94,7 @@ export default function Tasks() {
       upcoming: buckets.upcoming,
       completed: buckets.completed,
     };
-  }, [filteredTasks]);
+  }, [filteredTasks, sectionKey]);
 
   const statusOptions = ["All", "To Do", "In Progress", "Done"];
   const priorityOptions = ["All", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10"];

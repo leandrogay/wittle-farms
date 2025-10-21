@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import { useMemo } from "react";
 
 function toValidDate(v) {
     if (!v) return null;
@@ -7,7 +7,7 @@ function toValidDate(v) {
 }
 
 export default function Timeline({ items = [], onItemClick }) {
-    const { rows, minTs, maxTs } = useMemo(() => {
+    const { rows } = useMemo(() => {
         const norm = items.map((t) => {
             const start =
                 toValidDate(t.startAt) ||
@@ -91,8 +91,8 @@ export default function Timeline({ items = [], onItemClick }) {
         return { rows: norm, minTs: min, maxTs: max };
     }, [items]);
 
-    const span = maxTs - minTs || 1;
-    const pct = (x) => Math.min(100, Math.max(0, (x / span) * 100));
+    // const span = maxTs - minTs || 1;
+    // const pct = (x) => Math.min(100, Math.max(0, (x / span) * 100));
     const fmt = (d) => (d ? (d instanceof Date ? d : new Date(d)).toLocaleString() : "—");
     const fmtDate = (d) => (d ? (d instanceof Date ? d : new Date(d)).toLocaleDateString() : "—");
 

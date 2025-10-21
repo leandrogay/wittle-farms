@@ -5,7 +5,7 @@ import {
   createTask,
   updateTask,
 } from "../../services/api.js";
-import { useAuth } from "../../context/AuthContext.jsx";
+import { useAuth } from "/src/context/useAuth";
 
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
@@ -57,12 +57,12 @@ export default function TaskForm({
     return Math.max(0, diffMin);
   }
 
-  function humanizeMaxOffset(m) {
-    if (m <= 0) return "no reminders allowed (deadline is in the past)";
-    if (m % MINUTES.day === 0) return `${m / MINUTES.day} day(s) before`;
-    if (m % MINUTES.hour === 0) return `${m / MINUTES.hour} hour(s) before`;
-    return `${m} minute(s) before`;
-  }
+  // function humanizeMaxOffset(m) {
+  //   if (m <= 0) return "no reminders allowed (deadline is in the past)";
+  //   if (m % MINUTES.day === 0) return `${m / MINUTES.day} day(s) before`;
+  //   if (m % MINUTES.hour === 0) return `${m / MINUTES.hour} hour(s) before`;
+  //   return `${m} minute(s) before`;
+  // }
 
   const [newReminderValue, setNewReminderValue] = useState(0);
   const [newReminderUnit, setNewReminderUnit] = useState("day");
@@ -131,7 +131,7 @@ export default function TaskForm({
     return () => {
       cancelled = true;
     };
-  }, [user.id, isEdit]);
+  }, [user.id, isEdit, formData.assignedProject]);
 
   // Load team members when project changes
   useEffect(() => {
@@ -253,7 +253,7 @@ export default function TaskForm({
         .filter((n) => Number.isFinite(n) && n > 0 && n <= maxMin)
         .sort((a, b) => b - a),
     }));
-  }, [noDueDate, formData.deadline]);
+  }, [noDueDate, formData.deadline, getMaxOffsetMinutesFromNow]);
 
   async function handleSubmit(e) {
     e.preventDefault();

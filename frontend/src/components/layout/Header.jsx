@@ -1,5 +1,5 @@
 import { NavLink, useNavigate } from "react-router-dom";
-import { useAuth } from "../../context/AuthContext.jsx";
+import { useAuth } from "/src/context/useAuth";
 import { useTheme } from "../../context/ThemeContext.jsx";
 import { useState } from "react";
 import NotificationBell from "../notifications/NotificationBell";

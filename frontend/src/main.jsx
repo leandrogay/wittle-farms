@@ -20,8 +20,7 @@ import CreateProject from "./pages/CreateProject.jsx";
 import Timeline from "./pages/Timeline.jsx";
 import Report from "./pages/Report.jsx";
 
-
-import { AuthProvider } from "./context/AuthContext.jsx";
+import AuthProvider from "./context/AuthContext.jsx";
 import { NotificationProvider } from "./context/NotificationContext.jsx";
 import RequireAuth from "./components/auth/RequireAuth.jsx";
 import RequireRole from "./components/auth/RequireRole.jsx";

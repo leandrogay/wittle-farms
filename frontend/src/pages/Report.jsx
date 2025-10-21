@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from "react";
-import { useAuth } from "../context/AuthContext.jsx";
+import { useAuth } from "../context/useAuth";
 import { getTasks, getProjects, getManagerProjects } from "../services/api.js";
 import dayjs from "dayjs";
 
@@ -38,6 +38,7 @@ function ClockIcon(props) {
 }
 
 /* Reusable Components */
+// eslint-disable-next-line no-unused-vars
 function MetricCard({ icon: Icon, label, value, color = "brand" }) {
   const colorClasses = {
     brand: "bg-brand-primary/10 dark:bg-brand-secondary/10 text-brand-primary dark:text-brand-secondary",
@@ -65,8 +66,9 @@ function MetricCard({ icon: Icon, label, value, color = "brand" }) {
     </div>
   );
 }
-
+// eslint-disable-next-line no-unused-vars
 function StaffReport({ userId, reportData, reportRef }) {
+  // eslint-disable-next-line no-unused-vars
   const { tasks, projects } = reportData;
 
   const metrics = useMemo(() => {
@@ -74,7 +76,7 @@ function StaffReport({ userId, reportData, reportRef }) {
     const completed = tasks.filter(t => t.status === "Done").length;
     const inProgress = tasks.filter(t => t.status === "In Progress").length;
     const todo = tasks.filter(t => t.status === "To Do").length;
-    
+
     const now = dayjs();
     const overdue = tasks.filter(t => {
       if (!t.deadline || t.status === "Done") return false;
@@ -83,8 +85,8 @@ function StaffReport({ userId, reportData, reportRef }) {
 
     const completedOnTime = tasks.filter(t => {
       if (t.status !== "Done" || !t.deadline || !t.completedAt) return false;
-      return dayjs(t.completedAt).isBefore(dayjs(t.deadline)) || 
-             dayjs(t.completedAt).isSame(dayjs(t.deadline), "day");
+      return dayjs(t.completedAt).isBefore(dayjs(t.deadline)) ||
+        dayjs(t.completedAt).isSame(dayjs(t.deadline), "day");
     }).length;
 
     const avgCompletionTime = tasks
@@ -264,8 +266,11 @@ function StaffReport({ userId, reportData, reportRef }) {
               </tr>
             </thead>
             <tbody>
-              {tasksByProject.map((proj, idx) => (
-                <tr key={idx} className="border-b border-light-border dark:border-dark-border">
+              {tasksByProject.map((proj) => (
+                <tr
+                  key={proj._id}
+                  className="border-b border-light-border dark:border-dark-border"
+                >
                   <td className="py-3 px-4 text-sm text-light-text-primary dark:text-dark-text-primary">
                     {proj.name}
                   </td>
@@ -288,6 +293,7 @@ function StaffReport({ userId, reportData, reportRef }) {
   );
 }
 
+// eslint-disable-next-line no-unused-vars
 function ManagerReport({ userId, reportData, reportRef }) {
   const { tasks, projects } = reportData;
 
@@ -296,7 +302,7 @@ function ManagerReport({ userId, reportData, reportRef }) {
     const totalTasks = tasks.length;
     const completedTasks = tasks.filter(t => t.status === "Done").length;
     const inProgressTasks = tasks.filter(t => t.status === "In Progress").length;
-    
+
     const now = dayjs();
     const overdueTasks = tasks.filter(t => {
       if (!t.deadline || t.status === "Done") return false;
@@ -323,8 +329,8 @@ function ManagerReport({ userId, reportData, reportRef }) {
   const projectMetrics = useMemo(() => {
     return projects.map(project => {
       const projectTasks = tasks.filter(t => {
-        const pid = typeof t.assignedProject === "string" 
-          ? t.assignedProject 
+        const pid = typeof t.assignedProject === "string"
+          ? t.assignedProject
           : t.assignedProject?._id;
         return pid === project._id;
       });
@@ -332,7 +338,7 @@ function ManagerReport({ userId, reportData, reportRef }) {
       const completed = projectTasks.filter(t => t.status === "Done").length;
       const inProgress = projectTasks.filter(t => t.status === "In Progress").length;
       const todo = projectTasks.filter(t => t.status === "To Do").length;
-      
+
       const now = dayjs();
       const overdue = projectTasks.filter(t => {
         if (!t.deadline || t.status === "Done") return false;
@@ -372,7 +378,7 @@ function ManagerReport({ userId, reportData, reportRef }) {
   const statusBreakdown = useMemo(() => {
     const statusCounts = { "To Do": 0, "In Progress": 0, "Done": 0 };
     tasks.forEach(t => {
-      if (statusCounts.hasOwnProperty(t.status)) {
+      if (Object.hasOwn(statusCounts, t.status)) {
         statusCounts[t.status]++;
       }
     });
@@ -432,12 +438,12 @@ function ManagerReport({ userId, reportData, reportRef }) {
           Project Performance Details
         </h2>
         <div className="space-y-6">
-          {projectMetrics.map((proj, idx) => (
+          {projectMetrics.map((proj) => (
             <div key={proj.projectId} className="border border-light-border dark:border-dark-border rounded-xl p-4">
               <h3 className="text-lg font-semibold text-light-text-primary dark:text-dark-text-primary mb-3">
                 {proj.projectName}
               </h3>
-              
+
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
                 <div>
                   <p className="text-xs text-light-text-secondary dark:text-dark-text-secondary">Total Tasks</p>
@@ -581,7 +587,7 @@ export default function Report() {
 
       // Clone the report content
       const reportClone = reportRef.current.cloneNode(true);
-      
+
       // Create a complete HTML document for printing
       const printDocument = `
         <!DOCTYPE html>
@@ -816,7 +822,7 @@ export default function Report() {
       setTimeout(() => {
         printWindow.focus();
         printWindow.print();
-        
+
         // Close after printing (or if user cancels)
         setTimeout(() => {
           printWindow.close();

@@ -234,10 +234,6 @@ export function setToken(t) {
 export function clearToken() {
   localStorage.removeItem(TOKEN_KEY);
 }
-function authHeaders() {
-  const t = getToken();
-  return t ? { Authorization: `Bearer ${t}` } : {};
-}
 
 function getTokenExp(token) {
   try {
@@ -346,7 +342,8 @@ export async function refreshAccessToken() {
 export async function authFetch(path, options = {}) {
   let token = getToken();
   if (!token || isExpiringSoon(token)) {
-    try { await refreshAccessToken(); } catch { }
+    try { await refreshAccessToken(); }
+    catch { /* noop: token refresh may legitimately fail before login */ }
     token = getToken();
   }
   // first refresh
@@ -660,19 +657,6 @@ export async function createTaskComment(taskId, payload, clientKey) {
   return res.json();
 }
 
-// export async function updateTaskComment(taskId, commentId, { body }) {
-//   if (!taskId || !commentId) throw new Error("taskId and commentId are required");
-//   if (!body || !body.trim()) throw new Error("Comment body is required");
-//   const me = JSON.parse(localStorage.getItem("me") || "null"); // optional cache if you keep it
-//   const author = me?.user?._id || me?._id;
-//   const res = await authFetch(`/api/tasks/${taskId}/comments/${commentId}`, {
-//     method: "PUT",
-//     headers: { "Content-Type": "application/json" },
-//     body: JSON.stringify({ body, ...(author ? { author } : {}) }),
-//   });
-//   if (!res.ok) throw new Error(await res.text().catch(() => "Failed to update comment"));
-//   return res.json();
-// }
 export async function updateTaskComment(taskId, commentId, { body, authorId }) {
   const res = await authFetch(`/api/tasks/${taskId}/comments/${commentId}`, {
     method: "PUT",
@@ -680,7 +664,7 @@ export async function updateTaskComment(taskId, commentId, { body, authorId }) {
     body: JSON.stringify({ body, ...(authorId ? { author: authorId } : {}) }),
   });
   if (!res.ok) throw new Error(await res.text().catch(() => "Failed to update comment"));
-  return res.json(); // <- returns populated author
+  return res.json(); 
 }
 
 export async function deleteTaskComment(taskId, commentId, { authorId } = {}) {

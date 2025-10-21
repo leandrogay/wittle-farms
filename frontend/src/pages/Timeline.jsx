@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState, useCallback } from "react";
 import Timeline from "../components/ui/Timeline";
 import { getMe } from "../services/api";
 
@@ -77,7 +77,7 @@ export default function TimelinePage() {
 
     const userId = me?._id || me?.id;
 
-    async function load() {
+    const load = useCallback(async () => {
         if (!userId) return;
         setLoading(true);
         setError("");
@@ -90,11 +90,11 @@ export default function TimelinePage() {
         } finally {
             setLoading(false);
         }
-    }
+    }, [userId, from, to]);
 
     useEffect(() => {
         if (userId) void load();
-    }, [userId]);
+    }, [userId, load]);
 
     const stats = useMemo(() => {
         const total = items.length;

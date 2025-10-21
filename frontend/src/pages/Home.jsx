@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import FeatureCard from "../components/ui/FeatureCard.jsx";
-import { useAuth } from "../context/AuthContext.jsx";
+import { useAuth } from "../context/useAuth";
 
 /* ====== Simple SVG Icons ====== */
 function BoardIcon(props) {

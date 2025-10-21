@@ -1,11 +1,10 @@
-import React from 'react';
 import { useNotifications } from '../../context/NotificationContext';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
 
 dayjs.extend(relativeTime);
 
-export default function NotificationPanel({ onClose }) {
+export default function NotificationPanel() {
   const { notifications, markAsRead } = useNotifications();
 
   const handleMarkAsRead = (notificationId) => {
