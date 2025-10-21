@@ -3,8 +3,70 @@ import mongoose, { isValidObjectId } from "mongoose";
 import Comment from "../models/Comment.js";
 import Task from "../models/Task.js";
 import { createCommentNotifications } from "../services/notificationService.js";
+import { resolveMentionUserIds } from "../services/resolveMentions.js";
 
 const router = Router();
+const toLocal = (s = "") => String(s).split("@")[0]?.toLowerCase() || "";
+const escapeRx = (s = "") => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+router.get("/:taskId/mentionable-users", async (req, res) => {
+  try {
+    const { taskId } = req.params;
+    if (!isValidObjectId(taskId)) return res.status(400).json({ error: "Invalid task id" });
+
+    let task = await Task.findById(taskId)
+      .select("createdBy assignedTeamMembers")
+      .populate("createdBy", "name email")
+      .populate("assignedTeamMembers", "name email")
+      .lean();
+
+    if (!task) return res.status(404).json({ error: "Task not found" });
+
+    const people = [];
+    const pushUser = (u) => {
+      if (!u) return;
+      const _id = String(u._id || "");
+      const name = u.name || "";
+      const email = u.email || "";
+      const handle = toLocal(email) || name.toLowerCase();
+      if (!handle) return;
+      people.push({ _id, name: name || handle, email, handle });
+    };
+
+    if (task.createdBy && typeof task.createdBy === "object") pushUser(task.createdBy);
+    (task.assignedTeamMembers || []).forEach(pushUser);
+
+    const needLookup = [];
+    if (task.createdBy && typeof task.createdBy === "string") needLookup.push(task.createdBy);
+    (task.assignedTeamMembers || []).forEach((m) => {
+      if (typeof m === "string") needLookup.push(m);
+    });
+    if (needLookup.length) {
+      const users = await User.find({ _id: { $in: needLookup } })
+        .select("name email")
+        .lean();
+      users.forEach(pushUser);
+    }
+
+    const map = new Map();
+    for (const u of people) {
+      const key = u._id || u.handle;
+      if (!map.has(key)) map.set(key, u);
+    }
+    let list = Array.from(map.values());
+
+    const q = String(req.query.q || "").toLowerCase();
+    if (q) {
+      const rx = new RegExp("^" + escapeRx(q));
+      list = list.filter((u) => rx.test(u.handle) || (u.name || "").toLowerCase().includes(q));
+    }
+
+    res.json(list);
+  } catch (err) {
+    console.error("mentionable-users error:", err);
+    res.status(500).json({ error: "Failed to load users" });
+  }
+});
 
 router.get("/:taskId/comments", async (req, res) => {
   try {
@@ -30,7 +92,8 @@ router.get("/:taskId/comments", async (req, res) => {
 router.post('/:taskId/comments', async (req, res) => {
   try {
     const { taskId } = req.params;
-    const { author, body, mentions = [] } = req.body;
+    const { author, body, clientKey } = req.body;
+    const mentions = await resolveMentionUserIds(taskId, body);
 
     if (!mongoose.Types.ObjectId.isValid(taskId)) {
       return res.status(400).json({ error: 'Invalid taskId' });
@@ -42,32 +105,30 @@ router.post('/:taskId/comments', async (req, res) => {
       return res.status(400).json({ error: 'Comment body is required' });
     }
 
-    // Save the comment
     const comment = await Comment.create({
       task: taskId,
       author,
       body: body.trim(),
       mentions,
+      clientKey: clientKey || undefined,
     });
 
-    // Re-fetch populated comment so client has everything (author, timestamps)
     const populated = await Comment.findById(comment._id)
       .populate('author', 'name email')
+      .populate("mentions", "name email")
       .lean();
 
-    // Create notifications for assignees (except author)
     const createdNotifs = await createCommentNotifications({
       taskId,
       commentId: populated._id,
       authorId: author,
       commentBody: body,
+      mentions: mentions
     });
 
-    // Emit to each recipient over socket
     const io = req.app.get('io');
     createdNotifs.forEach(n => io.emit(`notification:${n.userId}`, n));
 
-    // Also emit "comment created" so others update live
     io?.emit?.('task:comment:created', { taskId, comment: populated });
 
     res.status(201).json(populated);
@@ -99,6 +160,11 @@ router.put('/:taskId/comments/:commentId', async (req, res) => {
         return res.status(403).json({ error: 'Not allowed to edit this comment' });
       }
 
+    existing.body = body.trim();
+    existing.mentions = await resolveMentionUserIds(taskId, body);
+    existing.editedAt = new Date();
+    await existing.save();
+
     await Comment.updateOne(
       { _id: commentId },
       { $set: { body, editedAt: new Date() } }
@@ -106,6 +172,7 @@ router.put('/:taskId/comments/:commentId', async (req, res) => {
 
     const updated = await Comment.findById(commentId)
       .populate('author', 'name email')
+      .populate("mentions", "name email")
       .lean();
 
     res.json(updated);
