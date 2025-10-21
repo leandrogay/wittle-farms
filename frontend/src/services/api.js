@@ -343,7 +343,7 @@ export async function authFetch(path, options = {}) {
   let token = getToken();
   if (!token || isExpiringSoon(token)) {
     try { await refreshAccessToken(); }
-    catch (e) { /* noop: token refresh may legitimately fail before login */ }
+    catch { /* noop: token refresh may legitimately fail before login */ }
     token = getToken();
   }
   // first refresh
