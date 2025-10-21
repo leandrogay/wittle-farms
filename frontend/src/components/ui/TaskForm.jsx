@@ -5,7 +5,7 @@ import {
   createTask,
   updateTask,
 } from "../../services/api.js";
-import { useAuth } from "../../context/AuthContext.jsx";
+import { useAuth } from "/src/context/useAuth";
 
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";

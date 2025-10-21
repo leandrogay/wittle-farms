@@ -234,10 +234,6 @@ export function setToken(t) {
 export function clearToken() {
   localStorage.removeItem(TOKEN_KEY);
 }
-function authHeaders() {
-  const t = getToken();
-  return t ? { Authorization: `Bearer ${t}` } : {};
-}
 
 function getTokenExp(token) {
   try {
@@ -346,7 +342,8 @@ export async function refreshAccessToken() {
 export async function authFetch(path, options = {}) {
   let token = getToken();
   if (!token || isExpiringSoon(token)) {
-    try { await refreshAccessToken(); } catch { }
+    try { await refreshAccessToken(); }
+    catch (e) { /* noop: token refresh may legitimately fail before login */ }
     token = getToken();
   }
   // first refresh

@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { useAuth } from './AuthContext';
+import { useAuth } from "../context/useAuth";
 import { subscribeToNotifications, markNotificationsAsRead, getSocket } from '../services/socket';
 
 const NotificationContext = createContext();

@@ -3,7 +3,7 @@ import dayjs from "dayjs";
 import { getTasks } from "../services/api.js";
 import TaskCard from "../components/ui/TaskCard.jsx";
 import TaskForm from "../components/ui/TaskForm.jsx";
-import { useAuth } from "../context/AuthContext.jsx";
+import { useAuth } from "../context/useAuth";
 
 function priorityBucket(p) {
   const n = Math.trunc(Number(p));

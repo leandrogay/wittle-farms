@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useAuth } from "../../context/AuthContext.jsx";
+import { useAuth } from "/src/context/useAuth";
 import {
   createProject,
   getAllTeamMembers,

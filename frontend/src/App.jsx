@@ -3,7 +3,7 @@ import { useEffect, useState, useRef } from "react";
 import Header from "./components/layout/Header.jsx";
 import AnimatedBackground from "./components/layout/AnimatedBackground.jsx";
 import { getMe, refreshAccessToken } from "./services/api.js";
-import { useAuth } from "./context/AuthContext.jsx";
+import { useAuth } from "./context/useAuth";
 import { initializeSocket } from "./services/socket.js";
 
 export default function App() {

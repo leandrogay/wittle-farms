@@ -1,23 +1,22 @@
-import { createContext, useContext, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
+import AuthCtx from "./AuthCore";
 import { clearToken, getToken, scheduleLogoutWarning, refreshAccessToken } from "../services/api";
 
-const AuthCtx = createContext(null);
-
-export function AuthProvider({ children }) {
+export default function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [showWarn, setShowWarn] = useState(false);
   const warnTimerRef = useRef(null);
   const logoutTimerRef = useRef(null);
 
-  function clearTimers() {
+  const clearTimers = useCallback(() => {
     if (warnTimerRef.current) clearTimeout(warnTimerRef.current);
     if (logoutTimerRef.current) clearTimeout(logoutTimerRef.current);
     warnTimerRef.current = null;
     logoutTimerRef.current = null;
-  }
+  }, []);
 
-  function armTimersForToken(token) {
+  const armTimersForToken = useCallback((token) => {
     clearTimers();
     if (!token) return;
 
@@ -26,7 +25,7 @@ export function AuthProvider({ children }) {
       () => setShowWarn(true),   
       () => logout()              
     );
-  }
+  }, [clearTimers]);
 
   useEffect(() => {
     const raw = localStorage.getItem("user");
@@ -44,9 +43,9 @@ export function AuthProvider({ children }) {
 
     const t = getToken();
     if (t) armTimersForToken(t);
-  }, []);
+  }, [armTimersForToken]);
 
-  const login = (userObj, tokenArg) => {
+  const login = useCallback((userObj, tokenArg) => {
     setUser(userObj);
     try {
       localStorage.setItem("user", JSON.stringify(userObj));
@@ -58,9 +57,9 @@ export function AuthProvider({ children }) {
       setShowWarn(false);      
       armTimersForToken(t);    
     }
-  };
+  }, [armTimersForToken]);
 
-  const logout = () => {
+  const logout = useCallback(() => {
     clearTimers();
     setShowWarn(false);
     setUser(null);
@@ -70,7 +69,7 @@ export function AuthProvider({ children }) {
       console.warn("[Auth] Failed to remove user from localStorage", err)
     }
     clearToken(); 
-  };
+  }, [clearTimers]);
 
   async function handleStayLoggedIn() {
     try {
@@ -112,10 +111,4 @@ export function AuthProvider({ children }) {
   );
 }
 
-export function useAuth() {
-  const ctx = useContext(AuthCtx);
-  if (ctx === null) {
-    throw new Error("useAuth must be used within <AuthProvider>");
-  }
-  return ctx;
-}
+export { AuthCtx };

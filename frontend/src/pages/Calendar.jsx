@@ -1,11 +1,11 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import timeGridPlugin from "@fullcalendar/timegrid";
 import interactionPlugin from "@fullcalendar/interaction";
 import { io } from "socket.io-client";
 import { getCalendarTasks, updateTaskDates, BASE } from "../services/api";
-import { useAuth } from "../context/AuthContext.jsx";
+import { useAuth } from "../context/useAuth";
 
 /* ---------- Tailwind class maps ---------- */
 const PRIORITY_DOT = {
@@ -80,24 +80,24 @@ export default function Calendar() {
     };
   };
 
-  const loadRange = async (start, end) => {
+  const loadRange = useCallback(async (start, end) => {
     const { tasks } = await getCalendarTasks({
       start: start.toISOString(),
       end: end.toISOString(),
     });
 
     const events = tasks
-      .filter(t => !!t.deadline)   // keep only tasks with deadlines
+      .filter(t => !!t.deadline)
       .map(toEvent)
-      .filter(Boolean);            // drop nulls (just in case)
+      .filter(Boolean);
 
     setEvents(events);
-  };
+  }, []);
 
   useEffect(() => {
     const api = calRef.current?.getApi();
     if (api) loadRange(api.view.activeStart, api.view.activeEnd);
-  }, []);
+  }, [loadRange]);
 
   useEffect(() => {
     socketRef.current = io(BASE, { withCredentials: true });

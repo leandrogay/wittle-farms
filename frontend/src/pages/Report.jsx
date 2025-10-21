@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from "react";
-import { useAuth } from "../context/AuthContext.jsx";
+import { useAuth } from "../context/useAuth";
 import { getTasks, getProjects, getManagerProjects } from "../services/api.js";
 import dayjs from "dayjs";
 
