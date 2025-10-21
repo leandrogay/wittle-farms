@@ -130,8 +130,8 @@
   async function loadSuggestions(q, token = null) {
   try {
     setSuggestLoading(true);
-    const list = await searchMentionableUsers(taskId, q);      // q may be ""
-    setSuggest({ open: true, items: list, token });            // open the list
+    const list = await searchMentionableUsers(taskId, q);     
+    setSuggest({ open: true, items: list, token });           
   } catch {
     setSuggest({ open: false, items: [], token: null });
   } finally {
@@ -257,7 +257,7 @@
       onChange={onChange}
       onFocus={() => loadSuggestions("")} 
       rows={2}
-      placeholder="Write a comment… Use @ to mention"
+      placeholder="Write a comment. Use @ to mention team members."
       className="w-full rounded-xl border px-3 py-2 outline-none focus:ring-2 focus:ring-[--color-brand-primary]"
       disabled={loadingMe}
     />
