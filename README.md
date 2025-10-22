@@ -17,3 +17,8 @@ Backend:
 ```npm install```
 
 ```npm run dev```
+
+Test Cases (Backend):
+```cd backend```
+
+```npx vitest run --coverage --config ./config/vitest.config.js```
