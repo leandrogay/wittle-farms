@@ -1,4 +1,5 @@
-  import { useEffect, useRef, useState } from "react";
+  import { useEffect, useRef, useState, useLayoutEffect } from "react";
+  import { createPortal } from "react-dom";
   import io from "socket.io-client";
   import {
   listTaskComments,
@@ -29,7 +30,7 @@
   const m = AT_TOKEN_RE.exec(left);
   if (!m) return null;
   const start = caret - (m[2].length + 1);
-  return { query: m[2].toLowerCase(), start, end: caret }; // query can be ""
+  return { query: m[2].toLowerCase(), start, end: caret };
   }
 
   function renderWithMentions(text) {
@@ -50,6 +51,50 @@
   };
   }
 
+  function SuggestionsPortal({ anchorEl, open, items, loading, onPick, onClose }) {
+  const [rect, setRect] = useState(null);
+
+  useLayoutEffect(() => {
+    function update() {
+      if (!anchorEl) return setRect(null);
+      const r = anchorEl.getBoundingClientRect();
+      setRect({ top: r.bottom + window.scrollY, left: r.left + window.scrollX, width: r.width });
+    }
+    update();
+    window.addEventListener("resize", update);
+    window.addEventListener("scroll", update, true);
+    return () => {
+      window.removeEventListener("resize", update);
+      window.removeEventListener("scroll", update, true);
+    };
+  }, [anchorEl]);
+
+  if (!open || !rect) return null;
+
+  const content = (
+    <div
+      style={{ position: "absolute", top: rect.top + 4, left: rect.left, width: Math.min(rect.width, 576), zIndex: 10000 }}
+      className="rounded-xl border bg-white shadow-lg dark:bg-neutral-900 max-h-60 overflow-auto"
+      onMouseDown={(e) => e.preventDefault()}
+    >
+      {loading && <div className="px-3 py-2 text-xs opacity-70">Loading…</div>}
+      {!loading && items.length === 0 && <div className="px-3 py-2 text-sm opacity-60">No matches</div>}
+      {items.map((u) => (
+        <button
+          key={u._id || u.handle}
+          type="button"
+          className="w-full px-3 py-2 text-left hover:bg-black/5 dark:hover:bg-white/10"
+          onClick={() => { onPick(u); onClose?.(); }}
+        >
+          @{u.handle} <span className="text-xs text-slate-500">· {u.name}</span>
+        </button>
+      ))}
+    </div>
+  );
+
+  return createPortal(content, document.body);
+}
+
   export default function TaskComments({ taskId, currentUser }) {
   const [items, setItems] = useState([]);
   const [nextCursor, setNextCursor] = useState(null);
@@ -64,25 +109,38 @@
   const [suggestLoading, setSuggestLoading] = useState(false);
   const mentionCache = useRef(new Map()); 
 
+  // async function loadSuggestions(q = "", token = null) {
+  //   try {
+  //     setSuggestLoading(true);
+  //     const list = await searchMentionableUsers(taskId, q);  
+  //     setSuggest({ open: true, items: list, token });
+  //   } catch {
+  //     setSuggest({ open: false, items: [], token: null });
+  //   } finally {
+  //     setSuggestLoading(false);
+  //   }
+  // }
+
   async function loadMore() {
-  if (loading) return;
-  setLoading(true);
-  try {
-  const { items: page, nextCursor: nc } = await listTaskComments(taskId, {
-    cursor: nextCursor,
-    limit: 20,
-  });
-  setItems((prev) => dedupeById([...prev, ...page]));
-  setNextCursor(nc);
-  } finally {
-  setLoading(false);
-  }
+    if (loading) return;
+    setLoading(true);
+    try {
+    const { items: page, nextCursor: nc } = await listTaskComments(taskId, {
+      cursor: nextCursor,
+      limit: 20,
+    });
+    setItems((prev) => dedupeById([...prev, ...page]));
+    setNextCursor(nc);
+    } finally {
+    setLoading(false);
+    }
   }
 
   useEffect(() => {
   setItems([]);
   setNextCursor(null);
   void loadMore();
+  void loadSuggestions("");
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [taskId]);
 
@@ -130,26 +188,43 @@
   async function loadSuggestions(q, token = null) {
   try {
     setSuggestLoading(true);
-    const list = await searchMentionableUsers(taskId, q);     
-    setSuggest({ open: true, items: list, token });           
-  } catch {
+    searchMentionableUsers(taskId, q).then((resp) => 
+      {
+        setSuggest({ open: true, items: resp, token });    
+        console.log(resp)
+      })
+    .catch((err) => {
     setSuggest({ open: false, items: [], token: null });
+
+      console.error("err")
+    })
+    // })
+    // // console.log(list)
+    // setSuggest({ open: true, items: list, token });    
+    
+    // if (list === null) {
+    //   console.log("not working")
+    // }   
+  // } catch {
+  //   setSuggest({ open: false, items: [], token: null });
   } finally {
     setSuggestLoading(false);
   }
   }
+
   async function onChange(e) {
-  const v = e.target.value;
-  setText(v);
+    const v = e.target.value;
+    setText(v);
 
-  const caret = e.target.selectionStart ?? v.length;
-  const token = findAtToken(v, caret);
-  if (!token) {
-  setSuggest({ open: false, items: [], token: null });
-  return;
-  }
-
-  await loadSuggestions(token.query, token);
+    const caret = e.target.selectionStart ?? v.length;
+    const token = findAtToken(v, caret);
+    if (!token) {
+      setSuggest((s) => ({ ...s, open: false, token: null }));
+      return;
+    }
+    if (v[0] === '@') {
+      const a = await loadSuggestions(token.query, token);  
+    }
   }
 
   function insertHandle(u) {
@@ -261,7 +336,7 @@
       className="w-full rounded-xl border px-3 py-2 outline-none focus:ring-2 focus:ring-[--color-brand-primary]"
       disabled={loadingMe}
     />
-    {suggest.open && (
+    {/* {suggest.open && (
       <div
         className="absolute z-50 mt-1 max-h-60 w-[min(36rem,100%)] overflow-auto rounded-xl border bg-white p-2 shadow-lg dark:bg-neutral-900"
         style={{ top: "100%" }}
@@ -279,13 +354,22 @@
           </button>
         ))}
       </div>
-    )}
+    )} */}
     <div className="flex justify-end">
       <button type="submit" className="rounded-xl border px-3 py-2 hover:opacity-90" disabled={loadingMe}>
         Post
       </button>
     </div>
   </form>
+
+  <SuggestionsPortal
+    anchorEl={textareaRef.current}
+    open={suggest.open}
+    items={suggest.items}
+    loading={suggestLoading}
+    onPick={insertHandle}
+    onClose={() => setSuggest((s) => ({ ...s, open: false, token: null }))}
+  />
 
   {/* List */}
   <ul className="space-y-3">

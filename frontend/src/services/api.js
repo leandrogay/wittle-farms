@@ -607,14 +607,26 @@ export async function listTaskComments(taskId, { cursor, limit = 20 } = {}) {
   return res.json(); 
 }
 
+// export async function searchMentionableUsers(taskId, q = "") {
+//   const qs = new URLSearchParams();
+//   if (q) qs.set("q", q);          // when q === "", server returns all task members
+//   const res = await fetch(`${API}/api/tasks/${taskId}/mentionable-users?${qs}`, {
+//     credentials: "include",
+//   });
+//   if (!res.ok) throw new Error(await res.text().catch(() => "Failed to fetch mention users"));
+//   return res.json();              // [{ _id, handle, name, email }]
+// }
+
 export async function searchMentionableUsers(taskId, q = "") {
   const qs = new URLSearchParams();
-  if (q) qs.set("q", q);          // when q === "", server returns all task members
-  const res = await fetch(`${API}/api/tasks/${taskId}/mentionable-users?${qs}`, {
+  console.log(taskId);
+  if (q) qs.set("q", q);
+  const res = await fetch(`${API_BASE}/api/tasks/${taskId}/mentionable-users?${qs}`, {
     credentials: "include",
   });
   if (!res.ok) throw new Error(await res.text().catch(() => "Failed to fetch mention users"));
-  return res.json();              // [{ _id, handle, name, email }]
+  
+  return res.json();  // [{ _id, handle, name, email }]
 }
 
 export async function createTaskComment(taskId, payload, clientKey) {
