@@ -62,7 +62,16 @@ function normalizeOffsets(val) {
 }
 
 TaskSchema.pre('save', function(next) {
+  // Normalize reminder offsets
   this.reminderOffsets = normalizeOffsets(this.reminderOffsets);
+  
+  // Apply default reminders if:
+  // 1. Task has a deadline
+  // 2. reminderOffsets is empty (no custom reminders specified)
+  if (this.deadline && this.reminderOffsets.length === 0) {
+    this.reminderOffsets = DEFAULT_REMINDERS_MIN;
+  }
+  
   next();
 });
 
