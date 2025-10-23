@@ -23,9 +23,16 @@ import bcrypt from "bcryptjs";
 import dotenv from "dotenv";
 import authRouter from "../routes/auth.js";
 import User from "../models/User.js";
+import path from "path";
+import { fileURLToPath } from "url";
+
+// Get current file directory and project root
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const projectRoot = path.resolve(__dirname, "../..");
 
 // Load environment variables from secrets.env
-dotenv.config({ path: "./config/secrets.env" });
+dotenv.config({ path: path.join(projectRoot, "backend/config/secrets.env") });
 
 let mongoServer;
 let app;
