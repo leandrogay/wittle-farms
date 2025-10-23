@@ -20,8 +20,12 @@ import request from "supertest";
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from "vitest";
 import { MongoMemoryServer } from "mongodb-memory-server";
 import bcrypt from "bcryptjs";
+import dotenv from "dotenv";
 import authRouter from "../routes/auth.js";
 import User from "../models/User.js";
+
+// Load environment variables from secrets.env
+dotenv.config({ path: "./config/secrets.env" });
 
 let mongoServer;
 let app;
