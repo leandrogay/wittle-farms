@@ -37,14 +37,49 @@ import timezone from 'dayjs/plugin/timezone.js';
 import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import fs from 'fs';
 
-// Get current file directory and project root
+// Get current file directory
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const projectRoot = path.resolve(__dirname, "../..");
 
-// Load environment variables from secrets.env
-dotenv.config({ path: path.join(projectRoot, "backend/config/secrets.env") });
+// Try multiple possible paths for secrets.env
+const possiblePaths = [
+  path.join(__dirname, "..", "config", "secrets.env"),              // backend/tests/../config/secrets.env
+  path.join(__dirname, "..", "..", "backend", "config", "secrets.env"), // from project root
+  path.join(process.cwd(), "backend", "config", "secrets.env"),      // from current working directory
+  path.join(process.cwd(), "config", "secrets.env"),                 // if CWD is backend
+];
+
+let secretsPath = null;
+for (const envPath of possiblePaths) {
+  if (fs.existsSync(envPath)) {
+    secretsPath = envPath;
+    console.log(`Found secrets.env at: ${envPath}`);
+    break;
+  }
+}
+
+if (secretsPath) {
+  // Load environment variables from secrets.env
+  dotenv.config({ path: secretsPath });
+  console.log(`Loaded environment variables from: ${secretsPath}`);
+} else {
+  console.log("Warning: secrets.env not found in any of the expected locations:");
+  possiblePaths.forEach(p => console.log(`  - ${p}`));
+  console.log(`Current working directory: ${process.cwd()}`);
+  console.log(`__dirname: ${__dirname}`);
+}
+
+// Debug: Check if environment variables are loaded
+console.log("Environment variables check:");
+console.log(`UNIT_TEST_GENERIC_PASSWORD: ${process.env.UNIT_TEST_GENERIC_PASSWORD ? "SET" : "NOT SET"}`);
+
+// Fallback values if env vars aren't loaded (for debugging)
+if (!process.env.UNIT_TEST_GENERIC_PASSWORD) {
+  console.warn("WARNING: Using fallback test values - secrets.env not loaded properly");
+  process.env.UNIT_TEST_GENERIC_PASSWORD = "hashedPassword123";
+}
 
 // Import models and services
 import User from '../models/User.js';
