@@ -71,7 +71,7 @@ async function createTestTask() {
       deadline: deadline,
       // reminderOffsets: not specified, so will use DEFAULT_REMINDERS_MIN = [10080, 4320, 1440]
       status: "To Do",
-      priority: "Medium"
+      priority: 5 // Medium priority (1-10 scale)
     };
 
     const task = await Task.create(taskData);
@@ -79,66 +79,31 @@ async function createTestTask() {
     console.log('📋 Task Details:');
     console.log('   - Title:', task.title);
     console.log('   - Deadline:', task.deadline.toISOString());
-    console.log('   - Reminders: 3 default reminders (7 days, 3 days, 1 day before deadline)');
+    console.log('   - ReminderOffsets:', task.reminderOffsets); // Verify defaults applied
     console.log('   - Assigned to:', user.email);
     console.log('   - Project:', project.name);
     console.log('   - Task ID:', task._id.toString());
 
-    // Calculate when reminder notifications should be sent based on the deadline
+    // Verify that default reminders were automatically applied
+    if (JSON.stringify(task.reminderOffsets) === JSON.stringify([10080, 4320, 1440])) {
+      console.log('✅ Default reminders automatically applied: [10080, 4320, 1440] (7d, 3d, 1d)');
+    } else {
+      console.log('⚠️  Warning: Expected default reminders [10080, 4320, 1440], got:', task.reminderOffsets);
+    }
+
+    // Calculate when reminder notifications will be sent
     const reminder7Days = new Date(deadline.getTime() - (10080 * 60 * 1000)); // 7 days before deadline
     const reminder3Days = new Date(deadline.getTime() - (4320 * 60 * 1000));  // 3 days before deadline
     const reminder1Day = new Date(deadline.getTime() - (1440 * 60 * 1000));   // 1 day before deadline
     
-    console.log('🔔 Reminder notifications should be sent at:');
-    console.log('   - 7 days reminder:', reminder7Days.toISOString());
-    console.log('   - 3 days reminder:', reminder3Days.toISOString());
-    console.log('   - 1 day reminder:', reminder1Day.toISOString());
-
-    // Create the 3 default reminder notifications with realistic createdAt timestamps
-    const notifications = [
-      {
-        userId: user._id,
-        taskId: task._id,
-        type: "reminder",
-        reminderOffset: 10080, // 7 days
-        message: `Task "${task.title}" is due in 7 days.`,
-        scheduledFor: reminder7Days, // Shows "7 days ago"
-        read: false,
-        sent: true,
-        createdAt: reminder7Days,
-        updatedAt: reminder7Days
-      },
-      {
-        userId: user._id,
-        taskId: task._id,
-        type: "reminder",
-        reminderOffset: 4320, // 3 days
-        message: `Task "${task.title}" is due in 3 days.`,
-        scheduledFor: reminder3Days, // Shows "3 days ago"
-        read: false,
-        sent: true,
-        createdAt: reminder3Days,
-        updatedAt: reminder3Days
-      },
-      {
-        userId: user._id,
-        taskId: task._id,
-        type: "reminder",
-        reminderOffset: 1440, // 1 day
-        message: `Task "${task.title}" is due in 1 day.`,
-        scheduledFor: reminder1Day, // Shows "1 day ago" 
-        read: false,
-        sent: true,
-        createdAt: reminder1Day,
-        updatedAt: reminder1Day
-      }
-    ];
-
-    await Notification.insertMany(notifications);
-    console.log('✅ Created 3 default reminder notifications with realistic timestamps');
+    console.log('\n🔔 Reminder notifications will be automatically created by cron at:');
+    console.log('   - 7 days before:', reminder7Days.toISOString());
+    console.log('   - 3 days before:', reminder3Days.toISOString());
+    console.log('   - 1 day before:', reminder1Day.toISOString());
 
     console.log('\n🎯 Test Case TC-006 Setup Complete!');
-    console.log('👉 Now log in as littlefarms.inappreminder@gmail.com and check for 3 notifications with realistic "time ago" displays.');
+    console.log('👉 The cron job will automatically create notifications at the scheduled times.');
+    console.log('👉 Log in as littlefarms.inappreminder@gmail.com to check for notifications as they arrive.');
 
   } catch (error) {
     console.error('❌ Error creating test task:', error.message);
