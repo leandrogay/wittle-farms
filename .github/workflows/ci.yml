@@ -47,6 +47,17 @@ jobs:
       #   run: npm run lint --if-present
 
       - name: Run unit tests with Vitest
+        env:
+          EMAIL_USER: ${{ secrets.EMAIL_USER }}
+          EMAIL_PASS: ${{ secrets.EMAIL_PASS }}
+          EMAIL_FROM: ${{ secrets.EMAIL_FROM }}
+          UNIT_TEST_EMAIL: ${{ secrets.UNIT_TEST_EMAIL }}
+          UNIT_TEST_OLD_PASSWORD: ${{ secrets.UNIT_TEST_OLD_PASSWORD }}
+          UNIT_TEST_NEW_PASSWORD: ${{ secrets.UNIT_TEST_NEW_PASSWORD }}
+          UNIT_TEST_ALT_PASSWORD: ${{ secrets.UNIT_TEST_ALT_PASSWORD }}
+          UNIT_TEST_WEAK_PASSWORD: ${{ secrets.UNIT_TEST_WEAK_PASSWORD }}
+          UNIT_TEST_REUSE_PASSWORD: ${{ secrets.UNIT_TEST_REUSE_PASSWORD }}
+          UNIT_TEST_GENERIC_PASSWORD: ${{ secrets.UNIT_TEST_GENERIC_PASSWORD }}
         run: npm test -- --coverage
 
       - name: Upload backend coverage report
