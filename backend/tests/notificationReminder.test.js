@@ -34,6 +34,10 @@ import mongoose from 'mongoose';
 import dayjs from 'dayjs';
 import utc from 'dayjs/plugin/utc.js';
 import timezone from 'dayjs/plugin/timezone.js';
+import dotenv from 'dotenv';
+
+// Load environment variables from secrets.env
+dotenv.config({ path: "./config/secrets.env" });
 
 // Import models and services
 import User from '../models/User.js';
