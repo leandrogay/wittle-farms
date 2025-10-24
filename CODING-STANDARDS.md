@@ -41,8 +41,8 @@ This document defines the coding standards and naming conventions for all JavaSc
 |------|-----------|---------|
 | **Files (JS/TS)** | `kebab-case` | `overdue-notifs.js` |
 | **Folders** | `kebab-case` | `routes/`, `services/`, `models/` |
-| **React Components** | `PascalCase` | `UserProfile.jsx` |
-| **Tests** | Match file + `.test.js` | `user-controller.test.js` |
+| **React Components** | `PascalCase` | `TaskCard.jsx` |
+| **Tests** | Match file + `.test.js` | `create-task.test.js` |
 
 ## 5. Summary Cheat Sheet
 
