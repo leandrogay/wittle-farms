@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useAuth } from "../context/useAuth";
-import { getTasks, getProjects, getManagerProjects, getDirectorReport, BASE } from "../services/api.js";
+import { getTasks, getProjects, getManagerProjects, getDirectorReport, getSeniorManagerReport, BASE } from "../services/api.js";
 import dayjs from "dayjs";
 
 /* SVG Icons */
@@ -898,6 +898,312 @@ function DirectorReport({ userId, reportData, reportRef }) {
   );
 }
 
+/* Senior Manager/HR Company-Wide Report Component */
+function SeniorManagerReport({ reportData, reportRef }) {
+  const { 
+    avgTaskCompletionDays, 
+    avgProjectCompletionDays, 
+    productivityTrend, 
+    completionRateThisMonth, 
+    completionRateLastMonth,
+    companyScope,
+    departmentMetrics,
+    projectBreakdown,
+    companyInfo 
+  } = reportData;
+
+  // Determine trend color based on productivity trend
+  const getTrendColor = (trend) => {
+    switch (trend) {
+      case 'Improving': return 'text-success';
+      case 'Declining': return 'text-danger';
+      default: return 'text-info';
+    }
+  };
+
+  return (
+    <div ref={reportRef} className="space-y-6 p-6 bg-light-bg dark:bg-dark-bg">
+      {/* Header */}
+      <div className="text-center border-b border-light-border dark:border-dark-border pb-4">
+        <h1 className="text-3xl font-bold text-light-text-primary dark:text-dark-text-primary">
+          Company-Wide Performance Report
+        </h1>
+        <p className="text-light-text-secondary dark:text-dark-text-secondary mt-2">
+          Generated on {dayjs().format("MMMM D, YYYY")}
+        </p>
+        <p className="text-sm text-light-text-muted dark:text-dark-text-muted mt-1">
+          {companyInfo?.totalDepartments} Departments • {companyInfo?.totalEmployees} Employees
+        </p>
+      </div>
+
+      {/* Company Overview Metrics */}
+      <div className="rounded-2xl border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-bg p-6">
+        <h2 className="text-xl font-bold text-light-text-primary dark:text-dark-text-primary mb-4">
+          Company-Wide Performance Metrics
+        </h2>
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+          <div>
+            <p className="text-sm text-light-text-secondary dark:text-dark-text-secondary mb-1">
+              Average Task Completion
+            </p>
+            <p className="text-3xl font-bold text-brand-primary dark:text-brand-secondary">
+              {avgTaskCompletionDays}
+            </p>
+            <p className="text-xs text-light-text-muted dark:text-dark-text-muted mt-1">days per task</p>
+          </div>
+          <div>
+            <p className="text-sm text-light-text-secondary dark:text-dark-text-secondary mb-1">
+              Average Project Completion
+            </p>
+            <p className="text-3xl font-bold text-info">
+              {avgProjectCompletionDays}
+            </p>
+            <p className="text-xs text-light-text-muted dark:text-dark-text-muted mt-1">days per project</p>
+          </div>
+          <div>
+            <p className="text-sm text-light-text-secondary dark:text-dark-text-secondary mb-1">
+              Productivity Trend
+            </p>
+            <p className={`text-3xl font-bold ${getTrendColor(productivityTrend)}`}>
+              {productivityTrend}
+            </p>
+            <p className="text-xs text-light-text-muted dark:text-dark-text-muted mt-1">
+              {completionRateThisMonth}% this month vs {completionRateLastMonth}% last month
+            </p>
+          </div>
+          <div>
+            <p className="text-sm text-light-text-secondary dark:text-dark-text-secondary mb-1">
+              Company Scale
+            </p>
+            <p className="text-lg font-bold text-light-text-primary dark:text-dark-text-primary">
+              {companyScope?.totalProjects} Projects
+            </p>
+            <p className="text-lg font-bold text-light-text-primary dark:text-dark-text-primary">
+              {companyScope?.totalTasks} Tasks
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Company-Wide Project & Task Status */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Projects Status */}
+        <div className="rounded-2xl border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-bg p-6">
+          <h2 className="text-xl font-bold text-light-text-primary dark:text-dark-text-primary mb-4">
+            Company Projects Status
+          </h2>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="text-center">
+              <p className="text-2xl font-bold text-light-text-muted dark:text-dark-text-muted">
+                {companyScope?.projectStatusCounts['To Do']}
+              </p>
+              <p className="text-sm text-light-text-secondary dark:text-dark-text-secondary">
+                To Do ({companyScope?.projectStatusPercentages['To Do']}%)
+              </p>
+            </div>
+            <div className="text-center">
+              <p className="text-2xl font-bold text-info">
+                {companyScope?.projectStatusCounts['In Progress']}
+              </p>
+              <p className="text-sm text-light-text-secondary dark:text-dark-text-secondary">
+                In Progress ({companyScope?.projectStatusPercentages['In Progress']}%)
+              </p>
+            </div>
+            <div className="text-center">
+              <p className="text-2xl font-bold text-success">
+                {companyScope?.projectStatusCounts['Done']}
+              </p>
+              <p className="text-sm text-light-text-secondary dark:text-dark-text-secondary">
+                Done ({companyScope?.projectStatusPercentages['Done']}%)
+              </p>
+            </div>
+            <div className="text-center">
+              <p className="text-2xl font-bold text-danger">
+                {companyScope?.projectStatusCounts['Overdue']}
+              </p>
+              <p className="text-sm text-light-text-secondary dark:text-dark-text-secondary">
+                Overdue ({companyScope?.projectStatusPercentages['Overdue']}%)
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Tasks Status */}
+        <div className="rounded-2xl border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-bg p-6">
+          <h2 className="text-xl font-bold text-light-text-primary dark:text-dark-text-primary mb-4">
+            Company Tasks Status
+          </h2>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="text-center">
+              <p className="text-2xl font-bold text-light-text-muted dark:text-dark-text-muted">
+                {companyScope?.taskStatusCounts['To Do']}
+              </p>
+              <p className="text-sm text-light-text-secondary dark:text-dark-text-secondary">
+                To Do ({companyScope?.taskStatusPercentages['To Do']}%)
+              </p>
+            </div>
+            <div className="text-center">
+              <p className="text-2xl font-bold text-info">
+                {companyScope?.taskStatusCounts['In Progress']}
+              </p>
+              <p className="text-sm text-light-text-secondary dark:text-dark-text-secondary">
+                In Progress ({companyScope?.taskStatusPercentages['In Progress']}%)
+              </p>
+            </div>
+            <div className="text-center">
+              <p className="text-2xl font-bold text-success">
+                {companyScope?.taskStatusCounts['Done']}
+              </p>
+              <p className="text-sm text-light-text-secondary dark:text-dark-text-secondary">
+                Done ({companyScope?.taskStatusPercentages['Done']}%)
+              </p>
+            </div>
+            <div className="text-center">
+              <p className="text-2xl font-bold text-danger">
+                {companyScope?.taskStatusCounts['Overdue']}
+              </p>
+              <p className="text-sm text-light-text-secondary dark:text-dark-text-secondary">
+                Overdue ({companyScope?.taskStatusPercentages['Overdue']}%)
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Department Performance Breakdown */}
+      <div className="rounded-2xl border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-bg p-6">
+        <h2 className="text-xl font-bold text-light-text-primary dark:text-dark-text-primary mb-4">
+          Department Performance Breakdown
+        </h2>
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead className="border-b border-light-border dark:border-dark-border">
+              <tr>
+                <th className="text-left py-3 px-4 text-sm font-semibold text-light-text-primary dark:text-dark-text-primary">
+                  Department
+                </th>
+                <th className="text-center py-3 px-4 text-sm font-semibold text-light-text-primary dark:text-dark-text-primary">
+                  Team Size
+                </th>
+                <th className="text-center py-3 px-4 text-sm font-semibold text-light-text-primary dark:text-dark-text-primary">
+                  Projects
+                </th>
+                <th className="text-center py-3 px-4 text-sm font-semibold text-light-text-primary dark:text-dark-text-primary">
+                  Tasks
+                </th>
+                <th className="text-center py-3 px-4 text-sm font-semibold text-light-text-primary dark:text-dark-text-primary">
+                  Completion Rate
+                </th>
+                <th className="text-center py-3 px-4 text-sm font-semibold text-light-text-primary dark:text-dark-text-primary">
+                  Overdue Rate
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {departmentMetrics?.map((dept) => (
+                <tr
+                  key={dept.departmentId}
+                  className="border-b border-light-border dark:border-dark-border hover:bg-light-surface dark:hover:bg-dark-surface"
+                >
+                  <td className="py-3 px-4 text-sm font-medium text-light-text-primary dark:text-dark-text-primary">
+                    {dept.departmentName}
+                  </td>
+                  <td className="py-3 px-4 text-sm text-center text-light-text-primary dark:text-dark-text-primary">
+                    {dept.teamSize}
+                  </td>
+                  <td className="py-3 px-4 text-sm text-center text-light-text-primary dark:text-dark-text-primary">
+                    {dept.totalProjects}
+                  </td>
+                  <td className="py-3 px-4 text-sm text-center text-light-text-primary dark:text-dark-text-primary">
+                    {dept.totalTasks}
+                  </td>
+                  <td className="py-3 px-4 text-sm text-center font-semibold text-success">
+                    {dept.completionRate}%
+                  </td>
+                  <td className="py-3 px-4 text-sm text-center font-semibold text-danger">
+                    {dept.overdueRate}%
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Top Projects by Task Volume */}
+      <div className="rounded-2xl border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-bg p-6">
+        <h2 className="text-xl font-bold text-light-text-primary dark:text-dark-text-primary mb-4">
+          Project Performance Overview (Top Projects by Task Volume)
+        </h2>
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead className="border-b border-light-border dark:border-dark-border">
+              <tr>
+                <th className="text-left py-3 px-4 text-sm font-semibold text-light-text-primary dark:text-dark-text-primary">
+                  Project Name
+                </th>
+                <th className="text-left py-3 px-4 text-sm font-semibold text-light-text-primary dark:text-dark-text-primary">
+                  Department
+                </th>
+                <th className="text-center py-3 px-4 text-sm font-semibold text-light-text-primary dark:text-dark-text-primary">
+                  Total Tasks
+                </th>
+                <th className="text-center py-3 px-4 text-sm font-semibold text-light-text-primary dark:text-dark-text-primary">
+                  Completed
+                </th>
+                <th className="text-center py-3 px-4 text-sm font-semibold text-light-text-primary dark:text-dark-text-primary">
+                  Overdue
+                </th>
+                <th className="text-center py-3 px-4 text-sm font-semibold text-light-text-primary dark:text-dark-text-primary">
+                  Completion Rate
+                </th>
+                <th className="text-center py-3 px-4 text-sm font-semibold text-light-text-primary dark:text-dark-text-primary">
+                  Overdue Rate
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {projectBreakdown?.slice(0, 20).map((project) => (
+                <tr
+                  key={project.projectId}
+                  className="border-b border-light-border dark:border-dark-border hover:bg-light-surface dark:hover:bg-dark-surface"
+                >
+                  <td className="py-3 px-4 text-sm font-medium text-light-text-primary dark:text-dark-text-primary">
+                    {project.projectName}
+                  </td>
+                  <td className="py-3 px-4 text-sm text-light-text-secondary dark:text-dark-text-secondary">
+                    {project.departmentName}
+                  </td>
+                  <td className="py-3 px-4 text-sm text-center text-light-text-primary dark:text-dark-text-primary">
+                    {project.totalTasks}
+                  </td>
+                  <td className="py-3 px-4 text-sm text-center text-success">
+                    {project.completedTasks}
+                  </td>
+                  <td className="py-3 px-4 text-sm text-center text-danger">
+                    {project.overdueTasks}
+                  </td>
+                  <td className="py-3 px-4 text-sm text-center font-semibold text-success">
+                    {project.completionRate}%
+                  </td>
+                  <td className="py-3 px-4 text-sm text-center font-semibold text-danger">
+                    {project.overdueRate}%
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        {projectBreakdown && projectBreakdown.length > 20 && (
+          <p className="text-xs text-light-text-muted dark:text-dark-text-muted mt-4 text-center">
+            Showing top 20 projects by task volume. Total projects: {projectBreakdown.length}
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function Report() {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
@@ -968,6 +1274,10 @@ export default function Report() {
             const directorReportData = await getDirectorReport(departmentId);
             setReportData(directorReportData);
           }
+        } else if (user.role === "Senior Manager" || user.role === "HR") {
+          // Senior Manager/HR: Get company-wide report data
+          const seniorManagerReportData = await getSeniorManagerReport();
+          setReportData(seniorManagerReportData);
         }
       } catch (err) {
         setError(err.message || "Failed to load report data");
@@ -1308,6 +1618,8 @@ export default function Report() {
         <ManagerReport userId={user.id} reportData={reportData} reportRef={reportRef} />
       ) : user.role === "Director" ? (
         <DirectorReport reportData={reportData} reportRef={reportRef} />
+      ) : user.role === "Senior Manager" || user.role === "HR" ? (
+        <SeniorManagerReport reportData={reportData} reportRef={reportRef} />
       ) : null}
     </section>
   );
