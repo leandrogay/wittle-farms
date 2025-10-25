@@ -2,7 +2,7 @@ import { Router } from "express";
 import mongoose, { isValidObjectId } from "mongoose";
 import Comment from "../models/Comment.js";
 import Task from "../models/Task.js";
-import { createCommentNotifications } from "../services/notificationService.js";
+import { createCommentNotifications, createMentionNotifications } from "../services/notificationService.js";
 import { resolveMentionUserIds } from "../services/resolveMentions.js";
 
 const router = Router();
@@ -94,6 +94,13 @@ router.post('/:taskId/comments', async (req, res) => {
     const { taskId } = req.params;
     const { author, body, clientKey } = req.body;
     const mentions = await resolveMentionUserIds(taskId, body);
+    const mentionsArr = Array.isArray(mentions)
+      ? mentions
+      : mentions
+        ? [mentions]
+        : [];
+
+    const mentionIds = mentionsArr.map((id) => String(id));
 
     if (!mongoose.Types.ObjectId.isValid(taskId)) {
       return res.status(400).json({ error: 'Invalid taskId' });
@@ -109,26 +116,37 @@ router.post('/:taskId/comments', async (req, res) => {
       task: taskId,
       author,
       body: body.trim(),
-      mentions,
+      mentions: mentionIds,
       clientKey: clientKey || undefined,
     });
+
 
     const populated = await Comment.findById(comment._id)
       .populate('author', 'name email')
       .populate("mentions", "name email")
       .lean();
 
+    const mentionSet = [...new Set([String(author), ...mentionIds])];
+
     const createdNotifs = await createCommentNotifications({
       taskId,
       commentId: populated._id,
       authorId: author,
       commentBody: body,
-      mentions: mentions
+      excludeUserIds: mentionSet
     });
 
-    const io = req.app.get('io');
-    createdNotifs.forEach(n => io.emit(`notification:${n.userId}`, n));
+    const mentionNotifs = await createMentionNotifications({
+      taskId,
+      commentId: populated._id,
+      authorId: author,
+      commentBody: populated.body
+    })
 
+    const io = req.app.get('io');
+    for (const n of [...createdNotifs, ...mentionNotifs]) {
+      io?.emit?.(`notification:${n.userId}`, n);
+    }
     io?.emit?.('task:comment:created', { taskId, comment: populated });
 
     res.status(201).json(populated);
@@ -174,6 +192,13 @@ router.put('/:taskId/comments/:commentId', async (req, res) => {
       .populate('author', 'name email')
       .populate("mentions", "name email")
       .lean();
+
+    await createMentionNotifications({
+      taskId,
+      commentId: updated._id,
+      authorId: author,
+      commentBody: updated.body
+    })
 
     res.json(updated);
   } catch (e) {

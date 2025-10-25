@@ -5,6 +5,7 @@ import Project from '../models/Project.js';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime.js';
 import { sendEmail } from '../utils/mailer.js';
+import Comment from '../models/Comment.js';
 
 dayjs.extend(relativeTime);
 
@@ -194,7 +195,7 @@ function formatTimeRemaining(minutes) {
   }
 }
 
-export async function createCommentNotifications({ taskId, commentId, authorId, commentBody }) {
+export async function createCommentNotifications({ taskId, commentId, authorId, commentBody, excludeUserIds = [] }) {
   // Fetch task for assignees, project & title
   const task = await Task.findById(taskId)
     .select('assignedTeamMembers title assignedProject')
@@ -232,10 +233,18 @@ export async function createCommentNotifications({ taskId, commentId, authorId, 
       managerIds = possibles.map(String).filter((uid) => uid !== String(authorId));
     }
   }
-  // Final recipients: assignees ∪ managers (unique, no author)
+  const excludeList = Array.isArray(excludeUserIds)
+    ? excludeUserIds
+    : excludeUserIds
+      ? Array.from(excludeUserIds) // handles Set
+      : [];
+  const exclude = new Set([String(authorId), ...excludeList.map(String)]);
+
+  // Final recipients: assignees ∪ managers, then apply exclusion
   const uniq = new Set([...assigneeIds, ...managerIds]);
-  const recipients = Array.from(uniq);
-  if (recipients.length === 0) return [];
+  const recipients = Array.from(uniq).map(String);
+  const finalRecipients = recipients.filter(uid => !exclude.has(uid));
+  if (finalRecipients.length === 0) return [];
 
   const message = `${authorName} commented on "${task.title}": ${commentBody.slice(0, 140)}`;
 
@@ -270,4 +279,45 @@ function buildEmailHtml({ notification }) {
       <p style="font-size:12px;color:#6b7280">You are receiving this because you are assigned to this task.</p>
     </div>
   `;
+}
+
+export async function createMentionNotifications({ taskId, commentId, authorId, commentBody }){
+  const [comment, task, author] = await Promise.all([
+    Comment.findById(commentId)
+      .select("mentions")
+      .lean(),
+    Task.findById(taskId)
+      .select('title')
+      .lean(),
+    User.findById(authorId)
+      .select('name')
+      .lean()
+  ]);
+  if (!comment || !task) return [];
+
+  const authorName = author?.name ?? 'Someone';
+
+  const mentionIds = (comment.mentions || [])
+    .map((id) => String(id))
+    .filter((id) => (id) !== String(authorId));
+
+  if (mentionIds.length == 0) return [];
+
+  const recipients = [...new Set(mentionIds.filter(id => id !== String(authorId)))];
+  if (recipients.length === 0) return [];
+
+  const message = `${authorName} mentioned you on "${task.title}": ${commentBody.slice(0,140)}`;
+
+  const docs = recipients.map(userId => ({
+    userId,
+    taskId,
+    type: 'mention',
+    commentId,
+    message, 
+    scheduledFor: new Date()
+  }));
+
+  const created = await Notification.insertMany(docs, {ordered: false});
+  return created;
+
 }

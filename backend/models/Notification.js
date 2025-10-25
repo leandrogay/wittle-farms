@@ -7,7 +7,7 @@ const NotificationSchema = new Schema({
   taskId: { type: Types.ObjectId, ref: 'Task', required: true, index: true },
 
   // NEW: include 'comment'
-  type: { type: String, enum: ['reminder', 'overdue', 'comment'], required: true },
+  type: { type: String, enum: ['reminder', 'overdue', 'comment', 'mention'], required: true },
 
   // Only for reminders
   reminderOffset: {
