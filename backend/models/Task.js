@@ -61,21 +61,21 @@ function normalizeOffsets(val) {
     .sort((a, b) => b - a);
 }
 
-TaskSchema.pre('save', function(next) {
+TaskSchema.pre('save', function (next) {
   // Normalize reminder offsets
   this.reminderOffsets = normalizeOffsets(this.reminderOffsets);
-  
+
   // Apply default reminders if:
   // 1. Task has a deadline
   // 2. reminderOffsets is empty (no custom reminders specified)
   if (this.deadline && this.reminderOffsets.length === 0) {
     this.reminderOffsets = DEFAULT_REMINDERS_MIN;
   }
-  
+
   next();
 });
 
-TaskSchema.pre('findOneAndUpdate', function(next) {
+TaskSchema.pre('findOneAndUpdate', function (next) {
   const u = this.getUpdate() || {};
   if (u && Object.prototype.hasOwnProperty.call(u, 'reminderOffsets')) {
     u.reminderOffsets = normalizeOffsets(u.reminderOffsets);

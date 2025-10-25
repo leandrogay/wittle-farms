@@ -158,12 +158,21 @@ router.post('/', upload.array('attachments'), async (req, res) => {
  */
 router.get('/', async (req, res) => {
   try {
-    const { status, assignedProject, assignee, createdBy } = req.query;
+    const { status, assignedProject, assignee, createdBy, manager } = req.query; // ← Add 'manager'
     const filter = {};
+    
     if (status) filter.status = status;
     if (assignedProject) filter.assignedProject = new mongoose.Types.ObjectId(assignedProject);
     if (createdBy) filter.createdBy = new mongoose.Types.ObjectId(createdBy);
     if (assignee) filter.assignedTeamMembers = new mongoose.Types.ObjectId(assignee);
+    
+    // ✅ NEW: Filter tasks by manager (via their projects)
+    if (manager) {
+      const Project = mongoose.model('Project');
+      const managerProjects = await Project.find({ createdBy: manager }).select('_id');
+      const projectIds = managerProjects.map(p => p._id);
+      filter.assignedProject = { $in: projectIds };
+    }
 
     const tasks = await populateTask(
       Task.find(filter).sort({ deadline: 1, createdAt: -1 })
