@@ -126,6 +126,14 @@ export async function getManagerProjects() {
     : [];
 }
 
+export async function getDirectorReport(departmentId) {
+  const res = await fetch(`${API_BASE}/api/director/report?departmentId=${departmentId}`, { 
+    credentials: "include" 
+  });
+  if (!res.ok) throw new Error(await res.text().catch(() => "Failed to fetch director report"));
+  return res.json();
+}
+
 // export async function getTeamMembersByProjectId(userId) {
 //   const res = await fetch(`${API_BASE}/api/projects?teamMember=${userId}`);
 //   if (!res.ok) {
