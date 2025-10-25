@@ -134,6 +134,14 @@ export async function getDirectorReport(departmentId) {
   return res.json();
 }
 
+export async function getSeniorManagerReport() {
+  const res = await fetch(`${API_BASE}/api/senior-manager/report`, { 
+    credentials: "include" 
+  });
+  if (!res.ok) throw new Error(await res.text().catch(() => "Failed to fetch senior manager report"));
+  return res.json();
+}
+
 // export async function getTeamMembersByProjectId(userId) {
 //   const res = await fetch(`${API_BASE}/api/projects?teamMember=${userId}`);
 //   if (!res.ok) {
