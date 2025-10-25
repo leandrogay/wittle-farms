@@ -179,7 +179,7 @@ export default function TaskBoardMgr() {
     if (authLoading) return;
     (async () => {
       try {
-        const data = await getManagerProjects();
+        const data = await getManagerProjects(user.id);
         const all = Array.isArray(data) ? data : [];
 
         const mine = all.filter((p) => {

@@ -81,6 +81,28 @@ export async function getTasks() {
   return res.json();
 }
 
+/**
+ * Get tasks assigned to a specific user (for Staff reports)
+ */
+export async function getTasksByUserId(userId) {
+  const res = await fetch(`${API_BASE}/api/tasks?assignee=${encodeURIComponent(userId)}`, {
+    credentials: "include"
+  });
+  if (!res.ok) throw new Error("Failed to fetch user tasks");
+  return res.json();
+}
+
+/**
+ * Get all tasks for projects managed by a specific manager
+ */
+export async function getManagerTasks(managerId) {
+  const res = await fetch(`${API_BASE}/api/tasks?manager=${encodeURIComponent(managerId)}`, {
+    credentials: "include"
+  });
+  if (!res.ok) throw new Error("Failed to fetch manager tasks");
+  return res.json();
+}
+
 export async function getProjects() {
   const res = await fetch(`${API_BASE}/api/projects`);
   if (!res.ok) {
@@ -117,8 +139,8 @@ export async function getProjectTasks(projectId) {
   });
 }
 
-export async function getManagerProjects() {
-  const res = await fetch(`${API_BASE}/api/projects`, { credentials: "include" });
+export async function getManagerProjects(userId) {
+  const res = await fetch(`${API_BASE}/api/projects/user/createdBy/${userId}`, { credentials: "include" });
   if (!res.ok) throw new Error(await res.text().catch(() => "Failed to fetch projects"));
   const projects = await res.json();
   return Array.isArray(projects)

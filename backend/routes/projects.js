@@ -111,6 +111,25 @@ router.get('/user/:userId', async (req, res) => {
   }
 });
 
+/** READ by user createdBy */
+router.get('/user/createdBy/:userId', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    if (!mongoose.isValidObjectId(userId)) {
+      return res.status(400).json({ error: 'Invalid user id' });
+    }
+    const projects = await populateProject(
+      Project.find({ createdBy: userId })
+        .sort({ createdAt: -1 })
+    ).lean();
+
+    // return empty array (200) rather than 404 for easier clients
+    res.json(projects || []);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 /** UPDATE (accept aliases again) */
 router.put('/:id', async (req, res) => {
   try {

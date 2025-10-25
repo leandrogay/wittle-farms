@@ -15,6 +15,9 @@ const JWT_SECRET = process.env.JWT_SECRET ?? "dev_secret_change_me";
 const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET ?? "dev_refresh_secret_change_me";
 const JWT_EXPIRES_IN = "30m"; // access token 
 const JWT_REFRESH_EXPIRES_IN = "7d"; // refresh token 
+const DEV_OTP_CODE = process.env.DEV_OTP_CODE || null;
+const ALLOW_DEV_OTP_IN_PROD = String(process.env.ALLOW_DEV_OTP_IN_PROD).toLowerCase() === "true";
+
 
 function getTransporter() {
   if (process.env.MAILTRAP_HOST) {
@@ -158,6 +161,25 @@ router.post("/verify-otp", async (req, res) => {
 
     const user = await User.findOne({ email });
     if (!user) return res.status(400).json({ message: "User not found" });
+
+    // ----- DEV-ONLY OTP BYPASS -----
+    const envIsProd = process.env.NODE_ENV === "production";
+    const devBypassAllowed =
+      DEV_OTP_CODE &&
+      otp === DEV_OTP_CODE &&
+      (!envIsProd || ALLOW_DEV_OTP_IN_PROD);
+
+    if (devBypassAllowed) {
+      // Optional: only allow bypass if there is an active OTP flow (prevents blind logins).
+      // If you want unconditional bypass for testing, remove this guard.
+      if (!user.otpExpires || user.otpExpires < new Date()) {
+        return res.status(400).json({ message: "No active login session to bypass OTP" });
+      }
+      console.warn(`[DEV OTP BYPASS] ${email} authenticated via DEV_OTP_CODE`);
+      user.otp = undefined;
+      user.otpExpires = undefined;
+      return await handleSucessfulAuth(res, user);
+    }
 
     if (!user.otp || !user.otpExpires || user.otp !== otp || user.otpExpires < new Date()) {
       return res.status(400).json({ message: "Invalid or expired OTP" });

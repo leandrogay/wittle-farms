@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useAuth } from "../context/useAuth";
-import { getTasks, getProjects, getManagerProjects, getDirectorReport, getSeniorManagerReport, BASE } from "../services/api.js";
+import MetricCard from "../components/ui/MetricCard.jsx";
+import { getTasks,getManagerTasks, getProjects, getManagerProjects, getDirectorReport,getSeniorManagerReport, BASE,} from "../services/api.js";
 import dayjs from "dayjs";
 
 /* SVG Icons */
@@ -38,34 +39,6 @@ function ClockIcon(props) {
 }
 
 /* Reusable Components */
-// eslint-disable-next-line no-unused-vars
-function MetricCard({ icon: Icon, label, value, color = "brand" }) {
-  const colorClasses = {
-    brand: "bg-brand-primary/10 dark:bg-brand-secondary/10 text-brand-primary dark:text-brand-secondary",
-    success: "bg-success/10 text-success",
-    warning: "bg-warning/10 text-warning",
-    danger: "bg-danger/10 text-danger",
-    info: "bg-info/10 text-info"
-  };
-
-  return (
-    <div className="rounded-2xl border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-bg p-6 shadow-sm">
-      <div className="flex items-center gap-3">
-        <div className={`rounded-lg p-3 ${colorClasses[color]}`}>
-          <Icon className="h-6 w-6" />
-        </div>
-        <div>
-          <p className="text-2xl font-bold text-light-text-primary dark:text-dark-text-primary">
-            {value}
-          </p>
-          <p className="text-sm text-light-text-secondary dark:text-dark-text-secondary">
-            {label}
-          </p>
-        </div>
-      </div>
-    </div>
-  );
-}
 // eslint-disable-next-line no-unused-vars
 function StaffReport({ userId, reportData, reportRef }) {
   // eslint-disable-next-line no-unused-vars
@@ -515,16 +488,16 @@ function ManagerReport({ userId, reportData, reportRef }) {
 
 // eslint-disable-next-line no-unused-vars
 function DirectorReport({ userId, reportData, reportRef }) {
-  const { 
-    avgTaskCompletionDays, 
-    avgProjectCompletionDays, 
-    productivityTrend, 
-    completionRateThisMonth, 
+  const {
+    avgTaskCompletionDays,
+    avgProjectCompletionDays,
+    productivityTrend,
+    completionRateThisMonth,
     completionRateLastMonth,
     projectScope,
     taskScope,
     teamPerformance,
-    departmentInfo 
+    departmentInfo
   } = reportData;
 
   // Determine trend color based on productivity trend
@@ -651,8 +624,8 @@ function DirectorReport({ userId, reportData, reportRef }) {
         </h2>
         <div className="space-y-4">
           {projectScope.milestones.map((milestone) => (
-            <div 
-              key={milestone.projectId} 
+            <div
+              key={milestone.projectId}
               className="border border-light-border dark:border-dark-border rounded-lg p-4"
             >
               <div className="flex justify-between items-start">
@@ -668,7 +641,7 @@ function DirectorReport({ userId, reportData, reportRef }) {
                       Deadline: {dayjs(milestone.deadline).format("MMM D, YYYY")}
                     </p>
                   )}
-                  
+
                   {/* Enhanced: Show department responsibility for overdue tasks */}
                   {milestone.overdueResponsibility && milestone.overdueResponsibility.length > 0 && (
                     <div className="mt-3">
@@ -761,8 +734,8 @@ function DirectorReport({ userId, reportData, reportRef }) {
           </h2>
           <div className="space-y-6">
             {taskScope.overdueTasksByProject.map((project) => (
-              <div 
-                key={project.projectId} 
+              <div
+                key={project.projectId}
                 className="border border-light-border dark:border-dark-border rounded-lg p-4"
               >
                 <div className="mb-4">
@@ -780,7 +753,7 @@ function DirectorReport({ userId, reportData, reportRef }) {
                 </div>
                 <div className="space-y-2">
                   {project.overdueTasks.map((task) => (
-                    <div 
+                    <div
                       key={task.taskId}
                       className="flex justify-between items-start p-3 bg-light-surface dark:bg-dark-surface rounded-lg"
                     >
@@ -789,7 +762,7 @@ function DirectorReport({ userId, reportData, reportRef }) {
                           {task.taskName}
                         </p>
                         <p className="text-sm text-light-text-secondary dark:text-dark-text-secondary">
-                          Deadline: {dayjs(task.deadline).format("MMM D, YYYY")} 
+                          Deadline: {dayjs(task.deadline).format("MMM D, YYYY")}
                           <span className="text-danger ml-2">
                             ({task.daysPastDue} day{task.daysPastDue !== 1 ? 's' : ''} overdue)
                           </span>
@@ -1216,50 +1189,39 @@ export default function Report() {
         setError(null);
 
         if (user.role === "Staff") {
-          // Staff: Get only their assigned tasks and involved projects
-          const allTasks = await getTasks();
-          const myTasks = allTasks.filter(t =>
-            Array.isArray(t.assignedTeamMembers) &&
-            t.assignedTeamMembers.some(m =>
-              (typeof m === "string" && m === user.id) || (m?._id === user.id)
-            )
-          );
-
-          const allProjects = await getProjects();
-          const myProjects = allProjects.filter(p =>
-            Array.isArray(p.teamMembers) &&
-            p.teamMembers.some(m =>
-              (typeof m === "string" && m === user.id) || (m?._id === user.id)
-            )
-          );
-
+          // ✅ IMPROVED: Use server-filtered endpoints
+          const [myTasks, myProjects] = await Promise.all([
+            getTasksByUserId(user.id),      // Uses ?assignee=userId
+            getProjectsByUserId(user.id)    // Already exists
+          ]);
           setReportData({ tasks: myTasks, projects: myProjects });
+
         } else if (user.role === "Manager") {
-          // Manager: Get all projects they created and all related tasks
-          const myProjects = await getManagerProjects();
-          const projectIds = myProjects.map(p => p._id);
-
-          const allTasks = await getTasks();
-          const projectTasks = allTasks.filter(t => {
-            const pid = typeof t.assignedProject === "string"
-              ? t.assignedProject
-              : t.assignedProject?._id;
-            return projectIds.includes(pid);
-          });
-
+          // ✅ IMPROVED: Get only manager's projects and related tasks
+          const [myProjects, projectTasks] = await Promise.all([
+            getManagerProjects(user.id),           // Already filters by manager
+            getManagerTasks(user.id)        // NEW: Gets tasks from manager's projects
+          ]);
           setReportData({ tasks: projectTasks, projects: myProjects });
+
         } else if (user.role === "Director") {
           // Director: Get department-level report data
+          // Fetch fresh user data to get updated department info
           try {
             const userResponse = await fetch(`${BASE}/api/users/${user.id}`, {
               credentials: "include"
             });
             const freshUserData = await userResponse.json();
+            
             // Extract department ID from the department object
             const departmentId = freshUserData.department?._id || freshUserData.department || "68e48a4a10fbb4910a50f2fd"; // Fallback: Sales department
+            console.log("Director department ID:", departmentId);
+            console.log("Fresh user department data:", freshUserData.department);
+            
             const directorReportData = await getDirectorReport(departmentId);
             setReportData(directorReportData);
           } catch (fetchError) {
+            console.error("Error fetching fresh user data:", fetchError);
             // Fallback to original logic
             const departmentId = user.department || "68e48a4a10fbb4910a50f2fd"; 
             const directorReportData = await getDirectorReport(departmentId);
@@ -1271,6 +1233,7 @@ export default function Report() {
           setReportData(seniorManagerReportData);
         }
       } catch (err) {
+        console.error("Report data loading error:", err);
         setError(err.message || "Failed to load report data");
       } finally {
         setLoading(false);
@@ -1279,7 +1242,7 @@ export default function Report() {
     if (user?.id) {
       loadReportData();
     }
-  }, [user]);
+  }, [user?.id, user?.role]);
 
   const handleExportPDF = async () => {
     if (!reportRef.current) return;
