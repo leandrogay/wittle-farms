@@ -26,6 +26,7 @@ import calendarRoute from './routes/calendar.js';
 import notificationsRouter from './routes/overdue-notifis.js';
 import commentsRouter from './routes/comments.js';
 import timelineRouter from './routes/timeline.js';
+import directorRouter from './routes/director.js';
 
 
 const app = express();
@@ -53,6 +54,7 @@ app.use('/api/departments', departmentRouter);
 app.use('/api/notifications', notificationsRouter);
 app.use('/api/tasks', commentsRouter);
 app.use('/api/timeline', timelineRouter);
+app.use('/api/director', directorRouter);
 
 
 console.log('Loaded ENV:', process.env.MONGO_URI);
