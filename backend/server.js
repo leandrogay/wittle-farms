@@ -27,6 +27,7 @@ import notificationsRouter from './routes/overdue-notifis.js';
 import commentsRouter from './routes/comments.js';
 import timelineRouter from './routes/timeline.js';
 import directorRouter from './routes/director.js';
+import seniorManagerRouter from './routes/senior-manager.js';
 
 
 const app = express();
@@ -55,6 +56,7 @@ app.use('/api/notifications', notificationsRouter);
 app.use('/api/tasks', commentsRouter);
 app.use('/api/timeline', timelineRouter);
 app.use('/api/director', directorRouter);
+app.use('/api/senior-manager', seniorManagerRouter);
 
 
 console.log('Loaded ENV:', process.env.MONGO_URI);
