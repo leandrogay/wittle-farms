@@ -5,7 +5,7 @@ const { Schema, model, Types } = mongoose;
 const UserSchema = new Schema({
   name: { type: String, required: true, trim: true },
   email: { type: String, required: true, unique: true, lowercase: true },
-  role: { type: String, enum: ['Director', 'Manager', 'Staff'], default: 'Staff' },
+  role: { type: String, enum: ['Director', 'Manager', 'Staff', 'HR', 'Senior Manager'], default: 'Staff' },
   department: { type: Types.ObjectId, ref: 'Department', default: null, index: true},
 
   password: { type: String, required: true, minlength: 8 },

@@ -44,6 +44,15 @@ const navigationConfig = {
     { to: "/dashboard", label: "Dashboard" },
     { to: "/report", label: "Report" },
   ],
+  HR: [
+    { to: "/dashboard", label: "Dashboard" },
+    { to: "/report", label: "Report" },
+  ],
+  "Senior Manager": [
+    { to: "/calendar", label: "Calendar" },
+    { to: "/dashboard", label: "Dashboard" },
+    { to: "/report", label: "Report" },
+  ],
 };
 
 /* User Info Display Component */

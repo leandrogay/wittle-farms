@@ -11,6 +11,10 @@ export default function RoleRedirect() {
       return <Navigate to="/home" replace />;
     case "Director":
       return <Navigate to="/home" replace />;
+    case "HR":
+      return <Navigate to="/home" replace />;
+    case "Senior Manager":
+      return <Navigate to="/home" replace />;
     default:
       return <Navigate to="/home" replace />;
   }
