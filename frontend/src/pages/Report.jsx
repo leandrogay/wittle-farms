@@ -962,7 +962,7 @@ function SeniorManagerReport({ reportData, reportRef }) {
           </div>
           <div>
             <p className="text-sm text-light-text-secondary dark:text-dark-text-secondary mb-1">
-              Productivity Trend
+              % of Tasks Completed
             </p>
             <p className={`text-3xl font-bold ${getTrendColor(productivityTrend)}`}>
               {productivityTrend}
@@ -1079,50 +1079,45 @@ function SeniorManagerReport({ reportData, reportRef }) {
           <table className="w-full">
             <thead className="border-b border-light-border dark:border-dark-border">
               <tr>
-                <th className="text-left py-3 px-4 text-sm font-semibold text-light-text-primary dark:text-dark-text-primary">
-                  Department
-                </th>
-                <th className="text-center py-3 px-4 text-sm font-semibold text-light-text-primary dark:text-dark-text-primary">
-                  Team Size
-                </th>
-                <th className="text-center py-3 px-4 text-sm font-semibold text-light-text-primary dark:text-dark-text-primary">
-                  Projects
-                </th>
-                <th className="text-center py-3 px-4 text-sm font-semibold text-light-text-primary dark:text-dark-text-primary">
-                  Tasks
-                </th>
-                <th className="text-center py-3 px-4 text-sm font-semibold text-light-text-primary dark:text-dark-text-primary">
-                  Completion Rate
-                </th>
-                <th className="text-center py-3 px-4 text-sm font-semibold text-light-text-primary dark:text-dark-text-primary">
-                  Overdue Rate
-                </th>
+                <th rowSpan="2" className="text-left py-3 px-4 text-sm font-semibold text-light-text-primary dark:text-dark-text-primary">Department</th>
+                <th rowSpan="2" className="text-center py-3 px-4 text-sm font-semibold text-light-text-primary dark:text-dark-text-primary">Team Size</th>
+                <th colSpan="6" className="text-center py-3 px-4 text-sm font-semibold text-light-text-primary dark:text-dark-text-primary">Projects</th>
+                <th colSpan="6" className="text-center py-3 px-4 text-sm font-semibold text-light-text-primary dark:text-dark-text-primary">Tasks</th>
+              </tr>
+              <tr>
+                <th className="text-center py-2 px-2 text-xs font-semibold">To Do</th>
+                <th className="text-center py-2 px-2 text-xs font-semibold">In Progress</th>
+                <th className="text-center py-2 px-2 text-xs font-semibold">Done</th>
+                <th className="text-center py-2 px-2 text-xs font-semibold">Overdue</th>
+                <th className="text-center py-2 px-2 text-xs font-semibold text-success">Completion Rate</th>
+                <th className="text-center py-2 px-2 text-xs font-semibold text-danger">Overdue Rate</th>
+                <th className="text-center py-2 px-2 text-xs font-semibold">To Do</th>
+                <th className="text-center py-2 px-2 text-xs font-semibold">In Progress</th>
+                <th className="text-center py-2 px-2 text-xs font-semibold">Done</th>
+                <th className="text-center py-2 px-2 text-xs font-semibold">Overdue</th>
+                <th className="text-center py-2 px-2 text-xs font-semibold text-success">Completion Rate</th>
+                <th className="text-center py-2 px-2 text-xs font-semibold text-danger">Overdue Rate</th>
               </tr>
             </thead>
             <tbody>
               {departmentMetrics?.map((dept) => (
-                <tr
-                  key={dept.departmentId}
-                  className="border-b border-light-border dark:border-dark-border hover:bg-light-surface dark:hover:bg-dark-surface"
-                >
-                  <td className="py-3 px-4 text-sm font-medium text-light-text-primary dark:text-dark-text-primary">
-                    {dept.departmentName}
-                  </td>
-                  <td className="py-3 px-4 text-sm text-center text-light-text-primary dark:text-dark-text-primary">
-                    {dept.teamSize}
-                  </td>
-                  <td className="py-3 px-4 text-sm text-center text-light-text-primary dark:text-dark-text-primary">
-                    {dept.totalProjects}
-                  </td>
-                  <td className="py-3 px-4 text-sm text-center text-light-text-primary dark:text-dark-text-primary">
-                    {dept.totalTasks}
-                  </td>
-                  <td className="py-3 px-4 text-sm text-center font-semibold text-success">
-                    {dept.completionRate}%
-                  </td>
-                  <td className="py-3 px-4 text-sm text-center font-semibold text-danger">
-                    {dept.overdueRate}%
-                  </td>
+                <tr key={dept.departmentId} className="border-b border-light-border dark:border-dark-border hover:bg-light-surface dark:hover:bg-dark-surface">
+                  <td className="py-3 px-4 text-sm font-medium text-light-text-primary dark:text-dark-text-primary">{dept.departmentName}</td>
+                  <td className="py-3 px-4 text-sm text-center text-light-text-primary dark:text-dark-text-primary">{dept.teamSize}</td>
+                  {/* Projects columns */}
+                  <td className="py-3 px-2 text-sm text-center">{dept.projectStatusCounts?.['To Do'] ?? 0}</td>
+                  <td className="py-3 px-2 text-sm text-center text-info">{dept.projectStatusCounts?.['In Progress'] ?? 0}</td>
+                  <td className="py-3 px-2 text-sm text-center text-success">{dept.projectStatusCounts?.['Done'] ?? 0}</td>
+                  <td className="py-3 px-2 text-sm text-center text-danger">{dept.projectStatusCounts?.['Overdue'] ?? 0}</td>
+                  <td className="py-3 px-2 text-sm text-center font-semibold text-success">{dept.projectStatusPercentages?.['Done'] ?? 0}%</td>
+                  <td className="py-3 px-2 text-sm text-center font-semibold text-danger">{dept.projectStatusPercentages?.['Overdue'] ?? 0}%</td>
+                  {/* Tasks columns */}
+      <td className="py-3 px-2 text-sm text-center">{dept.taskStatusCounts?.['To Do'] ?? 0}</td>
+      <td className="py-3 px-2 text-sm text-center text-info">{dept.taskStatusCounts?.['In Progress'] ?? 0}</td>
+      <td className="py-3 px-2 text-sm text-center text-success">{dept.taskStatusCounts?.['Done'] ?? 0}</td>
+      <td className="py-3 px-2 text-sm text-center text-danger">{dept.taskStatusCounts?.['Overdue'] ?? 0}</td>
+      <td className="py-3 px-2 text-sm text-center font-semibold text-success">{dept.taskStatusPercentages?.['Done'] ?? 0}%</td>
+      <td className="py-3 px-2 text-sm text-center font-semibold text-danger">{dept.taskStatusPercentages?.['Overdue'] ?? 0}%</td>
                 </tr>
               ))}
             </tbody>
@@ -1171,9 +1166,11 @@ function SeniorManagerReport({ reportData, reportRef }) {
                   <td className="py-3 px-4 text-sm font-medium text-light-text-primary dark:text-dark-text-primary">
                     {project.projectName}
                   </td>
-                  <td className="py-3 px-4 text-sm text-light-text-secondary dark:text-dark-text-secondary">
-                    {project.departmentName}
-                  </td>
+                    <td className="py-3 px-4 text-sm text-light-text-secondary dark:text-dark-text-secondary">
+                      {Array.isArray(project.departments) && project.departments.length > 0
+                        ? project.departments.join(', ')
+                        : (project.departmentName || '--')}
+                    </td>
                   <td className="py-3 px-4 text-sm text-center text-light-text-primary dark:text-dark-text-primary">
                     {project.totalTasks}
                   </td>
@@ -1253,22 +1250,16 @@ export default function Report() {
           setReportData({ tasks: projectTasks, projects: myProjects });
         } else if (user.role === "Director") {
           // Director: Get department-level report data
-          // Fetch fresh user data to get updated department info
           try {
             const userResponse = await fetch(`${BASE}/api/users/${user.id}`, {
               credentials: "include"
             });
             const freshUserData = await userResponse.json();
-            
             // Extract department ID from the department object
             const departmentId = freshUserData.department?._id || freshUserData.department || "68e48a4a10fbb4910a50f2fd"; // Fallback: Sales department
-            console.log("Director department ID:", departmentId);
-            console.log("Fresh user department data:", freshUserData.department);
-            
             const directorReportData = await getDirectorReport(departmentId);
             setReportData(directorReportData);
           } catch (fetchError) {
-            console.error("Error fetching fresh user data:", fetchError);
             // Fallback to original logic
             const departmentId = user.department || "68e48a4a10fbb4910a50f2fd"; 
             const directorReportData = await getDirectorReport(departmentId);
@@ -1285,7 +1276,6 @@ export default function Report() {
         setLoading(false);
       }
     }
-
     if (user?.id) {
       loadReportData();
     }
@@ -1590,7 +1580,9 @@ export default function Report() {
               ? "My Task Report" 
               : user.role === "Manager" 
                 ? "Project Consolidation Report" 
-                : `${reportData?.departmentInfo?.departmentName || "Department"} Overview Report`}
+                : (user.role === "Senior Manager" || user.role === "HR")
+                  ? "Company-Wide Performance Report"
+                  : `${reportData?.departmentInfo?.departmentName || "Department"} Overview Report`}
           </h1>
           <p className="mt-3 text-lg text-light-text-secondary dark:text-dark-text-secondary">
             {user.role === "Staff"
