@@ -41,6 +41,16 @@ function TaskIcon(props) {
   );
 }
 
+function ReportIcon(props) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" {...props}>
+      <rect x="4" y="3" width="16" height="18" rx="2" ry="2" strokeWidth="1.5" />
+      <path d="M8 7h8M8 11h8M8 15h5" strokeWidth="1.5" />
+    </svg>
+  );
+}
+
+
 export default function Home() {
   const { user } = useAuth();
   const role = user?.role;
@@ -106,7 +116,25 @@ export default function Home() {
         cta: "Open Dashboard",
       },
     ];
-  } else {
+  } else if (role === "HR" || role === "Senior Manager") {
+    cards = [
+      {
+        title: "Dashboard",
+        to: "/dashboard",
+        description: "High-level metrics and insights.",
+        icon: BoardIcon,
+        cta: "Open Dashboard",
+      },
+      {
+        title: "Reports",
+        to: "/report",
+        description: "Generate and view detailed reports.",
+        icon: ReportIcon,
+        cta: "View Reports",
+      },
+    ];
+  } 
+   else {
     // Fallback (no role / unauthenticated)
     cards = [
       {
