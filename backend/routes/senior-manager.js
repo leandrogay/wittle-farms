@@ -112,15 +112,15 @@ router.get('/report', async (req, res) => {
 
     // DEPARTMENT-LEVEL BREAKDOWNS
     const departmentMetrics = allDepartments.map(dept => {
-      // Get projects for this department
-      const deptProjects = allProjects.filter(p => 
-        p.department && String(p.department._id) === String(dept._id)
+      // Get projects for this department (department array support)
+      const deptProjects = allProjects.filter(p =>
+        Array.isArray(p.department) && p.department.some(d => String(d._id) === String(dept._id))
       );
-      
-      // Get tasks for department projects
-      const deptProjectIds = deptProjects.map(p => p._id);
-      const deptTasks = allTasks.filter(t => 
-        deptProjectIds.some(pid => String(t.assignedProject._id) === String(pid))
+
+      // Get tasks for this department (assigned team member department support)
+      const deptTasks = allTasks.filter(t =>
+        Array.isArray(t.assignedTeamMembers) &&
+        t.assignedTeamMembers.some(m => m.department && String(m.department._id) === String(dept._id))
       );
 
       // Get users in this department
@@ -169,23 +169,41 @@ router.get('/report', async (req, res) => {
         }
       });
 
+      // Task status counts for department
+      const taskStatusCounts = {
+        'To Do': 0,
+        'In Progress': 0,
+        'Done': 0,
+        'Overdue': 0
+      };
+      deptTasks.forEach(task => {
+        if (task.status === 'To Do') taskStatusCounts['To Do']++;
+        if (task.status === 'In Progress') taskStatusCounts['In Progress']++;
+        if (task.status === 'Done') taskStatusCounts['Done']++;
+        if (!task.deadline || task.status === 'Done') return;
+        if (now.isAfter(dayjs(task.deadline), 'day')) taskStatusCounts['Overdue']++;
+      });
+
+      const taskStatusPercentages = {
+        'To Do': totalTasks > 0 ? Number(((taskStatusCounts['To Do'] / totalTasks) * 100).toFixed(1)) : 0,
+        'In Progress': totalTasks > 0 ? Number(((taskStatusCounts['In Progress'] / totalTasks) * 100).toFixed(1)) : 0,
+        'Done': totalTasks > 0 ? Number(((taskStatusCounts['Done'] / totalTasks) * 100).toFixed(1)) : 0,
+        'Overdue': totalTasks > 0 ? Number(((taskStatusCounts['Overdue'] / totalTasks) * 100).toFixed(1)) : 0
+      };
+
       return {
         departmentId: dept._id,
         departmentName: dept.name,
-        totalProjects,
-        totalTasks,
-        completedTasks,
-        overdueTasks,
         teamSize: deptUsers.length,
-        completionRate: totalTasks > 0 ? Number(((completedTasks / totalTasks) * 100).toFixed(1)) : 0,
-        overdueRate: totalTasks > 0 ? Number(((overdueTasks / totalTasks) * 100).toFixed(1)) : 0,
         projectStatusCounts,
         projectStatusPercentages: {
           'To Do': totalProjects > 0 ? Number(((projectStatusCounts['To Do'] / totalProjects) * 100).toFixed(1)) : 0,
           'In Progress': totalProjects > 0 ? Number(((projectStatusCounts['In Progress'] / totalProjects) * 100).toFixed(1)) : 0,
           'Done': totalProjects > 0 ? Number(((projectStatusCounts['Done'] / totalProjects) * 100).toFixed(1)) : 0,
           'Overdue': totalProjects > 0 ? Number(((projectStatusCounts['Overdue'] / totalProjects) * 100).toFixed(1)) : 0
-        }
+        },
+        taskStatusCounts,
+        taskStatusPercentages,
       };
     });
 
@@ -247,7 +265,9 @@ router.get('/report', async (req, res) => {
       return {
         projectId: project._id,
         projectName: project.name,
-        departmentName: project.department?.name || 'Unassigned',
+        departments: Array.isArray(project.department)
+          ? project.department.map(d => d?.name || 'Unassigned')
+          : [project.department?.name || 'Unassigned'],
         totalTasks: projectTasks.length,
         completedTasks,
         overdueTasks,
