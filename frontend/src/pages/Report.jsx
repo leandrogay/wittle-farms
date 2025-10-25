@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useAuth } from "../context/useAuth";
-import { getTasks, getProjects, getManagerProjects } from "../services/api.js";
+import { getTasks, getProjects, getManagerProjects, getDirectorReport, BASE } from "../services/api.js";
 import dayjs from "dayjs";
 
 /* SVG Icons */
@@ -513,6 +513,391 @@ function ManagerReport({ userId, reportData, reportRef }) {
   );
 }
 
+// eslint-disable-next-line no-unused-vars
+function DirectorReport({ userId, reportData, reportRef }) {
+  const { 
+    avgTaskCompletionDays, 
+    avgProjectCompletionDays, 
+    productivityTrend, 
+    completionRateThisMonth, 
+    completionRateLastMonth,
+    projectScope,
+    taskScope,
+    teamPerformance,
+    departmentInfo 
+  } = reportData;
+
+  // Determine trend color based on productivity trend
+  const getTrendColor = (trend) => {
+    switch (trend) {
+      case 'Improving': return 'text-success';
+      case 'Declining': return 'text-danger';
+      default: return 'text-info';
+    }
+  };
+
+  // Get status color for milestones
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'Done': return 'text-success';
+      case 'In Progress': return 'text-info';
+      case 'To Do': return 'text-light-text-muted dark:text-dark-text-muted';
+      case 'Overdue': return 'text-danger';
+      default: return 'text-info';
+    }
+  };
+
+  return (
+    <div ref={reportRef} className="space-y-6 p-6 bg-light-bg dark:bg-dark-bg">
+      {/* Header */}
+      <div className="text-center border-b border-light-border dark:border-dark-border pb-4">
+        <h1 className="text-3xl font-bold text-light-text-primary dark:text-dark-text-primary">
+          {departmentInfo?.departmentName || "Department"} Performance Report
+        </h1>
+        <p className="text-light-text-secondary dark:text-dark-text-secondary mt-2">
+          Generated on {dayjs().format("MMMM D, YYYY")}
+        </p>
+      </div>
+
+      {/* Overview Metrics - Time Taken Section */}
+      <div className="rounded-2xl border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-bg p-6">
+        <h2 className="text-xl font-bold text-light-text-primary dark:text-dark-text-primary mb-4">
+          Time Performance Metrics
+        </h2>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div>
+            <p className="text-sm text-light-text-secondary dark:text-dark-text-secondary mb-1">
+              Average Task Completion
+            </p>
+            <p className="text-3xl font-bold text-brand-primary dark:text-brand-secondary">
+              {avgTaskCompletionDays}
+            </p>
+            <p className="text-xs text-light-text-muted dark:text-dark-text-muted mt-1">days per task</p>
+          </div>
+          <div>
+            <p className="text-sm text-light-text-secondary dark:text-dark-text-secondary mb-1">
+              Average Project Completion
+            </p>
+            <p className="text-3xl font-bold text-info">
+              {avgProjectCompletionDays}
+            </p>
+            <p className="text-xs text-light-text-muted dark:text-dark-text-muted mt-1">days per project</p>
+          </div>
+          <div>
+            <p className="text-sm text-light-text-secondary dark:text-dark-text-secondary mb-1">
+              % of Tasks Completed
+            </p>
+            <p className={`text-3xl font-bold ${getTrendColor(productivityTrend)}`}>
+              {productivityTrend}
+            </p>
+            <p className="text-xs text-light-text-muted dark:text-dark-text-muted mt-1">
+              {completionRateThisMonth}% this month vs {completionRateLastMonth}% last month
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Project Scope */}
+      <div className="rounded-2xl border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-bg p-6">
+        <h2 className="text-xl font-bold text-light-text-primary dark:text-dark-text-primary mb-4">
+          Project Scope
+        </h2>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
+          <div className="text-center">
+            <p className="text-2xl font-bold text-light-text-primary dark:text-dark-text-primary">
+              {projectScope.totalProjects}
+            </p>
+            <p className="text-sm text-light-text-secondary dark:text-dark-text-secondary">Total Projects</p>
+          </div>
+          <div className="text-center">
+            <p className="text-2xl font-bold text-light-text-muted dark:text-dark-text-muted">
+              {projectScope.projectStatusCounts['To Do']}
+            </p>
+            <p className="text-sm text-light-text-secondary dark:text-dark-text-secondary">
+              To Do ({projectScope.projectStatusPercentages['To Do']}%)
+            </p>
+          </div>
+          <div className="text-center">
+            <p className="text-2xl font-bold text-info">
+              {projectScope.projectStatusCounts['In Progress']}
+            </p>
+            <p className="text-sm text-light-text-secondary dark:text-dark-text-secondary">
+              In Progress ({projectScope.projectStatusPercentages['In Progress']}%)
+            </p>
+          </div>
+          <div className="text-center">
+            <p className="text-2xl font-bold text-success">
+              {projectScope.projectStatusCounts['Done']}
+            </p>
+            <p className="text-sm text-light-text-secondary dark:text-dark-text-secondary">
+              Done ({projectScope.projectStatusPercentages['Done']}%)
+            </p>
+          </div>
+          <div className="text-center">
+            <p className="text-2xl font-bold text-danger">
+              {projectScope.projectStatusCounts['Overdue']}
+            </p>
+            <p className="text-sm text-light-text-secondary dark:text-dark-text-secondary">
+              Overdue ({projectScope.projectStatusPercentages['Overdue']}%)
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Project Milestones Status */}
+      <div className="rounded-2xl border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-bg p-6">
+        <h2 className="text-xl font-bold text-light-text-primary dark:text-dark-text-primary mb-4">
+          Project Milestones Status
+        </h2>
+        <div className="space-y-4">
+          {projectScope.milestones.map((milestone) => (
+            <div 
+              key={milestone.projectId} 
+              className="border border-light-border dark:border-dark-border rounded-lg p-4"
+            >
+              <div className="flex justify-between items-start">
+                <div className="flex-1">
+                  <h3 className="text-lg font-semibold text-light-text-primary dark:text-dark-text-primary">
+                    {milestone.projectName}
+                  </h3>
+                  <p className="text-sm text-light-text-secondary dark:text-dark-text-secondary">
+                    {milestone.milestone}
+                  </p>
+                  {milestone.deadline && (
+                    <p className="text-xs text-light-text-muted dark:text-dark-text-muted mt-1">
+                      Deadline: {dayjs(milestone.deadline).format("MMM D, YYYY")}
+                    </p>
+                  )}
+                  
+                  {/* Enhanced: Show department responsibility for overdue tasks */}
+                  {milestone.overdueResponsibility && milestone.overdueResponsibility.length > 0 && (
+                    <div className="mt-3">
+                      <p className="text-xs font-medium text-light-text-secondary dark:text-dark-text-secondary mb-2">
+                        Departments with overdue tasks:
+                      </p>
+                      <div className="space-y-1">
+                        {milestone.overdueResponsibility.map((dept, idx) => (
+                          <div key={idx} className="flex justify-between items-center p-2 bg-danger/5 border border-danger/20 rounded">
+                            <span className="text-xs font-medium text-light-text-primary dark:text-dark-text-primary">
+                              {dept.departmentName}
+                            </span>
+                            <span className="text-xs text-danger font-semibold">
+                              {dept.overdueTaskCount} overdue task{dept.overdueTaskCount !== 1 ? 's' : ''}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                      {milestone.hasOverdueFromOtherDepts && (
+                        <p className="text-xs text-warning mt-2 italic">
+                          ⚠️ This project has overdue tasks from other departments
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </div>
+                <div className="text-right">
+                  <span className={`inline-flex px-3 py-1 rounded-full text-sm font-semibold ${getStatusColor(milestone.status)}`}>
+                    {milestone.status}
+                  </span>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Task Scope */}
+      <div className="rounded-2xl border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-bg p-6">
+        <h2 className="text-xl font-bold text-light-text-primary dark:text-dark-text-primary mb-4">
+          Task Scope
+        </h2>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
+          <div className="text-center">
+            <p className="text-2xl font-bold text-light-text-primary dark:text-dark-text-primary">
+              {taskScope.totalTasks}
+            </p>
+            <p className="text-sm text-light-text-secondary dark:text-dark-text-secondary">Total Tasks</p>
+          </div>
+          <div className="text-center">
+            <p className="text-2xl font-bold text-light-text-muted dark:text-dark-text-muted">
+              {taskScope.taskStatusCounts['To Do']}
+            </p>
+            <p className="text-sm text-light-text-secondary dark:text-dark-text-secondary">
+              To Do ({taskScope.taskStatusPercentages['To Do']}%)
+            </p>
+          </div>
+          <div className="text-center">
+            <p className="text-2xl font-bold text-info">
+              {taskScope.taskStatusCounts['In Progress']}
+            </p>
+            <p className="text-sm text-light-text-secondary dark:text-dark-text-secondary">
+              In Progress ({taskScope.taskStatusPercentages['In Progress']}%)
+            </p>
+          </div>
+          <div className="text-center">
+            <p className="text-2xl font-bold text-success">
+              {taskScope.taskStatusCounts['Done']}
+            </p>
+            <p className="text-sm text-light-text-secondary dark:text-dark-text-secondary">
+              Done ({taskScope.taskStatusPercentages['Done']}%)
+            </p>
+          </div>
+          <div className="text-center">
+            <p className="text-2xl font-bold text-danger">
+              {taskScope.taskStatusCounts['Overdue']}
+            </p>
+            <p className="text-sm text-light-text-secondary dark:text-dark-text-secondary">
+              Overdue ({taskScope.taskStatusPercentages['Overdue']}%)
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Enhanced Overdue Tasks Breakdown by Project */}
+      {taskScope.overdueTasksByProject && taskScope.overdueTasksByProject.length > 0 && (
+        <div className="rounded-2xl border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-bg p-6">
+          <h2 className="text-xl font-bold text-light-text-primary dark:text-dark-text-primary mb-4">
+            Overdue Tasks Breakdown by Project
+          </h2>
+          <div className="space-y-6">
+            {taskScope.overdueTasksByProject.map((project) => (
+              <div 
+                key={project.projectId} 
+                className="border border-light-border dark:border-dark-border rounded-lg p-4"
+              >
+                <div className="mb-4">
+                  <h3 className="text-lg font-semibold text-light-text-primary dark:text-dark-text-primary mb-2">
+                    Project: {project.projectName}
+                  </h3>
+                  <div className="flex items-center gap-2 mb-3">
+                    <h4 className="text-md font-medium text-light-text-primary dark:text-dark-text-primary">
+                      Overdue Task{project.overdueCount !== 1 ? 's' : ''}:
+                    </h4>
+                    <span className="inline-flex px-2 py-1 rounded-full text-xs font-semibold bg-danger/10 text-danger">
+                      {project.overdueCount} task{project.overdueCount !== 1 ? 's' : ''}
+                    </span>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  {project.overdueTasks.map((task) => (
+                    <div 
+                      key={task.taskId}
+                      className="flex justify-between items-start p-3 bg-light-surface dark:bg-dark-surface rounded-lg"
+                    >
+                      <div className="flex-1">
+                        <p className="font-medium text-light-text-primary dark:text-dark-text-primary">
+                          {task.taskName}
+                        </p>
+                        <p className="text-sm text-light-text-secondary dark:text-dark-text-secondary">
+                          Deadline: {dayjs(task.deadline).format("MMM D, YYYY")} 
+                          <span className="text-danger ml-2">
+                            ({task.daysPastDue} day{task.daysPastDue !== 1 ? 's' : ''} overdue)
+                          </span>
+                        </p>
+                        {task.assignedMembers.length > 0 && (
+                          <div className="flex flex-wrap gap-2 mt-2">
+                            {task.assignedMembers.map((member, idx) => (
+                              <span
+                                key={idx}
+                                className="inline-flex items-center bg-brand-primary/10 dark:bg-brand-secondary/10 text-brand-primary dark:text-brand-secondary px-2 py-1 rounded-full text-xs font-medium"
+                              >
+                                {member.name} ({member.role})
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Team Performance Overview */}
+      <div className="rounded-2xl border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-bg p-6">
+        <h2 className="text-xl font-bold text-light-text-primary dark:text-dark-text-primary mb-4">
+          Team Performance Overview
+        </h2>
+        <div className="mb-4">
+          <p className="text-sm text-light-text-secondary dark:text-dark-text-secondary">
+            Team Size: <span className="font-semibold text-light-text-primary dark:text-dark-text-primary">{teamPerformance.teamSize} members</span>
+          </p>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead className="border-b border-light-border dark:border-dark-border">
+              <tr>
+                <th className="text-left py-3 px-4 text-sm font-semibold text-light-text-primary dark:text-dark-text-primary">
+                  Team Member
+                </th>
+                <th className="text-left py-3 px-4 text-sm font-semibold text-light-text-primary dark:text-dark-text-primary">
+                  Role
+                </th>
+                <th className="text-right py-3 px-4 text-sm font-semibold text-light-text-primary dark:text-dark-text-primary">
+                  Tasks Involved
+                </th>
+                <th className="text-right py-3 px-4 text-sm font-semibold text-light-text-primary dark:text-dark-text-primary">
+                  To Do
+                </th>
+                <th className="text-right py-3 px-4 text-sm font-semibold text-light-text-primary dark:text-dark-text-primary">
+                  In Progress
+                </th>
+                <th className="text-right py-3 px-4 text-sm font-semibold text-light-text-primary dark:text-dark-text-primary">
+                  Completed
+                </th>
+                <th className="text-right py-3 px-4 text-sm font-semibold text-light-text-primary dark:text-dark-text-primary">
+                  Overdue
+                </th>
+                <th className="text-right py-3 px-4 text-sm font-semibold text-light-text-primary dark:text-dark-text-primary">
+                  Overdue Rate
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {teamPerformance.departmentTeam.map((member) => (
+                <tr
+                  key={member.userId}
+                  className="border-b border-light-border dark:border-dark-border"
+                >
+                  <td className="py-3 px-4 text-sm text-light-text-primary dark:text-dark-text-primary">
+                    {member.name}
+                  </td>
+                  <td className="py-3 px-4 text-sm text-light-text-secondary dark:text-dark-text-secondary">
+                    {member.role}
+                  </td>
+                  <td className="py-3 px-4 text-sm text-right text-light-text-primary dark:text-dark-text-primary">
+                    {member.tasksInvolved}
+                  </td>
+                  <td className="py-3 px-4 text-sm text-right text-light-text-muted dark:text-dark-text-muted">
+                    {member.todoTasks}
+                  </td>
+                  <td className="py-3 px-4 text-sm text-right text-info">
+                    {member.inProgressTasks}
+                  </td>
+                  <td className="py-3 px-4 text-sm text-right text-success">
+                    {member.completedTasks}
+                  </td>
+                  <td className="py-3 px-4 text-sm text-right text-danger">
+                    {member.overdueTasks}
+                  </td>
+                  <td className="py-3 px-4 text-sm text-right font-semibold text-danger">
+                    {member.overdueRate}%
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+
+    </div>
+  );
+}
+
 export default function Report() {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
@@ -560,6 +945,29 @@ export default function Report() {
           });
 
           setReportData({ tasks: projectTasks, projects: myProjects });
+        } else if (user.role === "Director") {
+          // Director: Get department-level report data
+          // Fetch fresh user data to get updated department info
+          try {
+            const userResponse = await fetch(`${BASE}/api/users/${user.id}`, {
+              credentials: "include"
+            });
+            const freshUserData = await userResponse.json();
+            
+            // Extract department ID from the department object
+            const departmentId = freshUserData.department?._id || freshUserData.department || "68e48a4a10fbb4910a50f2fd"; // Fallback: Sales department
+            console.log("Director department ID:", departmentId);
+            console.log("Fresh user department data:", freshUserData.department);
+            
+            const directorReportData = await getDirectorReport(departmentId);
+            setReportData(directorReportData);
+          } catch (fetchError) {
+            console.error("Error fetching fresh user data:", fetchError);
+            // Fallback to original logic
+            const departmentId = user.department || "68e48a4a10fbb4910a50f2fd"; 
+            const directorReportData = await getDirectorReport(departmentId);
+            setReportData(directorReportData);
+          }
         }
       } catch (err) {
         setError(err.message || "Failed to load report data");
@@ -868,12 +1276,18 @@ export default function Report() {
       <header className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
         <div>
           <h1 className="text-4xl font-bold tracking-tight text-light-text-primary dark:text-dark-text-primary">
-            {user.role === "Staff" ? "My Task Report" : "Project Consolidation Report"}
+            {user.role === "Staff" 
+              ? "My Task Report" 
+              : user.role === "Manager" 
+                ? "Project Consolidation Report" 
+                : `${reportData?.departmentInfo?.departmentName || "Department"} Overview Report`}
           </h1>
           <p className="mt-3 text-lg text-light-text-secondary dark:text-dark-text-secondary">
             {user.role === "Staff"
               ? "Review your task performance and contributions"
-              : "Consolidated view of all project metrics and team performance"}
+              : user.role === "Manager"
+                ? "Consolidated view of all project metrics and team performance"
+                : "Strategic department-level metrics and performance insights"}
           </p>
         </div>
 
@@ -890,9 +1304,11 @@ export default function Report() {
       {/* Report Content */}
       {user.role === "Staff" ? (
         <StaffReport userId={user.id} reportData={reportData} reportRef={reportRef} />
-      ) : (
+      ) : user.role === "Manager" ? (
         <ManagerReport userId={user.id} reportData={reportData} reportRef={reportRef} />
-      )}
+      ) : user.role === "Director" ? (
+        <DirectorReport reportData={reportData} reportRef={reportRef} />
+      ) : null}
     </section>
   );
 }
