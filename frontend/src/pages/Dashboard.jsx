@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import dayjs from "dayjs";
-import ProjectCard from "../components/ui/ProjectCard";
+import { ProjectCard } from "../components/ui/ProjectCard";
 import { getProjects } from "../services/api.js";
 import { useAuth } from "../context/useAuth";
 
