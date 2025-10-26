@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import CreateProjectForm from "../components/ui/CreateProjectForm.jsx";
+import { CreateProjectForm } from "../components/ui/CreateProjectForm.jsx";
 
 export default function CreateProject() {
   const navigate = useNavigate();

@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import FeatureCard from "../components/ui/FeatureCard.jsx";
+import { FeatureCard } from "../components/ui/FeatureCard.jsx";
 import { useAuth } from "../context/useAuth";
 
 /* ====== Simple SVG Icons ====== */

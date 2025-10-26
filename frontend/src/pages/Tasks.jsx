@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import dayjs from "dayjs";
 import { getTasks } from "../services/api.js";
-import TaskCard from "../components/ui/TaskCard.jsx";
-import TaskForm from "../components/ui/TaskForm.jsx";
+import { TaskCard } from "../components/ui/TaskCard.jsx";
+import { TaskForm }from "../components/ui/TaskForm.jsx";
 import { useAuth } from "../context/useAuth";
 
 function priorityBucket(p) {
