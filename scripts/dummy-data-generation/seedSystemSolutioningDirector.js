@@ -2,11 +2,12 @@ const axios = require('axios');
 const FormData = require('form-data');
 const fs = require('fs');
 const path = require('path');
+require('dotenv').config({ path: path.join(__dirname, '../../backend/config/secrets.env') });
 
 // =====================
 // Configuration
 // =====================
-const API_BASE_URL = 'http://localhost:3000/api';
+const API_BASE_URL = process.env.API_BASE_URL || 'http://localhost:3000/api';
 const PROJECTS_ENDPOINT = `${API_BASE_URL}/projects`;
 const TASKS_ENDPOINT = `${API_BASE_URL}/tasks`;
 
@@ -18,8 +19,8 @@ const FORCE = process.argv.includes('--force'); // Add --force flag to skip conf
 // Static Data
 // =====================
 
-// System Solutioning Department ID
-const SYSTEM_SOLUTIONING = "68e48ade10fbb4910a50f302";
+// System Solutioning Department ID from environment variables
+const SYSTEM_SOLUTIONING = process.env.SYSTEM_SOLUTIONING_DEPT_ID || "68e48ade10fbb4910a50f302";
 
 // System Solutioning users template (IDs will be fetched dynamically)
 const systemSolutioningUsersTemplate = [
@@ -576,6 +577,9 @@ async function generateDirectorProjectsAndTasks() {
 async function verifyConnection() {
   try {
     console.log('🔍 Verifying API connection...');
+    console.log(`   API Base URL: ${API_BASE_URL}`);
+    console.log(`   Department ID: ${SYSTEM_SOLUTIONING}`);
+    
     await axios.get(PROJECTS_ENDPOINT);
     await axios.get(TASKS_ENDPOINT);
     console.log('✅ API connection successful\n');
