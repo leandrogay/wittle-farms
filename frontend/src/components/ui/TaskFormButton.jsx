@@ -1,6 +1,6 @@
 import { useState } from "react";
-import TaskForm from "./TaskForm.jsx";
-import Modal from "./Modal";
+import { TaskForm } from "./TaskForm.jsx";
+import { Modal } from "./Modal";
 
 export default function TaskFormButton({
   children = "Edit Task",

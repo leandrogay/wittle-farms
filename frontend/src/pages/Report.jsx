@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useAuth } from "../context/useAuth";
-import MetricCard from "../components/ui/MetricCard.jsx";
+import { MetricCard } from "../components/ui/MetricCard.jsx";
 import { getTasks,getManagerTasks, getProjects, getManagerProjects, getDirectorReport,getSeniorManagerReport, BASE,} from "../services/api.js";
 import dayjs from "dayjs";
 
