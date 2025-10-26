@@ -51,6 +51,21 @@ router.get('/:id', async (req, res) => {
 });
 
 /**
+ * READ Single User by username
+ * GET /api/users/username/:username
+ */
+router.get('/username/:username', async (req, res) => {
+  try {
+    const user = await populateUser(User.findOne({name: req.params.username})).lean();
+    if (!user) return res.status(404).json({error: 'User not found'});
+    res.status(200).json(user);
+  } catch (e) {
+    res.status(500).json({error: e.message});
+  }
+});
+
+
+/**
  * UPDATE User
  * PUT /api/users/:id
  */

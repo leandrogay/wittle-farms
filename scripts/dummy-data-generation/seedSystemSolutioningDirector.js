@@ -29,21 +29,21 @@ const systemSolutioningUsersTemplate = [
     email: "director.report.test@gmail.com",
     role: "Director",
     department: SYSTEM_SOLUTIONING,
-    password: "directorReport1!"
+    password: process.env.TEST_DIRECTOR_PASSWORD
   },
   {
     name: "sys.soln.manager",
     email: "sys.soln.manager@gmail.com",
     role: "Manager",
     department: SYSTEM_SOLUTIONING,
-    password: "sysManager1!"
+    password: process.env.TEST_MANAGER_PASSWORD
   },
   {
     name: "sys.soln.staff",
     email: "sys.soln.staff@gmail.com",
     role: "Staff",
     department: SYSTEM_SOLUTIONING,
-    password: "sysStaff1!"
+    password: process.env.TEST_STAFF_PASSWORD
   }
 ];
 
