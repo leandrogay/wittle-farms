@@ -535,36 +535,18 @@ function DirectorReport({ userId, reportData, reportRef }) {
       {/* Overview Metrics - Time Taken Section */}
       <div className="rounded-2xl border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-bg p-6">
         <h2 className="text-xl font-bold text-light-text-primary dark:text-dark-text-primary mb-4">
-          Time Performance Metrics
+          Project Performance Metrics
         </h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div>
+        <div className="flex justify-center">
+          <div className="text-center">
             <p className="text-sm text-light-text-secondary dark:text-dark-text-secondary mb-1">
-              Average Task Completion
-            </p>
-            <p className="text-3xl font-bold text-brand-primary dark:text-brand-secondary">
-              {avgTaskCompletionDays}
-            </p>
-            <p className="text-xs text-light-text-muted dark:text-dark-text-muted mt-1">days per task</p>
-          </div>
-          <div>
-            <p className="text-sm text-light-text-secondary dark:text-dark-text-secondary mb-1">
-              Average Project Completion
-            </p>
-            <p className="text-3xl font-bold text-info">
-              {avgProjectCompletionDays}
-            </p>
-            <p className="text-xs text-light-text-muted dark:text-dark-text-muted mt-1">days per project</p>
-          </div>
-          <div>
-            <p className="text-sm text-light-text-secondary dark:text-dark-text-secondary mb-1">
-              % of Tasks Completed
+              Project Productivity Trend
             </p>
             <p className={`text-3xl font-bold ${getTrendColor(productivityTrend)}`}>
               {productivityTrend}
             </p>
             <p className="text-xs text-light-text-muted dark:text-dark-text-muted mt-1">
-              {completionRateThisMonth}% this month vs {completionRateLastMonth}% last month
+              {completionRateThisMonth}% projects completed this month vs {completionRateLastMonth}% last month
             </p>
           </div>
         </div>
