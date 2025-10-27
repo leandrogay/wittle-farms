@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useAuth } from "../context/useAuth.js";
 import { MetricCard } from "../components/ui/MetricCard.jsx";
-import { getTasks, getManagerTasks, getProjects, getManagerProjects, getDirectorReport, getSeniorManagerReport, BASE, } from "../services/api.js";
+import { getTasksByUserId, getManagerTasks, getProjectsByUserId, getManagerProjects, getDirectorReport, getSeniorManagerReport, BASE, } from "../services/api.js";
 import dayjs from "dayjs";
 
 /* SVG Icons */
@@ -241,7 +241,7 @@ function StaffReport({ userId, reportData, reportRef }) {
             <tbody>
               {tasksByProject.map((proj) => (
                 <tr
-                  key={proj._id}
+                  key={proj.name}
                   className="border-b border-light-border dark:border-dark-border"
                 >
                   <td className="py-3 px-4 text-sm text-light-text-primary dark:text-dark-text-primary">
@@ -332,9 +332,6 @@ function ManagerReport({ userId, reportData, reportRef }) {
           teamMembers.add(JSON.stringify({ id: memberId, name: memberName }));
         });
       });
-
-      console.log(projectTasks.filter(t => t.status === "Done" && t.completedAt && t.createdAt));
-      console.log(avgTime);
 
       return {
         projectId: project._id,
