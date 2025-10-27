@@ -38,6 +38,16 @@ function ClockIcon(props) {
   );
 }
 
+function ClipboardListIcon(props) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" {...props}>
+      <path d="M9 5h6l1 2h4v12a2 2 0 01-2 2H6a2 2 0 01-2-2V7h4l1-2z" strokeWidth="2" strokeLinecap="round" />
+      <path d="M9 12h6M9 16h6" strokeWidth="2" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+
 /* Reusable Components */
 // eslint-disable-next-line no-unused-vars
 function StaffReport({ userId, reportData, reportRef }) {
@@ -121,10 +131,11 @@ function StaffReport({ userId, reportData, reportRef }) {
       </div>
 
       {/* Overview Metrics */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
         <MetricCard icon={ReportIcon} label="Total Tasks" value={metrics.total} color="brand" />
         <MetricCard icon={CheckIcon} label="Completed" value={metrics.completed} color="success" />
         <MetricCard icon={ClockIcon} label="In Progress" value={metrics.inProgress} color="info" />
+        <MetricCard icon={ClipboardListIcon} label="To Do" value={metrics.todo} color="warning" />
         <MetricCard icon={ReportIcon} label="Overdue" value={metrics.overdue} color="danger" />
       </div>
 
