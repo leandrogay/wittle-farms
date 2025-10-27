@@ -61,6 +61,8 @@ jobs:
           TEST_DIRECTOR_PASSWORD: ${{ secrets.TEST_DIRECTOR_PASSWORD }}
           TEST_MANAGER_PASSWORD: ${{ secrets.TEST_MANAGER_PASSWORD }}
           TEST_STAFF_PASSWORD: ${{ secrets.TEST_STAFF_PASSWORD }}
+          TEST_HR_PASSWORD: ${{ secrets.TEST_HR_PASSWORD }}
+          TEST_SENIOR_MANAGER_PASSWORD: ${{ secrets.TEST_SENIOR_MANAGER_PASSWORD }}
         run: npm test -- --coverage
 
       - name: Upload backend coverage report
