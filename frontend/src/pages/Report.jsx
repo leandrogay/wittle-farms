@@ -856,11 +856,9 @@ function DirectorReport({ userId, reportData, reportRef }) {
 /* Senior Manager/HR Company-Wide Report Component */
 function SeniorManagerReport({ reportData, reportRef }) {
   const { 
-    avgTaskCompletionDays, 
-    avgProjectCompletionDays, 
     productivityTrend, 
-    completionRateThisMonth, 
-    completionRateLastMonth,
+    projectCompletionRateThisMonth, 
+    projectCompletionRateLastMonth,
     companyScope,
     departmentMetrics,
     projectBreakdown,
@@ -896,34 +894,16 @@ function SeniorManagerReport({ reportData, reportRef }) {
         <h2 className="text-xl font-bold text-light-text-primary dark:text-dark-text-primary mb-4">
           Company-Wide Performance Metrics
         </h2>
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
             <p className="text-sm text-light-text-secondary dark:text-dark-text-secondary mb-1">
-              Average Task Completion
-            </p>
-            <p className="text-3xl font-bold text-brand-primary dark:text-brand-secondary">
-              {avgTaskCompletionDays}
-            </p>
-            <p className="text-xs text-light-text-muted dark:text-dark-text-muted mt-1">days per task</p>
-          </div>
-          <div>
-            <p className="text-sm text-light-text-secondary dark:text-dark-text-secondary mb-1">
-              Average Project Completion
-            </p>
-            <p className="text-3xl font-bold text-info">
-              {avgProjectCompletionDays}
-            </p>
-            <p className="text-xs text-light-text-muted dark:text-dark-text-muted mt-1">days per project</p>
-          </div>
-          <div>
-            <p className="text-sm text-light-text-secondary dark:text-dark-text-secondary mb-1">
-              % of Tasks Completed
+              Productivity Trend
             </p>
             <p className={`text-3xl font-bold ${getTrendColor(productivityTrend)}`}>
               {productivityTrend}
             </p>
             <p className="text-xs text-light-text-muted dark:text-dark-text-muted mt-1">
-              {completionRateThisMonth}% this month vs {completionRateLastMonth}% last month
+              {projectCompletionRateThisMonth}% projects completed this month vs {projectCompletionRateLastMonth}% last month
             </p>
           </div>
           <div>
