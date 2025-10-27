@@ -58,6 +58,9 @@ jobs:
           UNIT_TEST_WEAK_PASSWORD: ${{ secrets.UNIT_TEST_WEAK_PASSWORD }}
           UNIT_TEST_REUSE_PASSWORD: ${{ secrets.UNIT_TEST_REUSE_PASSWORD }}
           UNIT_TEST_GENERIC_PASSWORD: ${{ secrets.UNIT_TEST_GENERIC_PASSWORD }}
+          TEST_DIRECTOR_PASSWORD: ${{ secrets.TEST_DIRECTOR_PASSWORD }}
+          TEST_MANAGER_PASSWORD: ${{ secrets.TEST_MANAGER_PASSWORD }}
+          TEST_STAFF_PASSWORD: ${{ secrets.TEST_STAFF_PASSWORD }}
         run: npm test -- --coverage
 
       - name: Upload backend coverage report
