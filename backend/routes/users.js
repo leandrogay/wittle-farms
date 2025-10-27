@@ -37,20 +37,6 @@ router.get('/', async (req, res) => {
 });
 
 /**
- * READ Single User
- * GET /api/users/:id
- */
-router.get('/:id', async (req, res) => {
-  try {
-    const user = await populateUser(User.findById(req.params.id)).lean();
-    if (!user) return res.status(404).json({ error: 'User not found' });
-    res.json(user);
-  } catch (e) {
-    res.status(500).json({ error: e.message });
-  }
-});
-
-/**
  * READ Single User by username
  * GET /api/users/username/:username
  */
@@ -64,6 +50,23 @@ router.get('/username/:username', async (req, res) => {
   }
 });
 
+/**
+ * READ Single User
+ * GET /api/users/:id
+ */
+router.get('/:id', async (req, res) => {
+  try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({ error: 'Invalid user id' });
+    }
+    const user = await populateUser(User.findById(req.params.id)).lean();
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    res.json(user);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 
 /**
  * UPDATE User
@@ -71,6 +74,9 @@ router.get('/username/:username', async (req, res) => {
  */
 router.put('/:id', async (req, res) => {
   try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({ error: 'Invalid user id' });
+    }
     const user = await populateUser(
       User.findByIdAndUpdate(
         req.params.id,
@@ -91,6 +97,9 @@ router.put('/:id', async (req, res) => {
  */
 router.delete('/:id', async (req, res) => {
   try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({ error: 'Invalid user id' });
+    }
     const user = await User.findByIdAndDelete(req.params.id);
     if (!user) return res.status(404).json({ error: 'User not found' });
     res.json({ message: 'User deleted successfully' });
