@@ -39,7 +39,7 @@ ProjectSchema.index({ department: 1 });
 ProjectSchema.index({ name: 1 }); // For searching projects by name
 
 // Compound indexes for common queries
-ProjectSchema.index({ createdBy: 1, department: 1, teamMembers: 1 });
+// Note: Cannot create compound index with both department and teamMembers as they are both arrays
 ProjectSchema.index({ department: 1, createdBy: 1 }); // Projects by department and creator
 ProjectSchema.index({ createdBy: 1, createdAt: -1 }); // User's projects sorted by creation date
 
