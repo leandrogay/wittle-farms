@@ -10,29 +10,22 @@ const TaskSchema = new Schema(
     title: { type: String, required: true, trim: true, maxlength: 200 },
     description: { type: String, default: '' },
     notes: { type: String, default: '' },
-
-    assignedProject: { type: Types.ObjectId, ref: 'Project', default: null, index: true },
-    assignedTeamMembers: [{ type: Types.ObjectId, ref: 'User', default: [], index: true }],
-
-    status: { type: String, enum: STATUS, default: 'To Do', index: true },
+    assignedProject: { type: Types.ObjectId, ref: 'Project', default: null },
+    assignedTeamMembers: [{ type: Types.ObjectId, ref: 'User' }],
+    status: { type: String, enum: STATUS, default: 'To Do' },
     priority: {
       type: Number,
       min: 1,
       max: 10,
       default: 5,
-      index: true,
     },
-    deadline: { type: Date, index: true },
-    createdBy: { type: Types.ObjectId, ref: 'User', required: true, index: true },
-
-    attachments: [{ type: Types.ObjectId, ref: 'Attachment', index: true }],
-
+    deadline: { type: Date },
+    createdBy: { type: Types.ObjectId, ref: 'User', required: true },
+    attachments: [{ type: Types.ObjectId, ref: 'Attachment' }],
     allDay: { type: Boolean, default: false },
-    startAt: { type: Date, index: true },
-    endAt: { type: Date, index: true },
-    completedAt: { type: Date, index: true },
-
-    // Minutes before deadline (custom only)
+    startAt: { type: Date },
+    endAt: { type: Date },
+    completedAt: { type: Date },
     reminderOffsets: {
       type: [Number],
       default: [],
@@ -45,6 +38,8 @@ const TaskSchema = new Schema(
   { timestamps: true }
 );
 
+// Define all indexes using .index() method
+// Compound index for most common query pattern
 TaskSchema.index({
   assignedProject: 1,
   status: 1,
@@ -54,6 +49,11 @@ TaskSchema.index({
   endAt: 1
 });
 
+// Additional indexes for array fields and specific queries
+TaskSchema.index({ assignedTeamMembers: 1 });
+TaskSchema.index({ attachments: 1 });
+TaskSchema.index({ createdBy: 1 });
+
 function normalizeOffsets(val) {
   const arr = Array.isArray(val) ? val : [];
   return [...new Set(arr.map(Number))]
@@ -62,16 +62,11 @@ function normalizeOffsets(val) {
 }
 
 TaskSchema.pre('save', function (next) {
-  // Normalize reminder offsets
   this.reminderOffsets = normalizeOffsets(this.reminderOffsets);
 
-  // Apply default reminders if:
-  // 1. Task has a deadline
-  // 2. reminderOffsets is empty (no custom reminders specified)
   if (this.deadline && this.reminderOffsets.length === 0) {
     this.reminderOffsets = DEFAULT_REMINDERS_MIN;
   }
-
   next();
 });
 
@@ -84,4 +79,4 @@ TaskSchema.pre('findOneAndUpdate', function (next) {
   next();
 });
 
-export default model('Task', TaskSchema);
+export default mongoose.models.Task || model('Task', TaskSchema);
