@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useAuth } from "../context/useAuth.js";
 import { MetricCard } from "../components/ui/MetricCard.jsx";
-import { getTasks,getManagerTasks, getProjects, getManagerProjects, getDirectorReport,getSeniorManagerReport, BASE,} from "../services/api.js";
+import { getTasks, getManagerTasks, getProjects, getManagerProjects, getDirectorReport, getSeniorManagerReport, BASE, } from "../services/api.js";
 import dayjs from "dayjs";
 
 /* SVG Icons */
@@ -333,6 +333,9 @@ function ManagerReport({ userId, reportData, reportRef }) {
         });
       });
 
+      console.log(projectTasks.filter(t => t.status === "Done" && t.completedAt && t.createdAt));
+      console.log(avgTime);
+
       return {
         projectId: project._id,
         projectName: project.name,
@@ -417,7 +420,7 @@ function ManagerReport({ userId, reportData, reportRef }) {
                 {proj.projectName}
               </h3>
 
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-4">
                 <div>
                   <p className="text-xs text-light-text-secondary dark:text-dark-text-secondary">Total Tasks</p>
                   <p className="text-xl font-bold text-light-text-primary dark:text-dark-text-primary">
@@ -433,10 +436,17 @@ function ManagerReport({ userId, reportData, reportRef }) {
                   <p className="text-xl font-bold text-info">{proj.inProgress}</p>
                 </div>
                 <div>
+                  <p className="text-xs text-light-text-secondary dark:text-dark-text-secondary">To Do</p>
+                  <p className="text-xl font-bold text-light-text-muted dark:text-dark-text-muted">
+                    {proj.todo}
+                  </p>
+                </div>
+                <div>
                   <p className="text-xs text-light-text-secondary dark:text-dark-text-secondary">Overdue</p>
                   <p className="text-xl font-bold text-danger">{proj.overdue}</p>
                 </div>
               </div>
+
 
               <div className="grid grid-cols-2 gap-4 mb-4">
                 <div>
@@ -855,14 +865,14 @@ function DirectorReport({ userId, reportData, reportRef }) {
 
 /* Senior Manager/HR Company-Wide Report Component */
 function SeniorManagerReport({ reportData, reportRef }) {
-  const { 
-    productivityTrend, 
-    projectCompletionRateThisMonth, 
+  const {
+    productivityTrend,
+    projectCompletionRateThisMonth,
     projectCompletionRateLastMonth,
     companyScope,
     departmentMetrics,
     projectBreakdown,
-    companyInfo 
+    companyInfo
   } = reportData;
 
   // Determine trend color based on productivity trend
@@ -1047,12 +1057,12 @@ function SeniorManagerReport({ reportData, reportRef }) {
                   <td className="py-3 px-2 text-sm text-center font-semibold text-success">{dept.projectStatusPercentages?.['Done'] ?? 0}%</td>
                   <td className="py-3 px-2 text-sm text-center font-semibold text-danger">{dept.projectStatusPercentages?.['Overdue'] ?? 0}%</td>
                   {/* Tasks columns */}
-      <td className="py-3 px-2 text-sm text-center">{dept.taskStatusCounts?.['To Do'] ?? 0}</td>
-      <td className="py-3 px-2 text-sm text-center text-info">{dept.taskStatusCounts?.['In Progress'] ?? 0}</td>
-      <td className="py-3 px-2 text-sm text-center text-success">{dept.taskStatusCounts?.['Done'] ?? 0}</td>
-      <td className="py-3 px-2 text-sm text-center text-danger">{dept.taskStatusCounts?.['Overdue'] ?? 0}</td>
-      <td className="py-3 px-2 text-sm text-center font-semibold text-success">{dept.taskStatusPercentages?.['Done'] ?? 0}%</td>
-      <td className="py-3 px-2 text-sm text-center font-semibold text-danger">{dept.taskStatusPercentages?.['Overdue'] ?? 0}%</td>
+                  <td className="py-3 px-2 text-sm text-center">{dept.taskStatusCounts?.['To Do'] ?? 0}</td>
+                  <td className="py-3 px-2 text-sm text-center text-info">{dept.taskStatusCounts?.['In Progress'] ?? 0}</td>
+                  <td className="py-3 px-2 text-sm text-center text-success">{dept.taskStatusCounts?.['Done'] ?? 0}</td>
+                  <td className="py-3 px-2 text-sm text-center text-danger">{dept.taskStatusCounts?.['Overdue'] ?? 0}</td>
+                  <td className="py-3 px-2 text-sm text-center font-semibold text-success">{dept.taskStatusPercentages?.['Done'] ?? 0}%</td>
+                  <td className="py-3 px-2 text-sm text-center font-semibold text-danger">{dept.taskStatusPercentages?.['Overdue'] ?? 0}%</td>
                 </tr>
               ))}
             </tbody>
@@ -1101,11 +1111,11 @@ function SeniorManagerReport({ reportData, reportRef }) {
                   <td className="py-3 px-4 text-sm font-medium text-light-text-primary dark:text-dark-text-primary">
                     {project.projectName}
                   </td>
-                    <td className="py-3 px-4 text-sm text-light-text-secondary dark:text-dark-text-secondary">
-                      {Array.isArray(project.departments) && project.departments.length > 0
-                        ? project.departments.join(', ')
-                        : (project.departmentName || '--')}
-                    </td>
+                  <td className="py-3 px-4 text-sm text-light-text-secondary dark:text-dark-text-secondary">
+                    {Array.isArray(project.departments) && project.departments.length > 0
+                      ? project.departments.join(', ')
+                      : (project.departmentName || '--')}
+                  </td>
                   <td className="py-3 px-4 text-sm text-center text-light-text-primary dark:text-dark-text-primary">
                     {project.totalTasks}
                   </td>
@@ -1174,18 +1184,18 @@ export default function Report() {
               credentials: "include"
             });
             const freshUserData = await userResponse.json();
-            
+
             // Extract department ID from the department object
             const departmentId = freshUserData.department?._id || freshUserData.department || "68e48a4a10fbb4910a50f2fd"; // Fallback: Sales department
             console.log("Director department ID:", departmentId);
             console.log("Fresh user department data:", freshUserData.department);
-            
+
             const directorReportData = await getDirectorReport(departmentId);
             setReportData(directorReportData);
           } catch (fetchError) {
             console.error("Error fetching fresh user data:", fetchError);
             // Fallback to original logic
-            const departmentId = user.department || "68e48a4a10fbb4910a50f2fd"; 
+            const departmentId = user.department || "68e48a4a10fbb4910a50f2fd";
             const directorReportData = await getDirectorReport(departmentId);
             setReportData(directorReportData);
           }
@@ -1501,10 +1511,10 @@ export default function Report() {
       <header className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
         <div>
           <h1 className="text-4xl font-bold tracking-tight text-light-text-primary dark:text-dark-text-primary">
-            {user.role === "Staff" 
-              ? "My Task Report" 
-              : user.role === "Manager" 
-                ? "Project Consolidation Report" 
+            {user.role === "Staff"
+              ? "My Task Report"
+              : user.role === "Manager"
+                ? "Project Consolidation Report"
                 : (user.role === "Senior Manager" || user.role === "HR")
                   ? "Company-Wide Performance Report"
                   : `${reportData?.departmentInfo?.departmentName || "Department"} Overview Report`}
