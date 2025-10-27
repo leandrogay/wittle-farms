@@ -220,7 +220,7 @@ describe('User Routes', () => {
 
       const res = await request(app)
         .get('/api/users/invalid-id')
-        .expect(500);
+        .expect(400);
 
       expect(res.body.error).toBeDefined();
     });
