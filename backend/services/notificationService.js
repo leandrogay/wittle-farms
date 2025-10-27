@@ -61,10 +61,12 @@ export async function checkAndCreateReminders() {
       }
     }
 
-    if (
-      deadline.isBefore(now, 'minute') &&
-      deadline.isAfter(now.subtract(1, 'minute'), 'minute')
-    ) {
+    // if (
+    //   deadline.isBefore(now, 'minute') &&
+    //   deadline.isAfter(now.subtract(1, 'minute'), 'minute')
+    // ) 
+    const secondsSinceDeadline = now.diff(deadline, 'second');
+    if (secondsSinceDeadline >= 0 && secondsSinceDeadline <= 60){
       for (const memberId of task.assignedTeamMembers) {
         const existingNotification = await Notification.findOne({
           userId: memberId,
@@ -141,10 +143,12 @@ export async function sendPendingEmails() {
   // Find due & unsent notifications
   const due = await Notification.find({
     sent: false,
+    read: false,
+    type: { $in: ['reminder', 'overdue'] },
     scheduledFor: { $lte: now },
   })
     .populate('userId', 'name email')
-    .populate('taskId', 'title deadline')
+    .populate('taskId', 'title deadline status')
     .lean();
 
   if (!due.length) return [];
@@ -154,6 +158,7 @@ export async function sendPendingEmails() {
   for (const n of due) {
     const to = n.userId?.email;
     if (!to) continue;
+    if (n.taskId?.status === 'Done') continue;
 
     const subject =
       n.type === 'overdue'
@@ -173,7 +178,7 @@ export async function sendPendingEmails() {
   if (sentIds.length) {
     await Notification.updateMany(
       { _id: { $in: sentIds } },
-      { $set: { sent: true, sentAt: new Date() } }
+      { $set: { sent: true } }
     );
   }
 
@@ -281,7 +286,7 @@ function buildEmailHtml({ notification }) {
   `;
 }
 
-export async function createMentionNotifications({ taskId, commentId, authorId, commentBody }){
+export async function createMentionNotifications({ taskId, commentId, authorId, commentBody }) {
   const [comment, task, author] = await Promise.all([
     Comment.findById(commentId)
       .select("mentions")
@@ -306,18 +311,18 @@ export async function createMentionNotifications({ taskId, commentId, authorId, 
   const recipients = [...new Set(mentionIds.filter(id => id !== String(authorId)))];
   if (recipients.length === 0) return [];
 
-  const message = `${authorName} mentioned you on "${task.title}": ${commentBody.slice(0,140)}`;
+  const message = `${authorName} mentioned you on "${task.title}": ${commentBody.slice(0, 140)}`;
 
   const docs = recipients.map(userId => ({
     userId,
     taskId,
     type: 'mention',
     commentId,
-    message, 
+    message,
     scheduledFor: new Date()
   }));
 
-  const created = await Notification.insertMany(docs, {ordered: false});
+  const created = await Notification.insertMany(docs, { ordered: false });
   return created;
 
 }
