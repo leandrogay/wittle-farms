@@ -1,14 +1,26 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useAuth } from "../context/useAuth.js";
 import { MetricCard } from "../components/ui/MetricCard.jsx";
-import { getTasksByUserId, getManagerTasks, getProjectsByUserId, getManagerProjects, getDirectorReport, getSeniorManagerReport, BASE, } from "../services/api.js";
+import {
+  getTasksByUserId,
+  getManagerTasks,
+  getProjectsByUserId,
+  getManagerProjects,
+  getDirectorReport,
+  getSeniorManagerReport,
+  BASE,
+} from "../services/api.js";
 import dayjs from "dayjs";
 
 /* SVG Icons */
 function ReportIcon(props) {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" {...props}>
-      <path d="M9 17h6M9 13h6M9 9h1M4 5h16a2 2 0 012 2v10a2 2 0 01-2 2H4a2 2 0 01-2-2V7a2 2 0 012-2z" strokeWidth="2" strokeLinecap="round" />
+      <path
+        d="M9 17h6M9 13h6M9 9h1M4 5h16a2 2 0 012 2v10a2 2 0 01-2 2H4a2 2 0 01-2-2V7a2 2 0 012-2z"
+        strokeWidth="2"
+        strokeLinecap="round"
+      />
     </svg>
   );
 }
@@ -16,7 +28,12 @@ function ReportIcon(props) {
 function DownloadIcon(props) {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" {...props}>
-      <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <path
+        d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
     </svg>
   );
 }
@@ -24,7 +41,12 @@ function DownloadIcon(props) {
 function CheckIcon(props) {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" {...props}>
-      <path d="M20 6L9 17l-5-5" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <path
+        d="M20 6L9 17l-5-5"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
     </svg>
   );
 }
@@ -41,43 +63,50 @@ function ClockIcon(props) {
 function ClipboardListIcon(props) {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" {...props}>
-      <path d="M9 5h6l1 2h4v12a2 2 0 01-2 2H6a2 2 0 01-2-2V7h4l1-2z" strokeWidth="2" strokeLinecap="round" />
+      <path
+        d="M9 5h6l1 2h4v12a2 2 0 01-2 2H6a2 2 0 01-2-2V7h4l1-2z"
+        strokeWidth="2"
+        strokeLinecap="round"
+      />
       <path d="M9 12h6M9 16h6" strokeWidth="2" strokeLinecap="round" />
     </svg>
   );
 }
 
-
 /* Reusable Components */
 // eslint-disable-next-line no-unused-vars
 function StaffReport({ userId, reportData, reportRef }) {
-  // eslint-disable-next-line no-unused-vars
-  const { tasks, projects } = reportData;
+  // Normalize to arrays to avoid crashes when no data/404s
+  const tasks = Array.isArray(reportData?.tasks) ? reportData.tasks : [];
+  const projects = Array.isArray(reportData?.projects) ? reportData.projects : [];
 
   const metrics = useMemo(() => {
     const total = tasks.length;
-    const completed = tasks.filter(t => t.status === "Done").length;
-    const inProgress = tasks.filter(t => t.status === "In Progress").length;
-    const todo = tasks.filter(t => t.status === "To Do").length;
+    const completed = tasks.filter((t) => t.status === "Done").length;
+    const inProgress = tasks.filter((t) => t.status === "In Progress").length;
+    const todo = tasks.filter((t) => t.status === "To Do").length;
 
     const now = dayjs();
-    const overdue = tasks.filter(t => {
+    const overdue = tasks.filter((t) => {
       if (!t.deadline || t.status === "Done") return false;
       return now.isAfter(dayjs(t.deadline), "day");
     }).length;
 
-    const completedOnTime = tasks.filter(t => {
+    const completedOnTime = tasks.filter((t) => {
       if (t.status !== "Done" || !t.deadline || !t.completedAt) return false;
-      return dayjs(t.completedAt).isBefore(dayjs(t.deadline)) ||
-        dayjs(t.completedAt).isSame(dayjs(t.deadline), "day");
+      return (
+        dayjs(t.completedAt).isBefore(dayjs(t.deadline)) ||
+        dayjs(t.completedAt).isSame(dayjs(t.deadline), "day")
+      );
     }).length;
 
-    const avgCompletionTime = tasks
-      .filter(t => t.status === "Done" && t.completedAt && t.createdAt)
-      .reduce((acc, t) => {
-        const days = dayjs(t.completedAt).diff(dayjs(t.createdAt), "day");
-        return acc + days;
-      }, 0) / (completed || 1);
+    const avgCompletionTime =
+      tasks
+        .filter((t) => t.status === "Done" && t.completedAt && t.createdAt)
+        .reduce((acc, t) => {
+          const days = dayjs(t.completedAt).diff(dayjs(t.createdAt), "day");
+          return acc + days;
+        }, 0) / (completed || 1);
 
     return {
       total,
@@ -88,13 +117,13 @@ function StaffReport({ userId, reportData, reportRef }) {
       completedOnTime,
       completionRate: total ? ((completed / total) * 100).toFixed(1) : 0,
       onTimeRate: completed ? ((completedOnTime / completed) * 100).toFixed(1) : 0,
-      avgCompletionTime: avgCompletionTime.toFixed(1)
+      avgCompletionTime: (avgCompletionTime || 0).toFixed(1),
     };
   }, [tasks]);
 
   const tasksByPriority = useMemo(() => {
     const buckets = { Low: 0, Medium: 0, High: 0 };
-    tasks.forEach(t => {
+    tasks.forEach((t) => {
       const p = Number(t.priority);
       if (p <= 3) buckets.Low++;
       else if (p <= 7) buckets.Medium++;
@@ -105,7 +134,7 @@ function StaffReport({ userId, reportData, reportRef }) {
 
   const tasksByProject = useMemo(() => {
     const map = {};
-    tasks.forEach(t => {
+    tasks.forEach((t) => {
       const pName = t.assignedProject?.name || "Unassigned";
       if (!map[pName]) map[pName] = { total: 0, completed: 0 };
       map[pName].total++;
@@ -114,7 +143,7 @@ function StaffReport({ userId, reportData, reportRef }) {
     return Object.entries(map).map(([name, data]) => ({
       name,
       ...data,
-      rate: ((data.completed / data.total) * 100).toFixed(1)
+      rate: data.total ? ((data.completed / data.total) * 100).toFixed(1) : "0.0",
     }));
   }, [tasks]);
 
@@ -134,10 +163,19 @@ function StaffReport({ userId, reportData, reportRef }) {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
         <MetricCard icon={ReportIcon} label="Total Tasks" value={metrics.total} color="brand" />
         <MetricCard icon={CheckIcon} label="Completed" value={metrics.completed} color="success" />
-        <MetricCard icon={ClockIcon} label="In Progress" value={metrics.inProgress} color="info" />
+        <MetricCard icon={ClockIcon} label="In Progress" value={metrics.inProgress} color="info"/>
         <MetricCard icon={ClipboardListIcon} label="To Do" value={metrics.todo} color="warning" />
         <MetricCard icon={ReportIcon} label="Overdue" value={metrics.overdue} color="danger" />
       </div>
+
+      {/* Gentle hint when there are no tasks */}
+      {tasks.length === 0 && (
+        <div className="rounded-xl border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-bg p-4">
+          <p className="text-sm text-light-text-secondary dark:text-dark-text-secondary text-center">
+            You don’t have any tasks yet. New tasks assigned to you will appear here.
+          </p>
+        </div>
+      )}
 
       {/* Performance Metrics */}
       <div className="rounded-2xl border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-bg p-6">
@@ -170,7 +208,9 @@ function StaffReport({ userId, reportData, reportRef }) {
               Avg. Completion Time
             </p>
             <p className="text-3xl font-bold text-info">{metrics.avgCompletionTime}</p>
-            <p className="text-xs text-light-text-muted dark:text-dark-text-muted mt-1">days per task</p>
+            <p className="text-xs text-light-text-muted dark:text-dark-text-muted mt-1">
+              days per task
+            </p>
           </div>
         </div>
       </div>
@@ -185,7 +225,7 @@ function StaffReport({ userId, reportData, reportRef }) {
             { label: "To Do", count: metrics.todo, color: "bg-light-text-muted dark:bg-dark-text-muted" },
             { label: "In Progress", count: metrics.inProgress, color: "bg-info" },
             { label: "Completed", count: metrics.completed, color: "bg-success" },
-            { label: "Overdue", count: metrics.overdue, color: "bg-danger" }
+            { label: "Overdue", count: metrics.overdue, color: "bg-danger" },
           ].map(({ label, count, color }) => (
             <div key={label}>
               <div className="flex justify-between mb-1">
@@ -250,25 +290,36 @@ function StaffReport({ userId, reportData, reportRef }) {
               </tr>
             </thead>
             <tbody>
-              {tasksByProject.map((proj) => (
-                <tr
-                  key={proj.name}
-                  className="border-b border-light-border dark:border-dark-border"
-                >
-                  <td className="py-3 px-4 text-sm text-light-text-primary dark:text-dark-text-primary">
-                    {proj.name}
-                  </td>
-                  <td className="py-3 px-4 text-sm text-right text-light-text-primary dark:text-dark-text-primary">
-                    {proj.total}
-                  </td>
-                  <td className="py-3 px-4 text-sm text-right text-light-text-primary dark:text-dark-text-primary">
-                    {proj.completed}
-                  </td>
-                  <td className="py-3 px-4 text-sm text-right font-semibold text-success">
-                    {proj.rate}%
+              {tasks.length === 0 ? (
+                <tr>
+                  <td
+                    colSpan={4}
+                    className="py-6 px-4 text-center text-sm text-light-text-secondary dark:text-dark-text-secondary"
+                  >
+                    No data
                   </td>
                 </tr>
-              ))}
+              ) : (
+                tasksByProject.map((proj) => (
+                  <tr
+                    key={proj.name}
+                    className="border-b border-light-border dark:border-dark-border"
+                  >
+                    <td className="py-3 px-4 text-sm text-light-text-primary dark:text-dark-text-primary">
+                      {proj.name}
+                    </td>
+                    <td className="py-3 px-4 text-sm text-right text-light-text-primary dark:text-dark-text-primary">
+                      {proj.total}
+                    </td>
+                    <td className="py-3 px-4 text-sm text-right text-light-text-primary dark:text-dark-text-primary">
+                      {proj.completed}
+                    </td>
+                    <td className="py-3 px-4 text-sm text-right font-semibold text-success">
+                      {proj.rate}%
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
@@ -284,18 +335,18 @@ function ManagerReport({ userId, reportData, reportRef }) {
   const metrics = useMemo(() => {
     const totalProjects = projects.length;
     const totalTasks = tasks.length;
-    const completedTasks = tasks.filter(t => t.status === "Done").length;
-    const inProgressTasks = tasks.filter(t => t.status === "In Progress").length;
+    const completedTasks = tasks.filter((t) => t.status === "Done").length;
+    const inProgressTasks = tasks.filter((t) => t.status === "In Progress").length;
 
     const now = dayjs();
-    const overdueTasks = tasks.filter(t => {
+    const overdueTasks = tasks.filter((t) => {
       if (!t.deadline || t.status === "Done") return false;
       return now.isAfter(dayjs(t.deadline), "day");
     }).length;
 
     const teamMembers = new Set();
-    tasks.forEach(t => {
-      (t.assignedTeamMembers || []).forEach(m => {
+    tasks.forEach((t) => {
+      (t.assignedTeamMembers || []).forEach((m) => {
         teamMembers.add(typeof m === "string" ? m : m._id);
       });
     });
@@ -306,40 +357,42 @@ function ManagerReport({ userId, reportData, reportRef }) {
       completedTasks,
       inProgressTasks,
       overdueTasks,
-      teamSize: teamMembers.size
+      teamSize: teamMembers.size,
     };
   }, [tasks, projects]);
 
   const projectMetrics = useMemo(() => {
-    return projects.map(project => {
-      const projectTasks = tasks.filter(t => {
-        const pid = typeof t.assignedProject === "string"
-          ? t.assignedProject
-          : t.assignedProject?._id;
+    return projects.map((project) => {
+      const projectTasks = tasks.filter((t) => {
+        const pid =
+          typeof t.assignedProject === "string"
+            ? t.assignedProject
+            : t.assignedProject?._id;
         return pid === project._id;
       });
 
-      const completed = projectTasks.filter(t => t.status === "Done").length;
-      const inProgress = projectTasks.filter(t => t.status === "In Progress").length;
-      const todo = projectTasks.filter(t => t.status === "To Do").length;
+      const completed = projectTasks.filter((t) => t.status === "Done").length;
+      const inProgress = projectTasks.filter((t) => t.status === "In Progress").length;
+      const todo = projectTasks.filter((t) => t.status === "To Do").length;
 
       const now = dayjs();
-      const overdue = projectTasks.filter(t => {
+      const overdue = projectTasks.filter((t) => {
         if (!t.deadline || t.status === "Done") return false;
         return now.isAfter(dayjs(t.deadline), "day");
       }).length;
 
-      const avgTime = projectTasks
-        .filter(t => t.status === "Done" && t.completedAt && t.createdAt)
-        .reduce((acc, t) => {
-          return acc + dayjs(t.completedAt).diff(dayjs(t.createdAt), "day");
-        }, 0) / (completed || 1);
+      const avgTime =
+        projectTasks
+          .filter((t) => t.status === "Done" && t.completedAt && t.createdAt)
+          .reduce((acc, t) => {
+            return acc + dayjs(t.completedAt).diff(dayjs(t.createdAt), "day");
+          }, 0) / (completed || 1);
 
       const teamMembers = new Set();
-      projectTasks.forEach(t => {
-        (t.assignedTeamMembers || []).forEach(m => {
+      projectTasks.forEach((t) => {
+        (t.assignedTeamMembers || []).forEach((m) => {
           const memberId = typeof m === "string" ? m : m._id;
-          const memberName = typeof m === "string" ? "Unknown" : (m.name || "Unknown");
+          const memberName = typeof m === "string" ? "Unknown" : m.name || "Unknown";
           teamMembers.add(JSON.stringify({ id: memberId, name: memberName }));
         });
       });
@@ -352,16 +405,18 @@ function ManagerReport({ userId, reportData, reportRef }) {
         inProgress,
         todo,
         overdue,
-        completionRate: projectTasks.length ? ((completed / projectTasks.length) * 100).toFixed(1) : 0,
-        avgCompletionTime: avgTime.toFixed(1),
-        teamMembers: Array.from(teamMembers).map(s => JSON.parse(s))
+        completionRate: projectTasks.length
+          ? ((completed / projectTasks.length) * 100).toFixed(1)
+          : 0,
+        avgCompletionTime: (avgTime || 0).toFixed(1),
+        teamMembers: Array.from(teamMembers).map((s) => JSON.parse(s)),
       };
     });
   }, [projects, tasks]);
 
   const statusBreakdown = useMemo(() => {
     const statusCounts = { "To Do": 0, "In Progress": 0, "Done": 0 };
-    tasks.forEach(t => {
+    tasks.forEach((t) => {
       if (Object.hasOwn(statusCounts, t.status)) {
         statusCounts[t.status]++;
       }
@@ -455,7 +510,6 @@ function ManagerReport({ userId, reportData, reportRef }) {
                 </div>
               </div>
 
-
               <div className="grid grid-cols-2 gap-4 mb-4">
                 <div>
                   <p className="text-xs text-light-text-secondary dark:text-dark-text-secondary mb-1">
@@ -515,26 +569,34 @@ function DirectorReport({ userId, reportData, reportRef }) {
     projectScope,
     taskScope,
     teamPerformance,
-    departmentInfo
+    departmentInfo,
   } = reportData;
 
   // Determine trend color based on productivity trend
   const getTrendColor = (trend) => {
     switch (trend) {
-      case 'Improving': return 'text-success';
-      case 'Declining': return 'text-danger';
-      default: return 'text-info';
+      case "Improving":
+        return "text-success";
+      case "Declining":
+        return "text-danger";
+      default:
+        return "text-info";
     }
   };
 
   // Get status color for milestones
   const getStatusColor = (status) => {
     switch (status) {
-      case 'Done': return 'text-success';
-      case 'In Progress': return 'text-info';
-      case 'To Do': return 'text-light-text-muted dark:text-dark-text-muted';
-      case 'Overdue': return 'text-danger';
-      default: return 'text-info';
+      case "Done":
+        return "text-success";
+      case "In Progress":
+        return "text-info";
+      case "To Do":
+        return "text-light-text-muted dark:text-dark-text-muted";
+      case "Overdue":
+        return "text-danger";
+      default:
+        return "text-info";
     }
   };
 
@@ -564,7 +626,8 @@ function DirectorReport({ userId, reportData, reportRef }) {
               {productivityTrend}
             </p>
             <p className="text-xs text-light-text-muted dark:text-dark-text-muted mt-1">
-              {completionRateThisMonth}% projects completed this month vs {completionRateLastMonth}% last month
+              {completionRateThisMonth}% projects completed this month vs{" "}
+              {completionRateLastMonth}% last month
             </p>
           </div>
         </div>
@@ -580,38 +643,40 @@ function DirectorReport({ userId, reportData, reportRef }) {
             <p className="text-2xl font-bold text-light-text-primary dark:text-dark-text-primary">
               {projectScope.totalProjects}
             </p>
-            <p className="text-sm text-light-text-secondary dark:text-dark-text-secondary">Total Projects</p>
+            <p className="text-sm text-light-text-secondary dark:text-dark-text-secondary">
+              Total Projects
+            </p>
           </div>
           <div className="text-center">
             <p className="text-2xl font-bold text-light-text-muted dark:text-dark-text-muted">
-              {projectScope.projectStatusCounts['To Do']}
+              {projectScope.projectStatusCounts["To Do"]}
             </p>
             <p className="text-sm text-light-text-secondary dark:text-dark-text-secondary">
-              To Do ({projectScope.projectStatusPercentages['To Do']}%)
+              To Do ({projectScope.projectStatusPercentages["To Do"]}%)
             </p>
           </div>
           <div className="text-center">
             <p className="text-2xl font-bold text-info">
-              {projectScope.projectStatusCounts['In Progress']}
+              {projectScope.projectStatusCounts["In Progress"]}
             </p>
             <p className="text-sm text-light-text-secondary dark:text-dark-text-secondary">
-              In Progress ({projectScope.projectStatusPercentages['In Progress']}%)
+              In Progress ({projectScope.projectStatusPercentages["In Progress"]}%)
             </p>
           </div>
           <div className="text-center">
             <p className="text-2xl font-bold text-success">
-              {projectScope.projectStatusCounts['Done']}
+              {projectScope.projectStatusCounts["Done"]}
             </p>
             <p className="text-sm text-light-text-secondary dark:text-dark-text-secondary">
-              Done ({projectScope.projectStatusPercentages['Done']}%)
+              Done ({projectScope.projectStatusPercentages["Done"]}%)
             </p>
           </div>
           <div className="text-center">
             <p className="text-2xl font-bold text-danger">
-              {projectScope.projectStatusCounts['Overdue']}
+              {projectScope.projectStatusCounts["Overdue"]}
             </p>
             <p className="text-sm text-light-text-secondary dark:text-dark-text-secondary">
-              Overdue ({projectScope.projectStatusPercentages['Overdue']}%)
+              Overdue ({projectScope.projectStatusPercentages["Overdue"]}%)
             </p>
           </div>
         </div>
@@ -650,12 +715,16 @@ function DirectorReport({ userId, reportData, reportRef }) {
                       </p>
                       <div className="space-y-1">
                         {milestone.overdueResponsibility.map((dept, idx) => (
-                          <div key={idx} className="flex justify-between items-center p-2 bg-danger/5 border border-danger/20 rounded">
+                          <div
+                            key={idx}
+                            className="flex justify-between items-center p-2 bg-danger/5 border border-danger/20 rounded"
+                          >
                             <span className="text-xs font-medium text-light-text-primary dark:text-dark-text-primary">
                               {dept.departmentName}
                             </span>
                             <span className="text-xs text-danger font-semibold">
-                              {dept.overdueTaskCount} overdue task{dept.overdueTaskCount !== 1 ? 's' : ''}
+                              {dept.overdueTaskCount} overdue task
+                              {dept.overdueTaskCount !== 1 ? "s" : ""}
                             </span>
                           </div>
                         ))}
@@ -669,7 +738,11 @@ function DirectorReport({ userId, reportData, reportRef }) {
                   )}
                 </div>
                 <div className="text-right">
-                  <span className={`inline-flex px-3 py-1 rounded-full text-sm font-semibold ${getStatusColor(milestone.status)}`}>
+                  <span
+                    className={`inline-flex px-3 py-1 rounded-full text-sm font-semibold ${getStatusColor(
+                      milestone.status
+                    )}`}
+                  >
                     {milestone.status}
                   </span>
                 </div>
@@ -689,38 +762,40 @@ function DirectorReport({ userId, reportData, reportRef }) {
             <p className="text-2xl font-bold text-light-text-primary dark:text-dark-text-primary">
               {taskScope.totalTasks}
             </p>
-            <p className="text-sm text-light-text-secondary dark:text-dark-text-secondary">Total Tasks</p>
+            <p className="text-sm text-light-text-secondary dark:text-dark-text-secondary">
+              Total Tasks
+            </p>
           </div>
           <div className="text-center">
             <p className="text-2xl font-bold text-light-text-muted dark:text-dark-text-muted">
-              {taskScope.taskStatusCounts['To Do']}
+              {taskScope.taskStatusCounts["To Do"]}
             </p>
             <p className="text-sm text-light-text-secondary dark:text-dark-text-secondary">
-              To Do ({taskScope.taskStatusPercentages['To Do']}%)
+              To Do ({taskScope.taskStatusPercentages["To Do"]}%)
             </p>
           </div>
           <div className="text-center">
             <p className="text-2xl font-bold text-info">
-              {taskScope.taskStatusCounts['In Progress']}
+              {taskScope.taskStatusCounts["In Progress"]}
             </p>
             <p className="text-sm text-light-text-secondary dark:text-dark-text-secondary">
-              In Progress ({taskScope.taskStatusPercentages['In Progress']}%)
+              In Progress ({taskScope.taskStatusPercentages["In Progress"]}%)
             </p>
           </div>
           <div className="text-center">
             <p className="text-2xl font-bold text-success">
-              {taskScope.taskStatusCounts['Done']}
+              {taskScope.taskStatusCounts["Done"]}
             </p>
             <p className="text-sm text-light-text-secondary dark:text-dark-text-secondary">
-              Done ({taskScope.taskStatusPercentages['Done']}%)
+              Done ({taskScope.taskStatusPercentages["Done"]}%)
             </p>
           </div>
           <div className="text-center">
             <p className="text-2xl font-bold text-danger">
-              {taskScope.taskStatusCounts['Overdue']}
+              {taskScope.taskStatusCounts["Overdue"]}
             </p>
             <p className="text-sm text-light-text-secondary dark:text-dark-text-secondary">
-              Overdue ({taskScope.taskStatusPercentages['Overdue']}%)
+              Overdue ({taskScope.taskStatusPercentages["Overdue"]}%)
             </p>
           </div>
         </div>
@@ -744,10 +819,10 @@ function DirectorReport({ userId, reportData, reportRef }) {
                   </h3>
                   <div className="flex items-center gap-2 mb-3">
                     <h4 className="text-md font-medium text-light-text-primary dark:text-dark-text-primary">
-                      Overdue Task{project.overdueCount !== 1 ? 's' : ''}:
+                      Overdue Task{project.overdueCount !== 1 ? "s" : ""}:
                     </h4>
                     <span className="inline-flex px-2 py-1 rounded-full text-xs font-semibold bg-danger/10 text-danger">
-                      {project.overdueCount} task{project.overdueCount !== 1 ? 's' : ''}
+                      {project.overdueCount} task{project.overdueCount !== 1 ? "s" : ""}
                     </span>
                   </div>
                 </div>
@@ -764,7 +839,7 @@ function DirectorReport({ userId, reportData, reportRef }) {
                         <p className="text-sm text-light-text-secondary dark:text-dark-text-secondary">
                           Deadline: {dayjs(task.deadline).format("MMM D, YYYY")}
                           <span className="text-danger ml-2">
-                            ({task.daysPastDue} day{task.daysPastDue !== 1 ? 's' : ''} overdue)
+                            ({task.daysPastDue} day{task.daysPastDue !== 1 ? "s" : ""} overdue)
                           </span>
                         </p>
                         {task.assignedMembers.length > 0 && (
@@ -796,7 +871,10 @@ function DirectorReport({ userId, reportData, reportRef }) {
         </h2>
         <div className="mb-4">
           <p className="text-sm text-light-text-secondary dark:text-dark-text-secondary">
-            Team Size: <span className="font-semibold text-light-text-primary dark:text-dark-text-primary">{teamPerformance.teamSize} members</span>
+            Team Size:{" "}
+            <span className="font-semibold text-light-text-primary dark:text-dark-text-primary">
+              {teamPerformance.teamSize} members
+            </span>
           </p>
         </div>
         <div className="overflow-x-auto">
@@ -831,10 +909,7 @@ function DirectorReport({ userId, reportData, reportRef }) {
             </thead>
             <tbody>
               {teamPerformance.departmentTeam.map((member) => (
-                <tr
-                  key={member.userId}
-                  className="border-b border-light-border dark:border-dark-border"
-                >
+                <tr key={member.userId} className="border-b border-light-border dark:border-dark-border">
                   <td className="py-3 px-4 text-sm text-light-text-primary dark:text-dark-text-primary">
                     {member.name}
                   </td>
@@ -847,15 +922,9 @@ function DirectorReport({ userId, reportData, reportRef }) {
                   <td className="py-3 px-4 text-sm text-right text-light-text-muted dark:text-dark-text-muted">
                     {member.todoTasks}
                   </td>
-                  <td className="py-3 px-4 text-sm text-right text-info">
-                    {member.inProgressTasks}
-                  </td>
-                  <td className="py-3 px-4 text-sm text-right text-success">
-                    {member.completedTasks}
-                  </td>
-                  <td className="py-3 px-4 text-sm text-right text-danger">
-                    {member.overdueTasks}
-                  </td>
+                  <td className="py-3 px-4 text-sm text-right text-info">{member.inProgressTasks}</td>
+                  <td className="py-3 px-4 text-sm text-right text-success">{member.completedTasks}</td>
+                  <td className="py-3 px-4 text-sm text-right text-danger">{member.overdueTasks}</td>
                   <td className="py-3 px-4 text-sm text-right font-semibold text-danger">
                     {member.overdueRate}%
                   </td>
@@ -865,8 +934,6 @@ function DirectorReport({ userId, reportData, reportRef }) {
           </table>
         </div>
       </div>
-
-
     </div>
   );
 }
@@ -880,15 +947,18 @@ function SeniorManagerReport({ reportData, reportRef }) {
     companyScope,
     departmentMetrics,
     projectBreakdown,
-    companyInfo
+    companyInfo,
   } = reportData;
 
   // Determine trend color based on productivity trend
   const getTrendColor = (trend) => {
     switch (trend) {
-      case 'Improving': return 'text-success';
-      case 'Declining': return 'text-danger';
-      default: return 'text-info';
+      case "Improving":
+        return "text-success";
+      case "Declining":
+        return "text-danger";
+      default:
+        return "text-info";
     }
   };
 
@@ -921,7 +991,8 @@ function SeniorManagerReport({ reportData, reportRef }) {
               {productivityTrend}
             </p>
             <p className="text-xs text-light-text-muted dark:text-dark-text-muted mt-1">
-              {projectCompletionRateThisMonth}% projects completed this month vs {projectCompletionRateLastMonth}% last month
+              {projectCompletionRateThisMonth}% projects completed this month vs{" "}
+              {projectCompletionRateLastMonth}% last month
             </p>
           </div>
           <div>
@@ -948,34 +1019,34 @@ function SeniorManagerReport({ reportData, reportRef }) {
           <div className="grid grid-cols-2 gap-4">
             <div className="text-center">
               <p className="text-2xl font-bold text-light-text-muted dark:text-dark-text-muted">
-                {companyScope?.projectStatusCounts['To Do']}
+                {companyScope?.projectStatusCounts["To Do"]}
               </p>
               <p className="text-sm text-light-text-secondary dark:text-dark-text-secondary">
-                To Do ({companyScope?.projectStatusPercentages['To Do']}%)
+                To Do ({companyScope?.projectStatusPercentages["To Do"]}%)
               </p>
             </div>
             <div className="text-center">
               <p className="text-2xl font-bold text-info">
-                {companyScope?.projectStatusCounts['In Progress']}
+                {companyScope?.projectStatusCounts["In Progress"]}
               </p>
               <p className="text-sm text-light-text-secondary dark:text-dark-text-secondary">
-                In Progress ({companyScope?.projectStatusPercentages['In Progress']}%)
+                In Progress ({companyScope?.projectStatusPercentages["In Progress"]}%)
               </p>
             </div>
             <div className="text-center">
               <p className="text-2xl font-bold text-success">
-                {companyScope?.projectStatusCounts['Done']}
+                {companyScope?.projectStatusCounts["Done"]}
               </p>
               <p className="text-sm text-light-text-secondary dark:text-dark-text-secondary">
-                Done ({companyScope?.projectStatusPercentages['Done']}%)
+                Done ({companyScope?.projectStatusPercentages["Done"]}%)
               </p>
             </div>
             <div className="text-center">
               <p className="text-2xl font-bold text-danger">
-                {companyScope?.projectStatusCounts['Overdue']}
+                {companyScope?.projectStatusCounts["Overdue"]}
               </p>
               <p className="text-sm text-light-text-secondary dark:text-dark-text-secondary">
-                Overdue ({companyScope?.projectStatusPercentages['Overdue']}%)
+                Overdue ({companyScope?.projectStatusPercentages["Overdue"]}%)
               </p>
             </div>
           </div>
@@ -989,34 +1060,34 @@ function SeniorManagerReport({ reportData, reportRef }) {
           <div className="grid grid-cols-2 gap-4">
             <div className="text-center">
               <p className="text-2xl font-bold text-light-text-muted dark:text-dark-text-muted">
-                {companyScope?.taskStatusCounts['To Do']}
+                {companyScope?.taskStatusCounts["To Do"]}
               </p>
               <p className="text-sm text-light-text-secondary dark:text-dark-text-secondary">
-                To Do ({companyScope?.taskStatusPercentages['To Do']}%)
+                To Do ({companyScope?.taskStatusPercentages["To Do"]}%)
               </p>
             </div>
             <div className="text-center">
               <p className="text-2xl font-bold text-info">
-                {companyScope?.taskStatusCounts['In Progress']}
+                {companyScope?.taskStatusCounts["In Progress"]}
               </p>
               <p className="text-sm text-light-text-secondary dark:text-dark-text-secondary">
-                In Progress ({companyScope?.taskStatusPercentages['In Progress']}%)
+                In Progress ({companyScope?.taskStatusPercentages["In Progress"]}%)
               </p>
             </div>
             <div className="text-center">
               <p className="text-2xl font-bold text-success">
-                {companyScope?.taskStatusCounts['Done']}
+                {companyScope?.taskStatusCounts["Done"]}
               </p>
               <p className="text-sm text-light-text-secondary dark:text-dark-text-secondary">
-                Done ({companyScope?.taskStatusPercentages['Done']}%)
+                Done ({companyScope?.taskStatusPercentages["Done"]}%)
               </p>
             </div>
             <div className="text-center">
               <p className="text-2xl font-bold text-danger">
-                {companyScope?.taskStatusCounts['Overdue']}
+                {companyScope?.taskStatusCounts["Overdue"]}
               </p>
               <p className="text-sm text-light-text-secondary dark:text-dark-text-secondary">
-                Overdue ({companyScope?.taskStatusPercentages['Overdue']}%)
+                Overdue ({companyScope?.taskStatusPercentages["Overdue"]}%)
               </p>
             </div>
           </div>
@@ -1032,45 +1103,104 @@ function SeniorManagerReport({ reportData, reportRef }) {
           <table className="w-full">
             <thead className="border-b border-light-border dark:border-dark-border">
               <tr>
-                <th rowSpan="2" className="text-left py-3 px-4 text-sm font-semibold text-light-text-primary dark:text-dark-text-primary">Department</th>
-                <th rowSpan="2" className="text-center py-3 px-4 text-sm font-semibold text-light-text-primary dark:text-dark-text-primary">Team Size</th>
-                <th colSpan="6" className="text-center py-3 px-4 text-sm font-semibold text-light-text-primary dark:text-dark-text-primary">Projects</th>
-                <th colSpan="6" className="text-center py-3 px-4 text-sm font-semibold text-light-text-primary dark:text-dark-text-primary">Tasks</th>
+                <th
+                  rowSpan="2"
+                  className="text-left py-3 px-4 text-sm font-semibold text-light-text-primary dark:text-dark-text-primary"
+                >
+                  Department
+                </th>
+                <th
+                  rowSpan="2"
+                  className="text-center py-3 px-4 text-sm font-semibold text-light-text-primary dark:text-dark-text-primary"
+                >
+                  Team Size
+                </th>
+                <th
+                  colSpan="6"
+                  className="text-center py-3 px-4 text-sm font-semibold text-light-text-primary dark:text-dark-text-primary"
+                >
+                  Projects
+                </th>
+                <th
+                  colSpan="6"
+                  className="text-center py-3 px-4 text-sm font-semibold text-light-text-primary dark:text-dark-text-primary"
+                >
+                  Tasks
+                </th>
               </tr>
               <tr>
                 <th className="text-center py-2 px-2 text-xs font-semibold">To Do</th>
                 <th className="text-center py-2 px-2 text-xs font-semibold">In Progress</th>
                 <th className="text-center py-2 px-2 text-xs font-semibold">Done</th>
                 <th className="text-center py-2 px-2 text-xs font-semibold">Overdue</th>
-                <th className="text-center py-2 px-2 text-xs font-semibold text-success">Completion Rate</th>
-                <th className="text-center py-2 px-2 text-xs font-semibold text-danger">Overdue Rate</th>
+                <th className="text-center py-2 px-2 text-xs font-semibold text-success">
+                  Completion Rate
+                </th>
+                <th className="text-center py-2 px-2 text-xs font-semibold text-danger">
+                  Overdue Rate
+                </th>
                 <th className="text-center py-2 px-2 text-xs font-semibold">To Do</th>
                 <th className="text-center py-2 px-2 text-xs font-semibold">In Progress</th>
                 <th className="text-center py-2 px-2 text-xs font-semibold">Done</th>
                 <th className="text-center py-2 px-2 text-xs font-semibold">Overdue</th>
-                <th className="text-center py-2 px-2 text-xs font-semibold text-success">Completion Rate</th>
-                <th className="text-center py-2 px-2 text-xs font-semibold text-danger">Overdue Rate</th>
+                <th className="text-center py-2 px-2 text-xs font-semibold text-success">
+                  Completion Rate
+                </th>
+                <th className="text-center py-2 px-2 text-xs font-semibold text-danger">
+                  Overdue Rate
+                </th>
               </tr>
             </thead>
             <tbody>
               {departmentMetrics?.map((dept) => (
-                <tr key={dept.departmentId} className="border-b border-light-border dark:border-dark-border hover:bg-light-surface dark:hover:bg-dark-surface">
-                  <td className="py-3 px-4 text-sm font-medium text-light-text-primary dark:text-dark-text-primary">{dept.departmentName}</td>
-                  <td className="py-3 px-4 text-sm text-center text-light-text-primary dark:text-dark-text-primary">{dept.teamSize}</td>
+                <tr
+                  key={dept.departmentId}
+                  className="border-b border-light-border dark:border-dark-border hover:bg-light-surface dark:hover:bg-dark-surface"
+                >
+                  <td className="py-3 px-4 text-sm font-medium text-light-text-primary dark:text-dark-text-primary">
+                    {dept.departmentName}
+                  </td>
+                  <td className="py-3 px-4 text-sm text-center text-light-text-primary dark:text-dark-text-primary">
+                    {dept.teamSize}
+                  </td>
                   {/* Projects columns */}
-                  <td className="py-3 px-2 text-sm text-center">{dept.projectStatusCounts?.['To Do'] ?? 0}</td>
-                  <td className="py-3 px-2 text-sm text-center text-info">{dept.projectStatusCounts?.['In Progress'] ?? 0}</td>
-                  <td className="py-3 px-2 text-sm text-center text-success">{dept.projectStatusCounts?.['Done'] ?? 0}</td>
-                  <td className="py-3 px-2 text-sm text-center text-danger">{dept.projectStatusCounts?.['Overdue'] ?? 0}</td>
-                  <td className="py-3 px-2 text-sm text-center font-semibold text-success">{dept.projectStatusPercentages?.['Done'] ?? 0}%</td>
-                  <td className="py-3 px-2 text-sm text-center font-semibold text-danger">{dept.projectStatusPercentages?.['Overdue'] ?? 0}%</td>
+                  <td className="py-3 px-2 text-sm text-center">
+                    {dept.projectStatusCounts?.["To Do"] ?? 0}
+                  </td>
+                  <td className="py-3 px-2 text-sm text-center text-info">
+                    {dept.projectStatusCounts?.["In Progress"] ?? 0}
+                  </td>
+                  <td className="py-3 px-2 text-sm text-center text-success">
+                    {dept.projectStatusCounts?.["Done"] ?? 0}
+                  </td>
+                  <td className="py-3 px-2 text-sm text-center text-danger">
+                    {dept.projectStatusCounts?.["Overdue"] ?? 0}
+                  </td>
+                  <td className="py-3 px-2 text-sm text-center font-semibold text-success">
+                    {dept.projectStatusPercentages?.["Done"] ?? 0}%
+                  </td>
+                  <td className="py-3 px-2 text-sm text-center font-semibold text-danger">
+                    {dept.projectStatusPercentages?.["Overdue"] ?? 0}%
+                  </td>
                   {/* Tasks columns */}
-                  <td className="py-3 px-2 text-sm text-center">{dept.taskStatusCounts?.['To Do'] ?? 0}</td>
-                  <td className="py-3 px-2 text-sm text-center text-info">{dept.taskStatusCounts?.['In Progress'] ?? 0}</td>
-                  <td className="py-3 px-2 text-sm text-center text-success">{dept.taskStatusCounts?.['Done'] ?? 0}</td>
-                  <td className="py-3 px-2 text-sm text-center text-danger">{dept.taskStatusCounts?.['Overdue'] ?? 0}</td>
-                  <td className="py-3 px-2 text-sm text-center font-semibold text-success">{dept.taskStatusPercentages?.['Done'] ?? 0}%</td>
-                  <td className="py-3 px-2 text-sm text-center font-semibold text-danger">{dept.taskStatusPercentages?.['Overdue'] ?? 0}%</td>
+                  <td className="py-3 px-2 text-sm text-center">
+                    {dept.taskStatusCounts?.["To Do"] ?? 0}
+                  </td>
+                  <td className="py-3 px-2 text-sm text-center text-info">
+                    {dept.taskStatusCounts?.["In Progress"] ?? 0}
+                  </td>
+                  <td className="py-3 px-2 text-sm text-center text-success">
+                    {dept.taskStatusCounts?.["Done"] ?? 0}
+                  </td>
+                  <td className="py-3 px-2 text-sm text-center text-danger">
+                    {dept.taskStatusCounts?.["Overdue"] ?? 0}
+                  </td>
+                  <td className="py-3 px-2 text-sm text-center font-semibold text-success">
+                    {dept.taskStatusPercentages?.["Done"] ?? 0}%
+                  </td>
+                  <td className="py-3 px-2 text-sm text-center font-semibold text-danger">
+                    {dept.taskStatusPercentages?.["Overdue"] ?? 0}%
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -1121,8 +1251,8 @@ function SeniorManagerReport({ reportData, reportRef }) {
                   </td>
                   <td className="py-3 px-4 text-sm text-light-text-secondary dark:text-dark-text-secondary">
                     {Array.isArray(project.departments) && project.departments.length > 0
-                      ? project.departments.join(', ')
-                      : (project.departmentName || '--')}
+                      ? project.departments.join(", ")
+                      : project.departmentName || "--"}
                   </td>
                   <td className="py-3 px-4 text-sm text-center text-light-text-primary dark:text-dark-text-primary">
                     {project.totalTasks}
@@ -1168,52 +1298,50 @@ export default function Report() {
         setLoading(true);
         setError(null);
 
+        const safeArray = (x) => (Array.isArray(x) ? x : []);
+
         if (user.role === "Staff") {
-          // ✅ IMPROVED: Use server-filtered endpoints
+          // Staff: treat 404s or fetch errors as "no data" to render graceful zeros
           const [myTasks, myProjects] = await Promise.all([
-            getTasksByUserId(user.id),      // Uses ?assignee=userId
-            getProjectsByUserId(user.id)    // Already exists
+            getTasksByUserId(user.id).catch(() => []),
+            getProjectsByUserId(user.id).catch(() => []),
           ]);
-          setReportData({ tasks: myTasks, projects: myProjects });
 
+          setReportData({ tasks: safeArray(myTasks), projects: safeArray(myProjects) });
         } else if (user.role === "Manager") {
-          // ✅ IMPROVED: Get only manager's projects and related tasks
           const [myProjects, projectTasks] = await Promise.all([
-            getManagerProjects(user.id),           // Already filters by manager
-            getManagerTasks(user.id)        // NEW: Gets tasks from manager's projects
+            getManagerProjects(user.id),
+            getManagerTasks(user.id),
           ]);
-          setReportData({ tasks: projectTasks, projects: myProjects });
-
+          setReportData({ tasks: safeArray(projectTasks), projects: safeArray(myProjects) });
         } else if (user.role === "Director") {
           // Director: Get department-level report data
-          // Fetch fresh user data to get updated department info
           try {
             const userResponse = await fetch(`${BASE}/api/users/${user.id}`, {
-              credentials: "include"
+              credentials: "include",
             });
             const freshUserData = await userResponse.json();
 
-            // Extract department ID from the department object
-            const departmentId = freshUserData.department?._id || freshUserData.department || "68e48a4a10fbb4910a50f2fd"; // Fallback: Sales department
-            console.log("Director department ID:", departmentId);
-            console.log("Fresh user department data:", freshUserData.department);
-
+            // Extract department ID
+            const departmentId =
+              freshUserData.department?._id ||
+              freshUserData.department ||
+              "68e48a4a10fbb4910a50f2fd"; // Fallback
             const directorReportData = await getDirectorReport(departmentId);
             setReportData(directorReportData);
           } catch (fetchError) {
             console.error("Error fetching fresh user data:", fetchError);
-            // Fallback to original logic
             const departmentId = user.department || "68e48a4a10fbb4910a50f2fd";
             const directorReportData = await getDirectorReport(departmentId);
             setReportData(directorReportData);
           }
         } else if (user.role === "Senior Manager" || user.role === "HR") {
-          // Senior Manager/HR: Get company-wide report data
           const seniorManagerReportData = await getSeniorManagerReport();
           setReportData(seniorManagerReportData);
         }
       } catch (err) {
         console.error("Report data loading error:", err);
+        // Only show the red error banner for genuine unexpected failures
         setError(err.message || "Failed to load report data");
       } finally {
         setLoading(false);
@@ -1230,10 +1358,10 @@ export default function Report() {
     try {
       setIsExporting(true);
 
-      // Simple print-based PDF export (works better with modern CSS)
-      const printWindow = window.open('', '_blank');
+      // Simple print-based PDF export
+      const printWindow = window.open("", "_blank");
       if (!printWindow) {
-        throw new Error('Popup blocked. Please allow popups for this site.');
+        throw new Error("Popup blocked. Please allow popups for this site.");
       }
 
       // Clone the report content
@@ -1247,217 +1375,71 @@ export default function Report() {
             <meta charset="UTF-8">
             <title>${user.role} Report - ${dayjs().format("YYYY-MM-DD")}</title>
             <style>
-              * {
-                margin: 0;
-                padding: 0;
-                box-sizing: border-box;
-              }
-              body {
-                font-family: system-ui, -apple-system, sans-serif;
-                line-height: 1.5;
-                color: #1f2937;
-                background: white;
-                padding: 20px;
-              }
-              .space-y-6 > * + * {
-                margin-top: 1.5rem;
-              }
-              .space-y-4 > * + * {
-                margin-top: 1rem;
-              }
-              .space-y-3 > * + * {
-                margin-top: 0.75rem;
-              }
-              .grid {
-                display: grid;
-                gap: 1rem;
-              }
-              .grid-cols-1 {
-                grid-template-columns: repeat(1, minmax(0, 1fr));
-              }
-              .grid-cols-2 {
-                grid-template-columns: repeat(2, minmax(0, 1fr));
-              }
-              .grid-cols-3 {
-                grid-template-columns: repeat(3, minmax(0, 1fr));
-              }
-              .grid-cols-4 {
-                grid-template-columns: repeat(4, minmax(0, 1fr));
-              }
-              @media (min-width: 640px) {
-                .sm\\:grid-cols-2 {
-                  grid-template-columns: repeat(2, minmax(0, 1fr));
-                }
-              }
+              * { margin: 0; padding: 0; box-sizing: border-box; }
+              body { font-family: system-ui, -apple-system, sans-serif; line-height: 1.5; color: #1f2937; background: white; padding: 20px; }
+              .space-y-6 > * + * { margin-top: 1.5rem; }
+              .space-y-4 > * + * { margin-top: 1rem; }
+              .space-y-3 > * + * { margin-top: 0.75rem; }
+              .grid { display: grid; gap: 1rem; }
+              .grid-cols-1 { grid-template-columns: repeat(1, minmax(0, 1fr)); }
+              .grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+              .grid-cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+              .grid-cols-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+              @media (min-width: 640px) { .sm\\:grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
               @media (min-width: 768px) {
-                .md\\:grid-cols-3 {
-                  grid-template-columns: repeat(3, minmax(0, 1fr));
-                }
-                .md\\:grid-cols-4 {
-                  grid-template-columns: repeat(4, minmax(0, 1fr));
-                }
+                .md\\:grid-cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+                .md\\:grid-cols-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
               }
-              @media (min-width: 1024px) {
-                .lg\\:grid-cols-4 {
-                  grid-template-columns: repeat(4, minmax(0, 1fr));
-                }
-              }
-              .rounded-2xl {
-                border-radius: 1rem;
-              }
-              .rounded-xl {
-                border-radius: 0.75rem;
-              }
-              .rounded-lg {
-                border-radius: 0.5rem;
-              }
-              .rounded-full {
-                border-radius: 9999px;
-              }
-              .border {
-                border: 1px solid #e5e7eb;
-              }
-              .p-6 {
-                padding: 1.5rem;
-              }
-              .p-4 {
-                padding: 1rem;
-              }
-              .p-3 {
-                padding: 0.75rem;
-              }
-              .px-3 {
-                padding-left: 0.75rem;
-                padding-right: 0.75rem;
-              }
-              .py-1 {
-                padding-top: 0.25rem;
-                padding-bottom: 0.25rem;
-              }
-              .pb-4 {
-                padding-bottom: 1rem;
-              }
-              .mb-4 {
-                margin-bottom: 1rem;
-              }
-              .mb-3 {
-                margin-bottom: 0.75rem;
-              }
-              .mb-2 {
-                margin-bottom: 0.5rem;
-              }
-              .mb-1 {
-                margin-bottom: 0.25rem;
-              }
-              .mt-1 {
-                margin-top: 0.25rem;
-              }
-              .mt-2 {
-                margin-top: 0.5rem;
-              }
-              .mt-4 {
-                margin-top: 1rem;
-              }
-              .text-center {
-                text-align: center;
-              }
-              .text-left {
-                text-align: left;
-              }
-              .text-right {
-                text-align: right;
-              }
-              .font-bold {
-                font-weight: 700;
-              }
-              .font-semibold {
-                font-weight: 600;
-              }
-              .font-medium {
-                font-weight: 500;
-              }
-              .text-3xl {
-                font-size: 1.875rem;
-              }
-              .text-2xl {
-                font-size: 1.5rem;
-              }
-              .text-xl {
-                font-size: 1.25rem;
-              }
-              .text-lg {
-                font-size: 1.125rem;
-              }
-              .text-sm {
-                font-size: 0.875rem;
-              }
-              .text-xs {
-                font-size: 0.75rem;
-              }
-              .flex {
-                display: flex;
-              }
-              .items-center {
-                align-items: center;
-              }
-              .justify-between {
-                justify-content: space-between;
-              }
-              .gap-2 {
-                gap: 0.5rem;
-              }
-              .gap-3 {
-                gap: 0.75rem;
-              }
-              .gap-4 {
-                gap: 1rem;
-              }
-              .gap-6 {
-                gap: 1.5rem;
-              }
-              .flex-wrap {
-                flex-wrap: wrap;
-              }
-              .inline-flex {
-                display: inline-flex;
-              }
-              .overflow-x-auto {
-                overflow-x: auto;
-              }
-              .w-full {
-                width: 100%;
-              }
-              .h-2 {
-                height: 0.5rem;
-              }
-              table {
-                width: 100%;
-                border-collapse: collapse;
-              }
-              thead {
-                border-bottom: 2px solid #e5e7eb;
-              }
-              tbody tr {
-                border-bottom: 1px solid #e5e7eb;
-              }
-              th, td {
-                padding: 0.75rem 1rem;
-              }
-              th {
-                font-weight: 600;
-                text-align: left;
-              }
-              .shadow-sm {
-                box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
-              }
-              @media print {
-                body {
-                  padding: 0;
-                }
-                .page-break {
-                  page-break-before: always;
-                }
-              }
+              @media (min-width: 1024px) { .lg\\:grid-cols-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+              .rounded-2xl { border-radius: 1rem; }
+              .rounded-xl { border-radius: 0.75rem; }
+              .rounded-lg { border-radius: 0.5rem; }
+              .rounded-full { border-radius: 9999px; }
+              .border { border: 1px solid #e5e7eb; }
+              .p-6 { padding: 1.5rem; }
+              .p-4 { padding: 1rem; }
+              .p-3 { padding: 0.75rem; }
+              .px-3 { padding-left: 0.75rem; padding-right: 0.75rem; }
+              .py-1 { padding-top: 0.25rem; padding-bottom: 0.25rem; }
+              .pb-4 { padding-bottom: 1rem; }
+              .mb-4 { margin-bottom: 1rem; }
+              .mb-3 { margin-bottom: 0.75rem; }
+              .mb-2 { margin-bottom: 0.5rem; }
+              .mb-1 { margin-bottom: 0.25rem; }
+              .mt-1 { margin-top: 0.25rem; }
+              .mt-2 { margin-top: 0.5rem; }
+              .mt-4 { margin-top: 1rem; }
+              .text-center { text-align: center; }
+              .text-left { text-align: left; }
+              .text-right { text-align: right; }
+              .font-bold { font-weight: 700; }
+              .font-semibold { font-weight: 600; }
+              .font-medium { font-weight: 500; }
+              .text-3xl { font-size: 1.875rem; }
+              .text-2xl { font-size: 1.5rem; }
+              .text-xl { font-size: 1.25rem; }
+              .text-lg { font-size: 1.125rem; }
+              .text-sm { font-size: 0.875rem; }
+              .text-xs { font-size: 0.75rem; }
+              .flex { display: flex; }
+              .items-center { align-items: center; }
+              .justify-between { justify-content: space-between; }
+              .gap-2 { gap: 0.5rem; }
+              .gap-3 { gap: 0.75rem; }
+              .gap-4 { gap: 1rem; }
+              .gap-6 { gap: 1.5rem; }
+              .flex-wrap { flex-wrap: wrap; }
+              .inline-flex { display: inline-flex; }
+              .overflow-x-auto { overflow-x: auto; }
+              .w-full { width: 100%; }
+              .h-2 { height: 0.5rem; }
+              table { width: 100%; border-collapse: collapse; }
+              thead { border-bottom: 2px solid #e5e7eb; }
+              tbody tr { border-bottom: 1px solid #e5e7eb; }
+              th, td { padding: 0.75rem 1rem; }
+              th { font-weight: 600; text-align: left; }
+              .shadow-sm { box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05); }
+              @media print { body { padding: 0; } .page-break { page-break-before: always; } }
             </style>
           </head>
           <body>
@@ -1469,17 +1451,13 @@ export default function Report() {
       printWindow.document.write(printDocument);
       printWindow.document.close();
 
-      // Wait for content to load, then trigger print
       setTimeout(() => {
         printWindow.focus();
         printWindow.print();
-
-        // Close after printing (or if user cancels)
         setTimeout(() => {
           printWindow.close();
         }, 100);
       }, 500);
-
     } catch (err) {
       console.error("Export failed:", err);
       alert(err.message || "Failed to export PDF. Please try again.");
@@ -1523,7 +1501,7 @@ export default function Report() {
               ? "My Task Report"
               : user.role === "Manager"
                 ? "Project Consolidation Report"
-                : (user.role === "Senior Manager" || user.role === "HR")
+                : user.role === "Senior Manager" || user.role === "HR"
                   ? "Company-Wide Performance Report"
                   : `${reportData?.departmentInfo?.departmentName || "Department"} Overview Report`}
           </h1>
