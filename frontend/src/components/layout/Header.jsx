@@ -49,7 +49,6 @@ const navigationConfig = {
     { to: "/report", label: "Report" },
   ],
   "Senior Manager": [
-    { to: "/calendar", label: "Calendar" },
     { to: "/dashboard", label: "Dashboard" },
     { to: "/report", label: "Report" },
   ],
