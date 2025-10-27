@@ -38,4 +38,4 @@ UserSchema.methods.isLocked = function () {
   return this.lockUntil && this.lockUntil > Date.now();
 };
 
-export default model('User', UserSchema);
+export default mongoose.models.User || model('User', UserSchema);
