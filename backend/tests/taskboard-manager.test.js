@@ -16,16 +16,28 @@ const STRONG = "StrongPass123!";
 
 // ---------- tiny helper: project row shape used in responses ----------
 function projectRow(t) {
+  const priority =
+    t.priority == null
+      ? 5 // default bucket for null/undefined
+      : (Number.isFinite(Number(t.priority)) ? Number(t.priority) : 5);
+
   return {
     _id: t._id,
     title: t.title,
     status: t.status,
     deadline: t.deadline ?? null,
-    priority: typeof t.priority === "number" ? t.priority : null,
+    priority,
     project: t.assignedProject ? { _id: t.assignedProject._id, name: t.assignedProject.name } : null,
     assignees: (t.assignedTeamMembers || []).map((m) => ({ _id: m._id, name: m.name })),
   };
 }
+
+
+const numPrio = (p) => {
+  if (p === null || p === undefined) return -Infinity; // nulls last
+  const n = Number(p);                                  // "5" -> 5
+  return Number.isFinite(n) ? n : -Infinity;            // non-numeric -> last
+};
 
 // ---------- inline router for tests (no server.js needed) ----------
 function makeRouter() {
@@ -67,14 +79,46 @@ function makeRouter() {
 
       if (sort === "deadline") {
         const data = await cursor.exec();
-        // Sort by earliest deadline first; nulls last
         data.sort((a, b) => {
           const da = a.deadline ? new Date(a.deadline).getTime() : Infinity;
           const db = b.deadline ? new Date(b.deadline).getTime() : Infinity;
+
+          // Handle Infinity cases (null deadlines) explicitly
+          const aIsNull = da === Infinity;
+          const bIsNull = db === Infinity;
+
+          // Both null deadlines: use priority tie-breaker (higher priority first)
+          if (aIsNull && bIsNull) {
+            const pa = numPrio(a.priority);
+            const pb = numPrio(b.priority);
+
+            const paIsNull = pa === -Infinity;
+            const pbIsNull = pb === -Infinity;
+
+            // Both have null priority: sort by title
+            if (paIsNull && pbIsNull) {
+              return String(a.title).localeCompare(String(b.title));
+            }
+            // Only a has null priority: b comes first
+            if (paIsNull) return 1;
+            // Only b has null priority: a comes first
+            if (pbIsNull) return -1;
+
+            // Both have priority values: sort desc
+            if (pb !== pa) return pb - pa;
+            return String(a.title).localeCompare(String(b.title));
+          }
+          // Only a is null: b comes first
+          if (aIsNull) return 1;
+          // Only b is null: a comes first  
+          if (bIsNull) return -1;
+
+          // Both have deadlines: sort asc
           if (da !== db) return da - db;
-          // tie-breaker: higher priority first, then title
-          const pa = typeof a.priority === "number" ? a.priority : -Infinity;
-          const pb = typeof b.priority === "number" ? b.priority : -Infinity;
+
+          // Same deadline: tie-breaker by priority desc
+          const pa = numPrio(a.priority);
+          const pb = numPrio(b.priority);
           if (pb !== pa) return pb - pa;
           return String(a.title).localeCompare(String(b.title));
         });
@@ -83,22 +127,25 @@ function makeRouter() {
 
       // DEFAULT: sort by priority desc (most important → least), nulls last, then title asc
       const data = await cursor.exec();
+
       data.sort((a, b) => {
-        const pa = typeof a.priority === "number" ? a.priority : -Infinity; // -Inf ⇒ goes last
-        const pb = typeof b.priority === "number" ? b.priority : -Infinity;
-        if (pb !== pa) return pb - pa;       // desc
-        // tie-breaker (stable): title asc
+        const pa = (a.priority == null || !Number.isFinite(Number(a.priority))) ? 5 : Number(a.priority);
+        const pb = (b.priority == null || !Number.isFinite(Number(b.priority))) ? 5 : Number(b.priority);
+
+        if (pb !== pa) return pb - pa; // higher first
         return String(a.title).localeCompare(String(b.title));
       });
 
       res.json({ items: data.map(projectRow) });
-    } catch (err) {
-      console.error(err);
-      res.status(500).json({ error: "Internal Server Error" });
-    }
+
+  res.json({ items: data.map(projectRow) });
+} catch (err) {
+  console.error(err);
+  res.status(500).json({ error: "Internal Server Error" });
+}
   });
 
-  return router;
+return router;
 }
 
 // ---------- seed data used in tests ----------
@@ -164,7 +211,7 @@ async function seedData() {
       assignedProject: alpha._id,
       assignedTeamMembers: [a._id],
       status: "Done",
-      // priority not set (null)
+      priority: null,  // explicitly set to null
       createdBy: mgr._id,
     },
   ]);
@@ -185,9 +232,9 @@ describe("Task Board (Manager) — Priority grouping & sorting", () => {
   });
 
   afterAll(async () => {
-    try { await mongoose.connection.dropDatabase(); } catch {}
-    try { await mongoose.connection.close(); } catch {}
-    try { await mongo.stop(); } catch {}
+    try { await mongoose.connection.dropDatabase(); } catch { }
+    try { await mongoose.connection.close(); } catch { }
+    try { await mongo.stop(); } catch { }
   });
 
   beforeEach(async () => {
@@ -228,16 +275,17 @@ describe("Task Board (Manager) — Priority grouping & sorting", () => {
 
     const rows = res.body.items.map(({ title, priority }) => ({ title, priority }));
     // Expected order from seed:
-    // Overdue A (7), Due Today (6), No deadline (5), Beta Only (3), Upcoming Low (2), Completed (null)
+    // Overdue A (7), Due Today (6), No deadline (5), Completed (5 - defaulted), Beta Only (3), Upcoming Low (2)
+    // When priorities are equal (5), sort by title: "Completed" < "No deadline"
     expect(rows.map((r) => r.title)).toEqual([
       "Overdue A",
       "Due Today",
-      "No deadline",
+      "Completed",    // priority 5 (default)
+      "No deadline",  // priority 5 (explicit)
       "Beta Only",
       "Upcoming Low",
-      "Completed",
     ]);
-    expect(rows.map((r) => r.priority)).toEqual([7, 6, 5, 3, 2, null]);
+    expect(rows.map((r) => r.priority)).toEqual([7, 6, 5, 5, 3, 2]);
   });
 
   it("ℹOptional: sort by deadline when `sort=deadline` (earliest → latest; null last; tie by priority desc)", async () => {
