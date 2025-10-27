@@ -140,7 +140,7 @@ export async function getProjectTasks(projectId) {
 }
 
 export async function getManagerProjects(userId) {
-  const res = await fetch(`${API_BASE}/api/projects/user/createdBy/${userId}`, { credentials: "include" });
+  const res = await fetch(`${API_BASE}/api/projects/user/${userId}`, { credentials: "include" });
   if (!res.ok) throw new Error(await res.text().catch(() => "Failed to fetch projects"));
   const projects = await res.json();
   return Array.isArray(projects)
