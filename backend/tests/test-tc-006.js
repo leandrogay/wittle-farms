@@ -15,7 +15,8 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Load environment variables
-dotenv.config({ path: './config/secrets.env' });
+const envPath = path.join(__dirname, '..', 'config', 'secrets.env');
+dotenv.config({ path: envPath });
 
 async function createTestTask() {
   try {
@@ -23,19 +24,48 @@ async function createTestTask() {
     await mongoose.connect(process.env.MONGO_URI);
     console.log('✅ Connected to MongoDB');
 
-    // Find the project "LF-50 functional test cases"
-    const project = await Project.findOne({ name: "LF-50 functional test cases" });
-    if (!project) {
-      throw new Error('❌ Project "LF-50 functional test cases" not found. Please create it first.');
-    }
-    console.log('✅ Found project:', project.name);
-
-    // Find the user "littlefarms.inappreminder"
-    const user = await User.findOne({ email: "littlefarms.inappreminder@gmail.com" });
+    // Find or create the user "littlefarms.inappreminder"
+    let user = await User.findOne({ email: "littlefarms.inappreminder@gmail.com" });
     if (!user) {
-      throw new Error('❌ User "littlefarms.inappreminder" not found. Please create this user first.');
+      console.log('👤 User "littlefarms.inappreminder@gmail.com" not found. Creating it...');
+      user = await User.create({
+        name: "LF-50 Test User",
+        email: "littlefarms.inappreminder@gmail.com",
+        password: process.env.UNIT_TEST_GENERIC_PASSWORD,
+        role: "Staff"
+      });
+      console.log('✅ Created user:', user.email);
+    } else {
+      console.log('✅ Found existing user:', user.email);
+      
+      // Ensure the user has "Staff" role for task access in this test
+      if (user.role !== "Staff") {
+        console.log(`🔄 User role is "${user.role}" but test requires "Staff" role for task access`);
+        console.log('🔧 Temporarily updating user role to "Staff" for this test...');
+        user.role = "Staff";
+        await user.save();
+        console.log('✅ User role updated to "Staff"');
+      } else {
+        console.log('✅ User role is already "Staff"');
+      }
     }
-    console.log('✅ Found user:', user.email);
+
+    // Find or create the project "LF-50 functional test cases"
+    let project = await Project.findOne({ name: "LF-50 functional test cases" });
+    if (!project) {
+      console.log('📁 Project "LF-50 functional test cases" not found. Creating it...');
+      project = await Project.create({
+        name: "LF-50 functional test cases",
+        description: "Project for functional testing of LF-50 in-app notification reminder feature",
+        status: "Active",
+        createdBy: user._id,
+        startDate: new Date(),
+        endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days from now
+      });
+      console.log('✅ Created project:', project.name);
+    } else {
+      console.log('✅ Found existing project:', project.name);
+    }
 
     // Clean up ALL existing notifications for this user (clean slate for TC-006)
     const existingNotifications = await Notification.find({ userId: user._id });
