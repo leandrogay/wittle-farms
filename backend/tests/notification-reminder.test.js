@@ -606,12 +606,11 @@ describe('In-App Notification Reminder System', () => {
      * - Different from 'reminder' type
      * 
      * Implementation Note:
-     * - Overdue logic condition: deadline.isBefore(now, 'minute') AND deadline.isAfter(now.subtract(1, 'minute'), 'minute')
-     * - ISSUE: With dayjs 'minute' granularity, this condition appears to never be satisfied
-     * - May need implementation fix: remove 'minute' granularity or adjust logic
-     * - Tests skipped until implementation is clarified/fixed
+     * - Overdue logic condition: deadline.isBefore(now) - any task past deadline
+     * - Creates notification only once per task (prevents duplicates)
+     * - Fixed: Previously had 60-second window limitation, now works for all overdue tasks
      */
-    it.skip('should create overdue notification when task deadline passes', async () => {
+    it('should create overdue notification when task deadline passes', async () => {
       const user = await User.create({
         name: 'Test Staff',
         email: 'staff@test.com',
@@ -619,8 +618,7 @@ describe('In-App Notification Reminder System', () => {
         role: 'Staff'
       });
 
-      // Deadline must be in previous minute (minute granularity)
-      // Subtract 1 minute + a few seconds to ensure it's in the previous minute
+      // Deadline was in the past (overdue)
       const deadlineTime = dayjs().subtract(1, 'minute').subtract(5, 'second');
       
       const task = await Task.create({
@@ -644,33 +642,6 @@ describe('In-App Notification Reminder System', () => {
       expect(overdueNotif.message).toContain('overdue');
       expect(overdueNotif.message).toContain(task.title);
     });
-
-    it('should not create overdue notification if deadline passed more than 1 minute ago', async () => {
-      const user = await User.create({
-        name: 'Test Staff',
-        email: 'staff@test.com',
-        password: process.env.UNIT_TEST_GENERIC_PASSWORD,
-        role: 'Staff'
-      });
-
-      // Deadline was 5 minutes ago (outside 1-minute window)
-      const deadlineTime = dayjs().subtract(5, 'minute');
-      
-      await Task.create({
-        title: 'Old Overdue Task',
-        assignedTeamMembers: [user._id],
-        status: 'In Progress',
-        deadline: deadlineTime.toDate(),
-        reminderOffsets: [1440],
-        createdBy: user._id
-      });
-
-      const notifications = await checkAndCreateReminders();
-
-      // No overdue notification should be created (window passed)
-      const overdueNotifications = notifications.filter(n => n.type === 'overdue');
-      expect(overdueNotifications).toHaveLength(0);
-    });
   });
 
   describe('TC-008: Overdue notification persists until task marked Done', () => {
@@ -688,9 +659,10 @@ describe('In-App Notification Reminder System', () => {
      * - checkAndCreateReminders() excludes tasks with status: 'Done'
      * - Query: Task.find({ status: { $ne: 'Done' } })
      * 
-     * Tests skipped: Dependent on TC-007 overdue logic which has implementation issue
+     * Tests skipped: This test verifies the previous 60-second window behavior, 
+     * which is no longer applicable with the corrected implementation
      */
-    it.skip('should stop creating notifications once task is marked Done', async () => {
+    it('should stop creating notifications once task is marked Done', async () => {
       const user = await User.create({
         name: 'Test Staff',
         email: 'staff@test.com',
@@ -728,7 +700,7 @@ describe('In-App Notification Reminder System', () => {
       expect(newOverdueNotifications).toHaveLength(0);
     });
 
-    it.skip('should continue showing overdue notification for In Progress task', async () => {
+    it('should continue showing overdue notification for In Progress task', async () => {
       const user = await User.create({
         name: 'Test Staff',
         email: 'staff@test.com',
@@ -816,7 +788,7 @@ describe('In-App Notification Reminder System', () => {
       expect(allNotifications).toHaveLength(1);
     });
 
-    it.skip('should not create duplicate overdue notifications', async () => {
+    it('should not create duplicate overdue notifications', async () => {
       const user = await User.create({
         name: 'Test Staff',
         email: 'staff@test.com',
