@@ -61,20 +61,17 @@ export async function checkAndCreateReminders() {
       }
     }
 
-    // if (
-    //   deadline.isBefore(now, 'minute') &&
-    //   deadline.isAfter(now.subtract(1, 'minute'), 'minute')
-    // ) 
-    const secondsSinceDeadline = now.diff(deadline, 'second');
-    if (secondsSinceDeadline >= 0 && secondsSinceDeadline <= 60){
+    // Check if task is overdue (deadline has passed)
+    if (deadline.isBefore(now)) {
       for (const memberId of task.assignedTeamMembers) {
+        // Check if we already have an overdue notification for this user+task
         const existingNotification = await Notification.findOne({
           userId: memberId,
           taskId: task._id,
-          type: 'overdue',
-          scheduledFor: new Date(deadline)
+          type: 'overdue'
         });
 
+        // Only create if no overdue notification exists yet
         if (!existingNotification) {
           const notification = {
             userId: memberId,
