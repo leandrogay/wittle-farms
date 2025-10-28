@@ -162,9 +162,9 @@ function StaffReport({ userId, reportData, reportRef }) {
       {/* Overview Metrics */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
         <MetricCard icon={ReportIcon} label="Total Tasks" value={metrics.total} color="brand" />
-        <MetricCard icon={CheckIcon} label="Completed" value={metrics.completed} color="success" />
-        <MetricCard icon={ClockIcon} label="In Progress" value={metrics.inProgress} color="info"/>
         <MetricCard icon={ClipboardListIcon} label="To Do" value={metrics.todo} color="warning" />
+        <MetricCard icon={ClockIcon} label="In Progress" value={metrics.inProgress} color="info"/>
+        <MetricCard icon={CheckIcon} label="Completed" value={metrics.completed} color="success" />
         <MetricCard icon={ReportIcon} label="Overdue" value={metrics.overdue} color="danger" />
       </div>
 
