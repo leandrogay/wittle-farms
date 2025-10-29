@@ -1,7 +1,7 @@
 {
   "name": "task-generator",
   "version": "1.0.0",
-  "description": "",
+  "description": "## Setting up the project:     cd task-generator     npm init -y     npm install axios form-data",
   "main": "generate-tasks.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
@@ -11,7 +11,7 @@
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
-    "axios": "^1.12.2",
+    "axios": "^1.13.1",
     "bcryptjs": "^3.0.2",
     "dotenv": "^17.2.3",
     "form-data": "^4.0.4",

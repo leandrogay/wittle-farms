@@ -44,6 +44,7 @@ let conn;
 let Users;
 let Projects;
 let Tasks;
+let Comments;
 
 // ---- FAIL-FAST, VERBOSE CONNECT ----
 async function mongoConnect() {
@@ -61,6 +62,7 @@ async function mongoConnect() {
         Users = db.collection('users');
         Projects = db.collection('projects');
         Tasks = db.collection('tasks');
+        Comments = db.collection('comments');
         console.log('✅ Connected to MongoDB');
     } catch (err) {
         console.error('❌ MongoDB connection failed:', err.message);
@@ -178,6 +180,28 @@ async function updateTaskDirect(_id, patch) {
     return await Tasks.findOne({ _id: oid(_id) });
 }
 
+
+async function createCommentDirect({
+    taskId, body, authorId, createdAt = now(), updatedAt = now()
+}) {
+    if (!taskId) throw new Error('createCommentDirect: taskId required');
+    if (!body || !body.trim()) throw new Error('createCommentDirect: body required');
+    if (!authorId) throw new Error('createCommentDirect: authorId required');
+
+    const doc = {
+        task: oid(taskId),
+        body,                      // <-- content field UI/API expect
+        author: oid(authorId),     // <-- use 'author', NOT 'authorId'
+        createdAt,
+        updatedAt,
+    };
+
+    if (DRY_RUN) return { _id: `dry-cmt-${String(taskId)}`, ...doc };
+    const res = await Comments.insertOne(doc);
+    return { _id: res.insertedId, ...doc };
+}
+
+
 // =====================
 // Scoped cleanup (scenario 0) - ONLY seeded data
 // =====================
@@ -200,6 +224,19 @@ async function cleanupOnlySeeded() {
         ],
     }, { projection: { _id: 1 } }).toArray();
 
+    // 3) Seeded comments (by linked seeded task OR created by seeded user OR body prefix)
+    const seededTaskIds = seededTasks.map(t => t._id);
+    const seededComments = await Comments.find({
+        $or: [
+            ...(seededTaskIds.length ? [{ task: { $in: seededTaskIds } }] : []),
+            ...(seededUserIds.length ? [{ author: { $in: seededUserIds } }] : []), // <-- author
+            { body: { $regex: `^\\${SEED_PREFIX}` } },                              // <-- body
+        ],
+    }, { projection: { _id: 1 } }).toArray();
+    console.log(`   Found ${seededComments.length} seeded comments`);
+
+
+
     console.log(`   Found ${seededUserIds.length} seeded users`);
     console.log(`   Found ${seededProjectIds.length} seeded projects`);
     console.log(`   Found ${seededTasks.length} seeded tasks`);
@@ -209,12 +246,12 @@ async function cleanupOnlySeeded() {
         return;
     }
 
-    // Delete in safe order: tasks → projects → users
+    const cRes = seededComments.length ? await Comments.deleteMany({ _id: { $in: seededComments.map(c => c._id) } }) : { deletedCount: 0 };
     const tRes = seededTasks.length ? await Tasks.deleteMany({ _id: { $in: seededTasks.map(t => t._id) } }) : { deletedCount: 0 };
     const pRes = seededProjectIds.length ? await Projects.deleteMany({ _id: { $in: seededProjectIds } }) : { deletedCount: 0 };
     const uRes = seededUserIds.length ? await Users.deleteMany({ _id: { $in: seededUserIds } }) : { deletedCount: 0 };
 
-    console.log(`✅ Cleanup complete: deleted ${tRes.deletedCount} tasks, ${pRes.deletedCount} projects, ${uRes.deletedCount} users`);
+    console.log(`✅ Cleanup complete: deleted ${cRes.deletedCount} comments, ${tRes.deletedCount} tasks, ${pRes.deletedCount} projects, ${uRes.deletedCount} users`);
 }
 
 // =====================
@@ -478,122 +515,265 @@ async function scenario7({ manager, team }, n) {
 }
 
 async function scenario8({ manager, team }, n) {
-  const baseDate = new Date(); // today, deterministic each run
+    const baseDate = new Date(); // today, deterministic each run
 
-  // Duration helpers — based on avg completion days
-  const durations = {
-    p1: [2, 4],              // avg ~3 days (2 done)
-    p2: [7, 8, 9, 8, 10, 9, 8, 9], // avg ~8.5 days (8 done)
-    p3: [5, 6, 7, 5, 7, 6, 6], // avg ~6 days (7 done)
-    p4: [9, 10, 11, 10, 9, 10] // avg ~10 days (6 done)
-  };
+    // Duration helpers — based on avg completion days
+    const durations = {
+        p1: [2, 4],              // avg ~3 days (2 done)
+        p2: [7, 8, 9, 8, 10, 9, 8, 9], // avg ~8.5 days (8 done)
+        p3: [5, 6, 7, 5, 7, 6, 6], // avg ~6 days (7 done)
+        p4: [9, 10, 11, 10, 9, 10] // avg ~10 days (6 done)
+    };
 
-  const projectConfigs = [
-    { idx: 1, title: "P1", done: 2, todo: 2, ip: 1, overdueIP: 0, durationsKey: 'p1' },
-    { idx: 2, title: "P2", done: 8, todo: 0, ip: 0, overdueIP: 0, durationsKey: 'p2' },
-    { idx: 3, title: "P3", done: 7, todo: 0, ip: 3, overdueIP: 2, durationsKey: 'p3' },
-    { idx: 4, title: "P4", done: 6, todo: 3, ip: 1, overdueIP: 0, durationsKey: 'p4' },
-  ];
+    const projectConfigs = [
+        { idx: 1, title: "P1", done: 2, todo: 2, ip: 1, overdueIP: 0, durationsKey: 'p1' },
+        { idx: 2, title: "P2", done: 8, todo: 0, ip: 0, overdueIP: 0, durationsKey: 'p2' },
+        { idx: 3, title: "P3", done: 7, todo: 0, ip: 3, overdueIP: 2, durationsKey: 'p3' },
+        { idx: 4, title: "P4", done: 6, todo: 3, ip: 1, overdueIP: 0, durationsKey: 'p4' },
+    ];
 
-  const projects = [];
-  for (const cfg of projectConfigs) {
-    const p = await createProjectDirect({
-      name: `${SC_LABEL(n)} Scenario8 Project ${cfg.idx}`,
-      description: `Rich test dataset ${cfg.title}`,
-      departments: [DEPARTMENTS.SYSTEM_SOLUTIONING],
-      deadline: new Date(baseDate.getTime() + 30 * 86400000),
-      createdBy: manager._id,
-      teamMembers: team.map(t => t._id),
-      createdAt: new Date(baseDate.getTime() - 14 * 86400000),
-      updatedAt: baseDate,
-    });
-    projects.push(p);
-  }
-
-  let staffIndex = 0;
-
-  for (let i = 0; i < projectConfigs.length; i++) {
-    const cfg = projectConfigs[i];
-    const p = projects[i];
-    const dur = durations[cfg.durationsKey];
-
-    // 1️⃣ Done Tasks w/ avg completion time
-    for (let j = 0; j < cfg.done; j++) {
-      const startAt = new Date(baseDate.getTime() - dur[j] * 86400000);
-      const completedAt = new Date(startAt.getTime() + dur[j] * 86400000);
-
-      await createTaskDirect({
-        title: `${SC_LABEL(n)} ${cfg.title} Done ${j + 1}`,
-        assignedProject: p._id,
-        assignedTeamMembers: [team[staffIndex % team.length]._id],
-        status: "Done",
-        priority: 5,
-        deadline: new Date(baseDate.getTime() + 10 * 86400000),
-        createdBy: manager._id,
-        startAt,
-        endAt: completedAt,
-        completedAt,
-        createdAt: startAt,
-        updatedAt: completedAt,
-      });
-      staffIndex++;
+    const projects = [];
+    for (const cfg of projectConfigs) {
+        const p = await createProjectDirect({
+            name: `${SC_LABEL(n)} Scenario8 Project ${cfg.idx}`,
+            description: `Rich test dataset ${cfg.title}`,
+            departments: [DEPARTMENTS.SYSTEM_SOLUTIONING],
+            deadline: new Date(baseDate.getTime() + 30 * 86400000),
+            createdBy: manager._id,
+            teamMembers: team.map(t => t._id),
+            createdAt: new Date(baseDate.getTime() - 14 * 86400000),
+            updatedAt: baseDate,
+        });
+        projects.push(p);
     }
 
-    // 2️⃣ In Progress (within deadline)
-    for (let j = 0; j < cfg.ip - cfg.overdueIP; j++) {
-      const startAt = new Date(baseDate.getTime() - 2 * 86400000);
+    let staffIndex = 0;
 
-      await createTaskDirect({
-        title: `${SC_LABEL(n)} ${cfg.title} IP ${j + 1}`,
-        assignedProject: p._id,
-        assignedTeamMembers: [team[staffIndex % team.length]._id],
-        status: "In Progress",
-        priority: 5,
-        deadline: new Date(baseDate.getTime() + 7 * 86400000),
-        createdBy: manager._id,
-        startAt,
-        createdAt: startAt,
-      });
-      staffIndex++;
+    for (let i = 0; i < projectConfigs.length; i++) {
+        const cfg = projectConfigs[i];
+        const p = projects[i];
+        const dur = durations[cfg.durationsKey];
+
+        // 1️⃣ Done Tasks w/ avg completion time
+        for (let j = 0; j < cfg.done; j++) {
+            const startAt = new Date(baseDate.getTime() - dur[j] * 86400000);
+            const completedAt = new Date(startAt.getTime() + dur[j] * 86400000);
+
+            await createTaskDirect({
+                title: `${SC_LABEL(n)} ${cfg.title} Done ${j + 1}`,
+                assignedProject: p._id,
+                assignedTeamMembers: [team[staffIndex % team.length]._id],
+                status: "Done",
+                priority: 5,
+                deadline: new Date(baseDate.getTime() + 10 * 86400000),
+                createdBy: manager._id,
+                startAt,
+                endAt: completedAt,
+                completedAt,
+                createdAt: startAt,
+                updatedAt: completedAt,
+            });
+            staffIndex++;
+        }
+
+        // 2️⃣ In Progress (within deadline)
+        for (let j = 0; j < cfg.ip - cfg.overdueIP; j++) {
+            const startAt = new Date(baseDate.getTime() - 2 * 86400000);
+
+            await createTaskDirect({
+                title: `${SC_LABEL(n)} ${cfg.title} IP ${j + 1}`,
+                assignedProject: p._id,
+                assignedTeamMembers: [team[staffIndex % team.length]._id],
+                status: "In Progress",
+                priority: 5,
+                deadline: new Date(baseDate.getTime() + 7 * 86400000),
+                createdBy: manager._id,
+                startAt,
+                createdAt: startAt,
+            });
+            staffIndex++;
+        }
+
+        // 3️⃣ Overdue In Progress
+        for (let j = 0; j < cfg.overdueIP; j++) {
+            const startAt = new Date(baseDate.getTime() - 10 * 86400000);
+
+            await createTaskDirect({
+                title: `${SC_LABEL(n)} ${cfg.title} Overdue ${j + 1}`,
+                assignedProject: p._id,
+                assignedTeamMembers: [team[staffIndex % team.length]._id],
+                status: "In Progress",
+                priority: 5,
+                deadline: new Date(baseDate.getTime() - 5 * 86400000),
+                createdBy: manager._id,
+                startAt,
+                createdAt: startAt,
+            });
+            staffIndex++;
+        }
+
+        // 4️⃣ To Do
+        for (let j = 0; j < cfg.todo; j++) {
+            const startAt = baseDate;
+
+            await createTaskDirect({
+                title: `${SC_LABEL(n)} ${cfg.title} ToDo ${j + 1}`,
+                assignedProject: p._id,
+                assignedTeamMembers: [team[staffIndex % team.length]._id],
+                status: "To Do",
+                priority: 5,
+                deadline: new Date(baseDate.getTime() + 15 * 86400000),
+                createdBy: manager._id,
+                startAt,
+                createdAt: startAt,
+            });
+            staffIndex++;
+        }
     }
-
-    // 3️⃣ Overdue In Progress
-    for (let j = 0; j < cfg.overdueIP; j++) {
-      const startAt = new Date(baseDate.getTime() - 10 * 86400000);
-
-      await createTaskDirect({
-        title: `${SC_LABEL(n)} ${cfg.title} Overdue ${j + 1}`,
-        assignedProject: p._id,
-        assignedTeamMembers: [team[staffIndex % team.length]._id],
-        status: "In Progress",
-        priority: 5,
-        deadline: new Date(baseDate.getTime() - 5 * 86400000),
-        createdBy: manager._id,
-        startAt,
-        createdAt: startAt,
-      });
-      staffIndex++;
-    }
-
-    // 4️⃣ To Do
-    for (let j = 0; j < cfg.todo; j++) {
-      const startAt = baseDate;
-
-      await createTaskDirect({
-        title: `${SC_LABEL(n)} ${cfg.title} ToDo ${j + 1}`,
-        assignedProject: p._id,
-        assignedTeamMembers: [team[staffIndex % team.length]._id],
-        status: "To Do",
-        priority: 5,
-        deadline: new Date(baseDate.getTime() + 15 * 86400000),
-        createdBy: manager._id,
-        startAt,
-        createdAt: startAt,
-      });
-      staffIndex++;
-    }
-  }
 }
+
+async function scenario9({ manager, team }, n) {
+    // 5 buckets: 1=Critical, 2=High, 3=Medium, 4=Low, undefined=None
+    const p = await createProjectDirect({
+        name: `${SC_LABEL(n)} S9 Priority Buckets`,
+        description: 'LF-76 dataset with mixed statuses',
+        departments: [DEPARTMENTS.SYSTEM_SOLUTIONING],
+        deadline: new Date(Date.now() + 30 * 86400000),
+        createdBy: manager._id,
+        teamMembers: team.map(t => t._id),
+    });
+
+    const base = new Date();
+    function staff(i) {
+        return [team[i % team.length]._id];
+    }
+
+    // helper to cycle statuses evenly
+    const STATUSES = ['To Do', 'In Progress', 'Done'];
+    function getStatus(idx) {
+        return STATUSES[idx % STATUSES.length];
+    }
+
+    // Helper to create one task with optional deadline + status rotation
+    async function mk({ title, pr, daysFromNow, noDeadline = false, index = 0 }) {
+        const deadline = noDeadline
+            ? undefined
+            : new Date(base.getTime() + (daysFromNow ?? 0) * 86400000);
+        const status = getStatus(index);
+        return createTaskDirect({
+            title: `${SC_LABEL(n)} ${title}`,
+            description: `${SC_LABEL(n)} ${title}`,
+            assignedProject: p._id,
+            assignedTeamMembers: staff(Math.abs(daysFromNow || 0)),
+            status, // dynamically assigned
+            ...(pr !== undefined ? { priority: pr } : {}),
+            ...(deadline ? { deadline } : {}),
+            createdBy: manager._id,
+            startAt: base,
+            createdAt: base,
+            updatedAt: base,
+        });
+    }
+
+    // Critical (1) — include dated, no-deadline, and a tie
+    await mk({ title: 'Critical A', pr: 1, daysFromNow: 1, index: 0 });
+    await mk({ title: 'Critical B (tie)', pr: 1, daysFromNow: 3, index: 1 });
+    await mk({ title: 'Critical C (tie)', pr: 1, daysFromNow: 3, index: 2 });
+    await mk({ title: 'Critical D (no deadline)', pr: 1, noDeadline: true, index: 3 });
+
+    // High (2)
+    await mk({ title: 'High A', pr: 8, daysFromNow: 2, index: 4 });
+    await mk({ title: 'High B (no deadline)', pr: 10, noDeadline: true, index: 5 });
+
+    // Medium (3)
+    await mk({ title: 'Medium A', pr: 6, daysFromNow: -1, index: 6 }); // past
+    await mk({ title: 'Medium B', pr: 4, daysFromNow: 5, index: 7 });
+
+    // Low (4)
+    await mk({ title: 'Low A', pr: 1, daysFromNow: 4, index: 8 });
+    await mk({ title: 'Low B', pr: 2, noDeadline: true, index: 9 });
+
+    // None (unset)
+    await mk({ title: 'None A (no priority)', pr: undefined, daysFromNow: 6, index: 10 });
+    await mk({ title: 'None B (no deadline, no priority)', pr: undefined, noDeadline: true, index: 11 });
+}
+
+async function scenario10({ manager, team }, n) {
+    const p = await createProjectDirect({
+        name: `${SC_LABEL(n)} S10 Priority Buckets + Comment`,
+        description: 'LF-76 + seeded Manager comment on Critical A',
+        departments: [DEPARTMENTS.SYSTEM_SOLUTIONING],
+        deadline: new Date(Date.now() + 30 * 86400000),
+        createdBy: manager._id,
+        teamMembers: team.map(t => t._id),
+    });
+
+    const base = new Date();
+    const STATUSES = ['To Do', 'In Progress', 'Done'];
+    const staff = (i) => [team[i % team.length]._id];
+    const getStatus = (idx) => STATUSES[idx % STATUSES.length];
+
+    async function mk({ title, pr, daysFromNow, noDeadline = false, index = 0 }) {
+        const deadline = noDeadline ? undefined : new Date(base.getTime() + (daysFromNow ?? 0) * 86400000);
+        const status = getStatus(index);
+        const task = await createTaskDirect({
+            title: `${SC_LABEL(n)} ${title}`,
+            description: `${SC_LABEL(n)} ${title}`,
+            assignedProject: p._id,
+            assignedTeamMembers: staff(Math.abs(daysFromNow || 0)),
+            status,
+            ...(pr !== undefined ? { priority: pr } : {}),
+            ...(deadline ? { deadline } : {}),
+            createdBy: manager._id,
+            startAt: base,
+            createdAt: base,
+            updatedAt: base,
+        });
+        return task;
+    }
+
+    // Critical (1) — include dated, no-deadline, and a tie
+    const tCriticalA = await mk({ title: 'Critical A', pr: 1, daysFromNow: 1, index: 0 });
+    await mk({ title: 'Critical B (tie)', pr: 1, daysFromNow: 3, index: 1 });
+    await mk({ title: 'Critical C (tie)', pr: 1, daysFromNow: 3, index: 2 });
+    await mk({ title: 'Critical D (no deadline)', pr: 1, noDeadline: true, index: 3 });
+
+    // High (2)
+    await mk({ title: 'High A', pr: 8, daysFromNow: 2, index: 4 });
+    await mk({ title: 'High B (no deadline)', pr: 10, noDeadline: true, index: 5 });
+
+    // Medium (3)
+    await mk({ title: 'Medium A', pr: 6, daysFromNow: -1, index: 6 });
+    await mk({ title: 'Medium B', pr: 4, daysFromNow: 5, index: 7 });
+
+    // Low (4)
+    await mk({ title: 'Low A', pr: 1, daysFromNow: 4, index: 8 });
+    await mk({ title: 'Low B', pr: 2, noDeadline: true, index: 9 });
+
+    // None (unset)
+    await mk({ title: 'None A (no priority)', pr: undefined, daysFromNow: 6, index: 10 });
+    await mk({ title: 'None B (no deadline, no priority)', pr: undefined, noDeadline: true, index: 11 });
+
+    // Seed Manager comment on "Critical A"
+    if (tCriticalA && tCriticalA._id) {
+        await createCommentDirect({
+            taskId: tCriticalA._id,
+            body: `${SC_LABEL(n)} Seed: initial Manager note for edit/delete tests.`,
+            authorId: manager._id,
+        });
+
+        // Optional: seed a second comment for ordering/delete-middle tests
+        // await createCommentDirect({
+        //   taskId: tCriticalA._id,
+        //   text: `${SC_LABEL(n)} Seed: follow-up note.`,
+        //   createdBy: manager._id,
+        // });
+    }
+
+    console.log("✅ Scenario 10 seeded with a Manager comment on 'Critical A'.");
+}
+
+
 
 
 
@@ -607,6 +787,8 @@ const SCENARIOS = {
     6: scenario6,
     7: scenario7,
     8: scenario8,
+    9: scenario9,
+    10: scenario10,
 };
 
 // =====================
@@ -617,13 +799,13 @@ async function main() {
 
     const arg = process.argv.find((x) => x.startsWith('--scenario='));
     if (!arg) {
-        console.error('❌ Missing --scenario=0..8');
+        console.error('❌ Missing --scenario=0..10');
         process.exit(1);
     }
     const scenarioNum = parseInt(arg.split('=')[1], 10);
     const scenarioFn = SCENARIOS[scenarioNum];
     if (!scenarioFn) {
-        console.error('❌ Invalid scenario number (0..8)');
+        console.error('❌ Invalid scenario number (0..10)');
         process.exit(1);
     }
 
