@@ -5,6 +5,16 @@ export const STATUS = ['To Do', 'In Progress', 'Done'];
 export const PRIORITY = ['Low', 'Medium', 'High'];
 export const DEFAULT_REMINDERS_MIN = [10080, 4320, 1440]; // 7d, 3d, 1d
 
+const RecurrenceSchema = new Schema(
+  {
+    frequency: { type: String, enum: ['daily', 'weekly', 'monthly'], required: true },
+    interval: { type: Number, min: 1, default: 1 },  
+    ends: { type: String, enum: ['never', 'onDate'], default: 'never' },
+    until: { type: Date, default: null },            
+  },
+  { _id: false }
+);
+
 const TaskSchema = new Schema(
   {
     title: { type: String, required: true, trim: true, maxlength: 200 },
@@ -33,7 +43,8 @@ const TaskSchema = new Schema(
         validator: arr => arr.every(n => Number.isFinite(n) && n > 0),
         message: 'All reminder offsets must be positive numbers (minutes).'
       }
-    }
+    },
+    recurrence: { type: RecurrenceSchema, default: null } 
   },
   { timestamps: true }
 );
@@ -53,6 +64,7 @@ TaskSchema.index({
 TaskSchema.index({ assignedTeamMembers: 1 });
 TaskSchema.index({ attachments: 1 });
 TaskSchema.index({ createdBy: 1 });
+TaskSchema.index({ 'recurrence.frequency': 1, 'recurrence.interval': 1 });
 
 function normalizeOffsets(val) {
   const arr = Array.isArray(val) ? val : [];

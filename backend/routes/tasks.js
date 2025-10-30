@@ -42,6 +42,60 @@ function coercePriority(input) {
   return Math.max(1, Math.min(10, Math.trunc(n)));
 }
 
+/** Parse & normalize recurrence from body (object or JSON string). Returns {frequency, interval, ends, until} or null */
+function coerceRecurrence(input) {
+  console.log("➡️ [coerceRecurrence] input:", input);
+
+  if (!input) return null;
+  if (typeof input === "string") {
+    try { input = JSON.parse(input); } catch {
+      console.log("JSON parse failed for:", input);
+      return null;
+    }
+  }
+
+  const freq = (input.frequency || "").toLowerCase();
+  if (!["daily", "weekly", "monthly"].includes(freq)) {
+    if (freq === "none") console.log("ℹ️ Ignoring 'none' recurrence from client");
+    return null;
+  }
+
+  const rec = {
+    frequency: freq,
+    interval: Math.max(1, Number(input.interval) || 1),
+    ends: input.ends || "never",
+    until: input.until ? new Date(input.until) : null,
+  };
+  console.log("[coerceRecurrence] output:", rec);
+  return rec;
+}
+
+
+
+/** Compute the next deadline from a given deadline & recurrence rule. Returns Date or null if beyond `until`. */
+function computeNextDeadline(currentDeadline, recurrence) {
+  if (!currentDeadline || !recurrence) return null;
+  const base = new Date(currentDeadline);
+  const next = new Date(base);
+  const { frequency, interval, ends, until } = recurrence;
+  if (frequency === 'daily') {
+    next.setDate(next.getDate() + interval);
+  } else if (frequency === 'weekly') {
+    next.setDate(next.getDate() + 7 * interval);
+  } else if (frequency === 'monthly') {
+    const day = next.getDate();
+    const m = next.getMonth();
+    next.setMonth(m + interval);
+    // If date overflowed (e.g., Jan 31 -> Feb), JS auto-rolls. That’s OK for most cases.
+    if (next.getDate() !== day) {
+    }
+  }
+  if (ends === 'onDate' && until) {
+    if (next > new Date(until)) return null; // stop series
+  }
+  return next;
+}
+
 /**
  * CREATE Task
  * POST /api/tasks
@@ -62,7 +116,24 @@ router.post('/', upload.array('attachments'), async (req, res) => {
       startAt,
       endAt,
       reminderOffsets,
+      recurrence,
     } = req.body;
+
+    // === DEBUG LOGS FOR RECURRENCE TESTING ===
+    console.log("Raw req.body.recurrence:", req.body.recurrence);
+    if (typeof req.body.recurrence === "string") {
+      try {
+        const parsed = JSON.parse(req.body.recurrence);
+        console.log("Parsed recurrence:", parsed);
+      } catch (err) {
+        console.log("Failed to parse recurrence string:", req.body.recurrence);
+      }
+    } else if (req.body.recurrence && typeof req.body.recurrence === "object") {
+      console.log("Recurrence already an object:", req.body.recurrence);
+    } else {
+      console.log("⚠️ No recurrence data received or null");
+    }
+
     const coercedPriority = coercePriority(priority);
 
     // Required
@@ -107,6 +178,12 @@ router.post('/', upload.array('attachments'), async (req, res) => {
       ? (cleanOffsets.length ? cleanOffsets : DEFAULT_REMINDERS_MIN)
       : [];
 
+    // Recurrence
+    const rec = coerceRecurrence(recurrence);
+    if (rec && !deadline) {
+      return res.status(400).json({ error: 'A deadline is required when recurrence is enabled.' });
+    }
+
     const task = await Task.create({
       title,
       description,
@@ -121,6 +198,7 @@ router.post('/', upload.array('attachments'), async (req, res) => {
       startAt: sAt,
       endAt: eAt,
       reminderOffsets: finalOffsets,
+      recurrence: rec ?? null,
     });
 
     // Attachments (optional)
@@ -160,12 +238,12 @@ router.get('/', async (req, res) => {
   try {
     const { status, assignedProject, assignee, createdBy, manager } = req.query; // ← Add 'manager'
     const filter = {};
-    
+
     if (status) filter.status = status;
     if (assignedProject) filter.assignedProject = new mongoose.Types.ObjectId(assignedProject);
     if (createdBy) filter.createdBy = new mongoose.Types.ObjectId(createdBy);
     if (assignee) filter.assignedTeamMembers = new mongoose.Types.ObjectId(assignee);
-    
+
     // ✅ NEW: Filter tasks by manager (via their projects)
     if (manager) {
       const Project = mongoose.model('Project');
@@ -216,6 +294,7 @@ router.put('/:id', upload.array('attachments'), async (req, res) => {
       startAt,
       endAt,
       reminderOffsets,
+      recurrence,
     } = req.body;
 
     const existing = await Task.findById(req.params.id);
@@ -300,6 +379,15 @@ router.put('/:id', upload.array('attachments'), async (req, res) => {
       }
     }
 
+    // Recurrence (allow update/clear)
+    if (recurrence !== undefined) {
+      const rec = coerceRecurrence(recurrence);
+      if (rec && !(updateData.deadline ?? existing.deadline)) {
+        return res.status(400).json({ error: 'A deadline is required when recurrence is enabled.' });
+      }
+      updateData.recurrence = rec ?? null;
+    }
+
     // Normalize times
     let sAt = updateData.startAt ?? existing.startAt ?? existing.createdAt ?? new Date();
     let eAt =
@@ -340,6 +428,43 @@ router.put('/:id', upload.array('attachments'), async (req, res) => {
 
     const io = req.app.get('io');
     io?.emit?.('calendar:task:updated', { task: populatedTask });
+
+    try {
+      const hadDoneTransition = (prevStatus !== 'Done' && nextStatus === 'Done');
+      const recurrenceToUse = (task.recurrence || existing.recurrence);
+      const currentDeadline = (task.deadline || existing.deadline);
+      if (hadDoneTransition && recurrenceToUse && currentDeadline) {
+        const nextDl = computeNextDeadline(currentDeadline, recurrenceToUse);
+        if (nextDl) {
+          const clone = await Task.create({
+            title: task.title,
+            description: task.description,
+            notes: task.notes,
+            assignedProject: task.assignedProject,
+            assignedTeamMembers: task.assignedTeamMembers,
+            status: 'To Do',
+            priority: task.priority,
+            deadline: nextDl,
+            createdBy: task.createdBy,
+            allDay: task.allDay,
+            startAt: task.startAt ? new Date(task.startAt) : new Date(),
+            endAt: task.endAt
+              ? new Date(task.endAt)
+              : new Date(nextDl.getTime()), 
+            reminderOffsets: (Array.isArray(task.reminderOffsets) && task.reminderOffsets.length)
+              ? task.reminderOffsets
+              : DEFAULT_REMINDERS_MIN,
+            recurrence: recurrenceToUse,
+          });
+
+          const clonePopulated = await populateTask(Task.findById(clone._id));
+          const io = req.app.get('io');
+          io?.emit?.('calendar:task:created', { task: clonePopulated });
+        }
+      }
+    } catch (spawnErr) {
+      console.error('[recurrence] spawn-next failed:', spawnErr);
+    }
 
     res.json(populatedTask);
   } catch (e) {

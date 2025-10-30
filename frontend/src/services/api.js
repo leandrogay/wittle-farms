@@ -31,6 +31,9 @@ function toFormDataIfFiles(obj) {
       // Always send as JSON string so the server sees the whole array reliably.
       const arr = Array.isArray(value) ? value : [];
       fd.append("reminderOffsets", JSON.stringify(arr));
+    } else if (key === "recurrence") {
+      // Keep recurrence as a JSON string when using multipart/form-data
+      fd.append("recurrence", value == null ? "null" : JSON.stringify(value));
     }
     else if (Array.isArray(value)) {
       value.forEach(v => fd.append(key, v));
@@ -60,9 +63,8 @@ export async function createTask(formData) {
     });
 
     // const data = await jsonOrText(res);
-
     if (!res.ok) {
-      // console.log("[Create Task Error]", res.status, data);
+      console.error("[Create Task error]", res.status);
       throw new Error("Failed to create task");
     }
     return await res.json();
@@ -149,16 +151,16 @@ export async function getManagerProjects(userId) {
 }
 
 export async function getDirectorReport(departmentId) {
-  const res = await fetch(`${API_BASE}/api/director/report?departmentId=${departmentId}`, { 
-    credentials: "include" 
+  const res = await fetch(`${API_BASE}/api/director/report?departmentId=${departmentId}`, {
+    credentials: "include"
   });
   if (!res.ok) throw new Error(await res.text().catch(() => "Failed to fetch director report"));
   return res.json();
 }
 
 export async function getSeniorManagerReport() {
-  const res = await fetch(`${API_BASE}/api/senior-manager/report`, { 
-    credentials: "include" 
+  const res = await fetch(`${API_BASE}/api/senior-manager/report`, {
+    credentials: "include"
   });
   if (!res.ok) throw new Error(await res.text().catch(() => "Failed to fetch senior manager report"));
   return res.json();
@@ -512,10 +514,10 @@ export async function getAllTeamMembers() {
   const data = await res.json();
   return Array.isArray(data)
     ? data.map((u) => ({
-        _id: u._id || u.id,
-        name: u.name || u.fullName || u.email || "Unnamed",
-        email: u.email,
-      }))
+      _id: u._id || u.id,
+      name: u.name || u.fullName || u.email || "Unnamed",
+      email: u.email,
+    }))
     : [];
 }
 
@@ -580,12 +582,12 @@ export async function updateProject(projectId, formData) {
     ...formData,
     ...(formData.department || formData.departments || formData.departmentIds || formData.departmentId
       ? {
-          department:
-            formData.department ??
-            formData.departments ??
-            formData.departmentIds ??
-            (formData.departmentId ? [formData.departmentId] : []),
-        }
+        department:
+          formData.department ??
+          formData.departments ??
+          formData.departmentIds ??
+          (formData.departmentId ? [formData.departmentId] : []),
+      }
       : {}),
   });
 
@@ -639,10 +641,10 @@ export async function listTaskComments(taskId, { cursor, limit = 20 } = {}) {
   if (cursor) qs.set("cursor", cursor);
   if (limit) qs.set("limit", String(limit));
   const res = await fetch(`${API_BASE}/api/tasks/${taskId}/comments?${qs.toString()}`, {
-     credentials: "include",
+    credentials: "include",
   });
   if (!res.ok) throw new Error(await res.text().catch(() => "Failed to fetch comments"));
-  return res.json(); 
+  return res.json();
 }
 
 // export async function searchMentionableUsers(taskId, q = "") {
@@ -663,7 +665,7 @@ export async function searchMentionableUsers(taskId, q = "") {
     credentials: "include",
   });
   if (!res.ok) throw new Error(await res.text().catch(() => "Failed to fetch mention users"));
-  
+
   return res.json();  // [{ _id, handle, name, email }]
 }
 
@@ -672,22 +674,22 @@ export async function createTaskComment(taskId, payload, clientKey) {
   if (!payload?.body || !payload.body.trim()) throw new Error("Comment body is required");
 
   const hasFiles = Array.isArray(payload.attachments) &&
-                  payload.attachments.some(f => typeof File !== "undefined" && f instanceof File);
+    payload.attachments.some(f => typeof File !== "undefined" && f instanceof File);
 
   let headers, reqBody;
 
   if (hasFiles) {
     const fd = new FormData();
     fd.append("body", payload.body);
-    if (payload.authorId) fd.append("author", payload.authorId); 
+    if (payload.authorId) fd.append("author", payload.authorId);
     (payload.mentions ?? []).forEach(m => fd.append("mentions", m));
     (payload.attachments ?? []).forEach(f => fd.append("attachments", f));
-    reqBody = fd; 
+    reqBody = fd;
   } else {
     headers = { "Content-Type": "application/json" };
     reqBody = JSON.stringify({
       body: payload.body,
-      author: payload.authorId,   
+      author: payload.authorId,
       mentions: payload.mentions ?? [],
       attachments: [],
       clientKey,
@@ -696,7 +698,7 @@ export async function createTaskComment(taskId, payload, clientKey) {
 
   const res = await authFetch(`/api/tasks/${taskId}/comments`, {
     method: "POST",
-  
+
     ...(headers ? { headers } : {}),
     body: reqBody,
   });
@@ -714,7 +716,7 @@ export async function updateTaskComment(taskId, commentId, { body, authorId }) {
     body: JSON.stringify({ body, ...(authorId ? { author: authorId } : {}) }),
   });
   if (!res.ok) throw new Error(await res.text().catch(() => "Failed to update comment"));
-  return res.json(); 
+  return res.json();
 }
 
 export async function deleteTaskComment(taskId, commentId, { authorId } = {}) {
@@ -725,5 +727,5 @@ export async function deleteTaskComment(taskId, commentId, { authorId } = {}) {
     body: JSON.stringify(authorId ? { author: authorId } : {}),
   });
   if (!res.ok) throw new Error(await res.text().catch(() => "Failed to delete comment"));
-  return res.json(); 
+  return res.json();
 }
