@@ -4,11 +4,31 @@ import Task from "../models/Task.js";
 
 const router = Router();
 
-// Strict YYYY-MM-DD validator
+// Strict YYYY-MM-DD validator (no rollover)
 const DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
-const isValidDay = (s) => DAY_RE.test(s) && !Number.isNaN(new Date(`${s}T00:00:00.000Z`).getTime());
-const dayStartUtc = (s) => new Date(`${s}T00:00:00.000Z`);
-const dayEndUtc   = (s) => new Date(`${s}T23:59:59.999Z`);
+
+const isValidDay = (s) => {
+  if (!DAY_RE.test(s)) return false;
+  const [y, m, d] = s.split("-").map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  return (
+    dt.getUTCFullYear() === y &&
+    dt.getUTCMonth() + 1 === m &&
+    dt.getUTCDate() === d
+  );
+};
+
+
+const dayStartUtc = (s) => {
+  const [y, m, d] = s.split("-").map(Number);
+  return new Date(Date.UTC(y, m - 1, d, 0, 0, 0, 0));
+};
+
+const dayEndUtc = (s) => {
+  const [y, m, d] = s.split("-").map(Number);
+  return new Date(Date.UTC(y, m - 1, d, 23, 59, 59, 999));
+};
+
 
 router.get("/", async (req, res) => {
   try {

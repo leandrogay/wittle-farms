@@ -1,7 +1,7 @@
 import express from "express";
 import mongoose, { Schema, model } from "mongoose";
 import request from "supertest";
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from "vitest";
+import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from "vitest";
 import { MongoMemoryServer } from "mongodb-memory-server";
 
 import timelineRouter from "../routes/timeline.js";
@@ -208,7 +208,6 @@ describe("GET /api/timeline", () => {
 
     expect(res.statusCode).toBe(200);
     const titles = res.body.items.map((i) => i.title).sort();
-    // With only 'from', createdAt >= from OR deadline >= from.
     expect(titles).toStrictEqual(
       ["T1 - created recently, deadline soon", "T3 - only deadline in range"].sort()
     );
@@ -374,7 +373,7 @@ describe("GET /api/timeline", () => {
     );
   });
 
-  /* ---------- NEW TESTS TO COVER DATE VALIDATION GUARDS (L51–L53) ---------- */
+  /* ---------- NEW TESTS TO COVER DATE VALIDATION GUARDS AND CATCH ---------- */
 
   it("400 when 'from' is not a valid YYYY-MM-DD date", async () => {
     const res = await agent
@@ -407,5 +406,82 @@ describe("GET /api/timeline", () => {
 
     expect(res.statusCode).toBe(400);
     expect(String(res.body.error || "").toLowerCase()).toMatch(/from.*to|range|order/);
+  });
+
+  it("400 when 'from' matches YYYY-MM-DD but is a non-existent date (regex passes, date fails)", async () => {
+    const res = await agent
+      .get("/api/timeline")
+      .query({ user: new mongoose.Types.ObjectId().toString(), from: "2025-02-30" }); // Feb 30 doesn't exist
+    expect(res.statusCode).toBe(400);
+    expect(String(res.body.error || "").toLowerCase()).toContain("from");
+    expect(String(res.body.error || "").toLowerCase()).toContain("invalid");
+  });
+
+  it("400 when 'to' matches YYYY-MM-DD but is a non-existent date (regex passes, date fails)", async () => {
+    const res = await agent
+      .get("/api/timeline")
+      .query({ user: new mongoose.Types.ObjectId().toString(), to: "2025-11-31" }); // Nov 31 doesn't exist
+    expect(res.statusCode).toBe(400);
+    expect(String(res.body.error || "").toLowerCase()).toContain("to");
+    expect(String(res.body.error || "").toLowerCase()).toContain("invalid");
+  });
+
+  it("maps startAt to null when both startAt and createdAt are absent (covers nullish chain)", async () => {
+    const findSpy = vi.spyOn(Task, "find").mockReturnValue({
+      select: vi.fn().mockReturnThis(),
+      populate: vi.fn().mockReturnThis(),
+      sort: vi.fn().mockReturnThis(),
+      lean: vi.fn().mockResolvedValue([
+        {
+          _id: new mongoose.Types.ObjectId(),
+          title: "No dates at all",
+          status: "To Do",
+          // deliberately omit createdAt and startAt
+          endAt: null,
+          deadline: null,
+          completedAt: null,
+          // and no project so `project` falls back to ""
+        },
+      ]),
+    });
+
+    const res = await agent
+      .get("/api/timeline")
+      .query({ user: new mongoose.Types.ObjectId().toString() });
+
+    expect(res.statusCode).toBe(200);
+    expect(Array.isArray(res.body.items)).toBe(true);
+    expect(res.body.items.length).toBe(1);
+
+    const item = res.body.items[0];
+    expect(item.createdAt).toBe(null);
+    expect(item.startAt).toBe(null); // exercises the final branch
+    expect(item.project).toBe("");   // still fine when no assignedProject
+
+    findSpy.mockRestore();
+  });
+
+
+  it("500 and logs when an internal error occurs (covers catch block)", async () => {
+    const errSpy = vi.spyOn(console, "error").mockImplementation(() => { });
+    const findSpy = vi.spyOn(Task, "find").mockReturnValue({
+      select: vi.fn().mockReturnThis(),
+      populate: vi.fn().mockReturnThis(),
+      sort: vi.fn().mockReturnThis(),
+      lean: vi.fn().mockRejectedValue(new Error("boom")),
+    });
+
+    try {
+      const res = await agent
+        .get("/api/timeline")
+        .query({ user: new mongoose.Types.ObjectId().toString() });
+
+      expect(res.statusCode).toBe(500);
+      expect(res.body).toEqual({ error: "Failed to load timeline" });
+      expect(errSpy).toHaveBeenCalled();
+    } finally {
+      findSpy.mockRestore();
+      errSpy.mockRestore();
+    }
   });
 });
