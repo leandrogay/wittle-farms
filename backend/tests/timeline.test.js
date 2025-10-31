@@ -1,11 +1,3 @@
-/**
- * Run locally:
- *   npx vitest run backend/tests/timeline.test.js
- *
- * CI notes:
- * - Uses mongodb-memory-server (downloads a MongoDB binary at runtime).
- * - Uses Vitest hooks instead of a custom test runner.
- */
 import express from "express";
 import mongoose, { Schema, model } from "mongoose";
 import request from "supertest";
@@ -18,7 +10,6 @@ import Task from "../models/Task.js";
 // Some CI runners can be slow to download the MongoDB binary:
 const BIG_TIMEOUT = 120_000;
 
-/* ----------------------- App / DB helpers ------------------------ */
 function makeApp() {
   const app = express();
   app.use(express.json());
@@ -381,5 +372,40 @@ describe("GET /api/timeline", () => {
     expect(new Date(t10.startAt).toISOString()).toBe(
       new Date(t10.createdAt).toISOString()
     );
+  });
+
+  /* ---------- NEW TESTS TO COVER DATE VALIDATION GUARDS (L51–L53) ---------- */
+
+  it("400 when 'from' is not a valid YYYY-MM-DD date", async () => {
+    const res = await agent
+      .get("/api/timeline")
+      .query({ user: new mongoose.Types.ObjectId().toString(), from: "not-a-date" });
+
+    expect(res.statusCode).toBe(400);
+    expect(String(res.body.error || "").toLowerCase()).toContain("invalid");
+    expect(String(res.body.error || "")).toMatch(/from/i);
+  });
+
+  it("400 when 'to' is not a valid YYYY-MM-DD date", async () => {
+    const res = await agent
+      .get("/api/timeline")
+      .query({ user: new mongoose.Types.ObjectId().toString(), to: "2025-13-99" });
+
+    expect(res.statusCode).toBe(400);
+    expect(String(res.body.error || "").toLowerCase()).toContain("invalid");
+    expect(String(res.body.error || "")).toMatch(/to/i);
+  });
+
+  it("400 when 'from' is after 'to' (range inversion)", async () => {
+    const res = await agent
+      .get("/api/timeline")
+      .query({
+        user: new mongoose.Types.ObjectId().toString(),
+        from: "2025-10-20",
+        to: "2025-10-10",
+      });
+
+    expect(res.statusCode).toBe(400);
+    expect(String(res.body.error || "").toLowerCase()).toMatch(/from.*to|range|order/);
   });
 });
