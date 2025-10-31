@@ -123,6 +123,10 @@ const TaskForm = ({ onCancel, onCreated, onUpdated, task = null }) => {
     };
   });
 
+  // ===== NEW: allow past deadlines when editing a past-deadline task =====
+  const originalDeadlineIsPast =
+    isEdit && task?.deadline && dayjs(task.deadline).isBefore(dayjs());
+
   // Load projects
   useEffect(() => {
     let cancelled = false;
@@ -280,10 +284,11 @@ const TaskForm = ({ onCancel, onCreated, onUpdated, task = null }) => {
         const maxMin = _getMaxOffsetMinutesFromNow(formData.deadline);
         const before = offsets.length;
         offsets = offsets.filter((n) => n <= maxMin).sort((a, b) => b - a);
-        if (before !== offsets.length)
-          alert(
-            "Some reminders were removed because they would have triggered in the past."
-          );
+        if (before !== offsets.length) {
+          // you can also surface a non-blocking banner/toast here if you like
+          // e.g., set a local message near the Reminders section
+          // (keeping silent by default)
+        }
         payload.reminderOffsets = offsets;
       } else {
         delete payload.deadline;
@@ -297,10 +302,10 @@ const TaskForm = ({ onCancel, onCreated, onUpdated, task = null }) => {
 
       if (recurrenceEnabled) {
         if (!hasDeadline) {
-          alert("Please set a deadline to enable recurrence.");
+          // non-blocking UX: you could set an inline error label instead of alerting
           return;
         }
-      
+
         const freq = (recurrenceFrequency || "none").toLowerCase();
         if (freq === "none") {
           payload.recurrence = null;
@@ -311,30 +316,28 @@ const TaskForm = ({ onCancel, onCreated, onUpdated, task = null }) => {
             ends: recurrenceEnds, // "never" | "onDate"
             until:
               recurrenceEnds === "onDate" && recurrenceUntil
-                ? dayjs.tz(recurrenceUntil, DATE_TIME_LOCAL_FORMAT, SG_TZ).toISOString()
+                ? dayjs
+                    .tz(recurrenceUntil, DATE_TIME_LOCAL_FORMAT, SG_TZ)
+                    .toISOString()
                 : null,
           };
         }
       } else {
         payload.recurrence = null;
       }
-      
-      console.log("🧩 payload.recurrence being sent:", payload.recurrence);
-    
 
       if (isEdit) {
         const data = await updateTask(task._id, payload);
         onUpdated?.(data);
-        alert("Task updated successfully!");
       } else {
         const data = await createTask(payload);
         onCreated?.(data);
-        alert("Task created successfully!");
       }
       onCancel();
     } catch (err) {
-      alert(
-        `${isEdit ? "Error updating task: " : "Error creating task: "}${err.message
+      console.error(
+        `${isEdit ? "Error updating task: " : "Error creating task: "}${
+          err.message || "Unknown error"
         }`
       );
     }
@@ -411,7 +414,9 @@ const TaskForm = ({ onCancel, onCreated, onUpdated, task = null }) => {
                     name="title"
                     value={formData.title}
                     onChange={handleChange}
-                    placeholder={isEdit ? "Update task title" : "Enter a clear, descriptive title"}
+                    placeholder={
+                      isEdit ? "Update task title" : "Enter a clear, descriptive title"
+                    }
                     className="w-full px-3 py-2 text-sm border border-light-border dark:border-dark-border rounded-lg bg-light-bg dark:bg-dark-bg-secondary text-light-text-primary dark:text-dark-text-primary focus:ring-2 focus:ring-brand-primary dark:focus:ring-brand-secondary focus:border-transparent transition-all"
                     required
                   />
@@ -426,7 +431,9 @@ const TaskForm = ({ onCancel, onCreated, onUpdated, task = null }) => {
                     value={formData.description}
                     onChange={handleChange}
                     rows={4}
-                    placeholder={isEdit ? "Update task description..." : "Describe the task in detail..."}
+                    placeholder={
+                      isEdit ? "Update task description..." : "Describe the task in detail..."
+                    }
                     className="w-full px-3 py-2 text-sm border border-light-border dark:border-dark-border rounded-lg bg-light-bg dark:bg-dark-bg-secondary text-light-text-primary dark:text-dark-text-primary focus:ring-2 focus:ring-brand-primary dark:focus:ring-brand-secondary focus:border-transparent resize-none transition-all"
                   />
                 </div>
@@ -515,7 +522,7 @@ const TaskForm = ({ onCancel, onCreated, onUpdated, task = null }) => {
                 </div>
 
                 <div className="assignee-dropdown-container relative">
-                  <label className="block text-sm font-semibold text-light-text-primary dark:text-dark-text-primary mb-1">
+                  <label className="block text sm font-semibold text-light-text-primary dark:text-dark-text-primary mb-1">
                     {isEdit ? "Update Assignees" : "Assignees"}
                   </label>
 
@@ -548,15 +555,17 @@ const TaskForm = ({ onCancel, onCreated, onUpdated, task = null }) => {
 
                   <button
                     type="button"
-                    onClick={() => setShowAssigneeDropdown(!showAssigneeDropdown)}
+                    onClick={() =>
+                      setShowAssigneeDropdown(!showAssigneeDropdown)
+                    }
                     className="w-full max-w-[250px] px-3 py-2 text-sm border border-light-border dark:border-dark-border rounded-lg bg-light-bg dark:bg-dark-bg-secondary hover:bg-light-surface dark:hover:bg-dark-surface flex justify-between items-center focus:ring-2 focus:ring-brand-primary dark:focus:ring-brand-secondary focus:border-transparent transition-colors"
                   >
                     <span className="text-light-text-secondary dark:text-dark-text-secondary truncate min-w-0 flex-1">
                       {formData.assignedTeamMembers.length > 0
                         ? `${formData.assignedTeamMembers.length} selected`
                         : isEdit
-                          ? "Change assignees"
-                          : "Select team members"}
+                        ? "Change assignees"
+                        : "Select team members"}
                     </span>
                     <svg
                       className="w-4 h-4 transition-transform text-light-text-muted dark:text-dark-text-muted shrink-0 ml-2"
@@ -676,8 +685,13 @@ const TaskForm = ({ onCancel, onCreated, onUpdated, task = null }) => {
                     value={formData.deadline}
                     onChange={handleChange}
                     disabled={noDueDate}
+                    // IMPORTANT: only enforce future min for new tasks or edits whose ORIGINAL deadline wasn't past
+                    min={
+                      originalDeadlineIsPast
+                        ? undefined
+                        : dayjs().tz().format(DATE_TIME_LOCAL_FORMAT)
+                    }
                     className="w-full px-3 py-2 text-sm border border-light-border dark:border-dark-border rounded-lg bg-light-bg dark:bg-dark-bg-secondary text-light-text-primary dark:text-dark-text-primary focus:ring-2 focus:ring-brand-primary dark:focus:ring-brand-secondary focus:border-transparent transition-all disabled:bg-light-surface dark:disabled:bg-dark-surface disabled:text-light-text-muted dark:disabled:text-dark-text-muted"
-                    min={dayjs().tz().format(DATE_TIME_LOCAL_FORMAT)}
                   />
                   {noDueDate && (
                     <p className="mt-1 text-xs text-light-text-muted dark:text-dark-text-muted">
@@ -712,7 +726,9 @@ const TaskForm = ({ onCancel, onCreated, onUpdated, task = null }) => {
                             </label>
                             <select
                               value={recurrenceFrequency}
-                              onChange={(e) => setRecurrenceFrequency(e.target.value)}
+                              onChange={(e) =>
+                                setRecurrenceFrequency(e.target.value)
+                              }
                               className="w-full px-3 py-2 text-sm border border-light-border dark:border-dark-border rounded-lg bg-light-bg dark:bg-dark-bg-secondary text-light-text-primary dark:text-dark-text-primary"
                             >
                               <option value="daily">Daily</option>
@@ -732,7 +748,10 @@ const TaskForm = ({ onCancel, onCreated, onUpdated, task = null }) => {
                               value={recurrenceInterval}
                               onChange={(e) =>
                                 setRecurrenceInterval(
-                                  Math.max(1, Math.trunc(Number(e.target.value) || 1))
+                                  Math.max(
+                                    1,
+                                    Math.trunc(Number(e.target.value) || 1)
+                                  )
                                 )
                               }
                               className="w-full px-3 py-2 text-sm border border-light-border dark:border-dark-border rounded-lg bg-light-bg dark:bg-dark-bg-secondary text-light-text-primary dark:text-dark-text-primary"
@@ -764,13 +783,18 @@ const TaskForm = ({ onCancel, onCreated, onUpdated, task = null }) => {
                               value={recurrenceUntil}
                               onChange={(e) => setRecurrenceUntil(e.target.value)}
                               className="w-full px-3 py-2 text-sm border border-light-border dark:border-dark-border rounded-lg bg-light-bg dark:bg-dark-bg-secondary text-light-text-primary dark:text-dark-text-primary"
-                              min={formData.deadline || dayjs().tz().format(DATE_TIME_LOCAL_FORMAT)}
+                              min={
+                                formData.deadline ||
+                                dayjs().tz().format(DATE_TIME_LOCAL_FORMAT)
+                              }
                             />
                           </div>
                         )}
 
                         <p className="mt-1 text-xs text-light-text-muted dark:text-dark-text-muted">
-                          When the task is marked <strong>Done</strong>, the next occurrence will be created with the same details and a new due date based on the recurrence settings.
+                          When the task is marked <strong>Done</strong>, the next
+                          occurrence will be created with the same details and a new
+                          due date based on the recurrence settings.
                         </p>
                       </>
                     )}
@@ -805,9 +829,9 @@ const TaskForm = ({ onCancel, onCreated, onUpdated, task = null }) => {
                                   onClick={() =>
                                     setFormData((prev) => ({
                                       ...prev,
-                                      reminderOffsets: (prev.reminderOffsets || []).filter(
-                                        (x) => x !== m
-                                      ),
+                                      reminderOffsets: (prev.reminderOffsets ||
+                                        []
+                                      ).filter((x) => x !== m),
                                     }))
                                   }
                                   title="Remove reminder"
@@ -819,7 +843,8 @@ const TaskForm = ({ onCancel, onCreated, onUpdated, task = null }) => {
                         </div>
                       ) : (
                         <p className="text-xs text-light-text-muted dark:text-dark-text-muted mb-2">
-                          If you don’t add any, we’ll remind you <b>7</b>, <b>3</b>, and <b>1</b> day before the deadline by default.
+                          If you don’t add any, we’ll remind you <b>7</b>, <b>3</b>,
+                          and <b>1</b> day before the deadline by default.
                         </p>
                       )}
 
@@ -830,7 +855,9 @@ const TaskForm = ({ onCancel, onCreated, onUpdated, task = null }) => {
                           step={1}
                           value={newReminderValue}
                           onChange={(e) =>
-                            setNewReminderValue(parseInt(e.target.value || "1", 10))
+                            setNewReminderValue(
+                              parseInt(e.target.value || "1", 10)
+                            )
                           }
                           className="w-24 px-3 py-2 text-sm border border-light-border dark:border-dark-border rounded-lg bg-light-bg dark:bg-dark-bg-secondary text-light-text-primary dark:text-dark-text-primary"
                         />
@@ -845,9 +872,7 @@ const TaskForm = ({ onCancel, onCreated, onUpdated, task = null }) => {
                         </select>
                         <button
                           type="button"
-                          disabled={
-                            addDisabled
-                          }
+                          disabled={addDisabled}
                           onClick={() => {
                             setReminderError("");
                             if (noDueDate || !formData.deadline) return;
@@ -869,12 +894,16 @@ const TaskForm = ({ onCancel, onCreated, onUpdated, task = null }) => {
                             setFormData((prev) => ({
                               ...prev,
                               reminderOffsets: [
-                                ...new Set([...(prev.reminderOffsets || []), minutes]),
+                                ...new Set([
+                                  ...(prev.reminderOffsets || []),
+                                  minutes,
+                                ]),
                               ].sort((a, b) => b - a),
                             }));
                           }}
-                          className={`px-3 py-2 text-sm rounded-lg bg-light-surface dark:bg-dark-surface border border-light-border dark:border-dark-border hover:bg-light-bg-secondary dark:hover:bg-dark-bg-secondary ${addDisabled ? "opacity-60 cursor-not-allowed" : ""
-                            }`}
+                          className={`px-3 py-2 text-sm rounded-lg bg-light-surface dark:bg-dark-surface border border-light-border dark:border-dark-border hover:bg-light-bg-secondary dark:hover:bg-dark-bg-secondary ${
+                            addDisabled ? "opacity-60 cursor-not-allowed" : ""
+                          }`}
                         >
                           Add
                         </button>
@@ -882,11 +911,14 @@ const TaskForm = ({ onCancel, onCreated, onUpdated, task = null }) => {
 
                       {!noDueDate && formData.deadline && (
                         <p className="mt-1 text-xs">
-                          Latest valid reminder right now: <b>{_fmtDays(maxOffsetNow)}</b>
+                          Latest valid reminder right now:{" "}
+                          <b>{_fmtDays(maxOffsetNow)}</b>
                         </p>
                       )}
                       {reminderError && (
-                        <p className="mt-1 text-xs text-danger">{reminderError}</p>
+                        <p className="mt-1 text-xs text-danger">
+                          {reminderError}
+                        </p>
                       )}
                     </>
                   )}
@@ -904,10 +936,11 @@ const TaskForm = ({ onCancel, onCreated, onUpdated, task = null }) => {
               </button>
               <button
                 type="submit"
-                className={`px-4 py-2 text-sm rounded-lg transition-colors font-medium shadow-sm ${isEdit
+                className={`px-4 py-2 text-sm rounded-lg transition-colors font-medium shadow-sm ${
+                  isEdit
                     ? "bg-success text-white hover:bg-emerald-600"
                     : "bg-brand-primary text-white hover:bg-blue-700"
-                  }`}
+                }`}
               >
                 {isEdit ? "Save Changes" : "Create Task"}
               </button>
