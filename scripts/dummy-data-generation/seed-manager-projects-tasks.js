@@ -773,8 +773,122 @@ async function scenario10({ manager, team }, n) {
     console.log("✅ Scenario 10 seeded with a Manager comment on 'Critical A'.");
 }
 
+async function scenario11(_, n) {
+    // Create a manager + team in System Solutioning, but seed NOTHING else.
+    // This allows UI/API to exercise "no projects / no tasks" empty-state behavior.
+    const { manager, team } = await ensureManagerAndTeam(n);
+  
+    console.log(
+      `✅ Scenario 11 ready: manager ${manager.email} with ${team.length} staff, ` +
+      ` 0 projects and 0 tasks created.`
+    );
+}
 
 
+async function scenario12(_, n) {
+    const { manager: sysMgr, team: sysTeam } = await ensureManagerAndTeam(n);
+
+    const suffix = `sc${n}`;
+    const consMgr = await getOrCreateUser({
+      name: `${SC_LABEL(n)} Consultancy Manager`,
+      email: `manager.consultancy.${suffix}@example.com`,
+      password: process.env.TEST_MANAGER_PASSWORD || 'Password123!',
+      role: 'Manager',
+      departmentId: DEPARTMENTS.CONSULTANCY,
+    });
+  
+    const consStaffEmails = [
+      `cons.alice.${suffix}@example.com`,
+      `cons.ben.${suffix}@example.com`,
+      `cons.chloe.${suffix}@example.com`,
+    ];
+    const consTeam = [];
+    for (let i = 0; i < consStaffEmails.length; i++) {
+      consTeam.push(
+        await getOrCreateUser({
+          name: `${SC_LABEL(n)} Consultancy Staff${i + 1}`,
+          email: consStaffEmails[i],
+          password: process.env.TEST_STAFF_PASSWORD || 'Password123!',
+          role: 'Staff',
+          departmentId: DEPARTMENTS.CONSULTANCY,
+        })
+      );
+    }
+  
+    // 3) Consultancy-only project
+    // Include ONE System Solutioning staff in teamMembers solely to allow a cross-assigned task,
+    // while keeping user.department intact for isolation tests.
+    const pConsultancy = await createProjectDirect({
+      name: `${SC_LABEL(n)} Consultancy Project A`,
+      description: 'Cross-department isolation test dataset',
+      departments: [DEPARTMENTS.CONSULTANCY],
+      deadline: new Date(Date.now() + 30 * 86400000),
+      createdBy: consMgr._id,
+      teamMembers: [
+        ...consTeam.map(t => t._id),
+        sysTeam[0]._id, // allow assigning a task to a System Solutioning staff (leak candidate)
+      ],
+    });
+  
+    // 4) Consultancy-only tasks (should NOT be visible to the System Solutioning manager)
+    await createTaskDirect({
+      title: `${SC_LABEL(n)} CONS Only - In Progress`,
+      description: `${SC_LABEL(n)} Consultancy-only task`,
+      assignedProject: pConsultancy._id,
+      assignedTeamMembers: [consTeam[0]._id],
+      status: 'In Progress',
+      priority: 5,
+      deadline: new Date(Date.now() + 7 * 86400000),
+      createdBy: consMgr._id,
+      startAt: new Date(),
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+  
+    const doneAt = new Date(Date.now() - 24 * 3600 * 1000);
+    await createTaskDirect({
+      title: `${SC_LABEL(n)} CONS Only - Done`,
+      description: `${SC_LABEL(n)} Consultancy-only done task`,
+      assignedProject: pConsultancy._id,
+      assignedTeamMembers: [consTeam[1]._id],
+      status: 'Done',
+      priority: 4,
+      deadline: new Date(Date.now() - 2 * 86400000),
+      createdBy: consMgr._id,
+      startAt: new Date(Date.now() - 5 * 86400000),
+      endAt: doneAt,
+      completedAt: doneAt,
+      createdAt: new Date(Date.now() - 5 * 86400000),
+      updatedAt: doneAt,
+    });
+  
+    // 5) Cross-assigned "leak candidate":
+    // - Consultancy project & creator (consMgr)
+    // - Assigned to a System Solutioning staff (sysTeam[0])
+    await createTaskDirect({
+      title: `${SC_LABEL(n)} CROSS Dept Leak Candidate`,
+      description: `${SC_LABEL(n)} Consultancy project task assigned to System staff`,
+      assignedProject: pConsultancy._id,
+      assignedTeamMembers: [sysTeam[0]._id],
+      status: 'To Do',
+      priority: 6,
+      deadline: new Date(Date.now() + 10 * 86400000),
+      createdBy: consMgr._id,
+      startAt: new Date(),
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+  
+    console.log(
+      `✅ Scenario 12 ready:\n` +
+      `- System manager: ${sysMgr.email} (dept=System Solutioning)\n` +
+      `- Consultancy manager: ${consMgr.email} (dept=Consultancy)\n` +
+      `- Consultancy project & tasks seeded, incl. a cross-assigned "leak candidate".`
+    );
+  }
+  
+
+  
 
 
 const SCENARIOS = {
@@ -789,6 +903,8 @@ const SCENARIOS = {
     8: scenario8,
     9: scenario9,
     10: scenario10,
+    11: scenario11,
+    12: scenario12,
 };
 
 // =====================

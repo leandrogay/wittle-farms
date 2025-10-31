@@ -180,7 +180,7 @@ export default function TaskBoardMgr() {
     (async () => {
       try {
         const data = await getManagerProjects(user.id);
-        const all = Array.isArray(data) ? data : [];
+        const all = Array.isArray(data) ? data : (data?.error ? [] : []);
 
         const mine = all.filter((p) => {
           const createdBy = p?.createdBy;
@@ -197,7 +197,15 @@ export default function TaskBoardMgr() {
           setSelectedProjectId(null);
         }
       } catch (err) {
-        setProjError(err?.message || "Failed to load projects");
+        // setProjError(err?.message || "Failed to load projects");
+        const msg = (err?.message || "").toLowerCase();
+        if (msg.includes("no projects")) {
+          setProjects([]);
+          setSelectedProjectId(null);
+          setProjError(null);
+        } else {
+          setProjError(err?.message || "Failed to load projects");
+        }
       } finally {
         setProjLoading(false);
       }
