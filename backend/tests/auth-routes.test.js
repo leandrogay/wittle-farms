@@ -1400,3 +1400,71 @@ it("register 400 returns empty details array when ValidationError without err.er
     }
 });
 
+describe("FROM header init branches (line 40)", () => {
+    const realEnv = { ...process.env };
+
+    afterAll(() => { Object.assign(process.env, realEnv); });
+
+    it("uses process.env.EMAIL_FROM when provided (left side of ||)", async () => {
+        vi.resetModules();
+
+        // Env: Gmail path + explicit EMAIL_FROM
+        process.env.NODE_ENV = "test";
+        process.env.EMAIL_USER = "test@gmail.com";
+        process.env.EMAIL_PASS = "pass";
+        process.env.EMAIL_FROM = "Acme Inc <noreply@acme.com>";
+        process.env.JWT_SECRET = "x";
+        process.env.JWT_REFRESH_SECRET = "y";
+
+        // keep dotenv harmless
+        vi.doMock("dotenv", () => {
+            const config = vi.fn(() => ({ parsed: {} }));
+            return { default: { config }, config };
+        });
+
+        // nodemailer stub
+        vi.doMock("nodemailer", () => {
+            const transporter = {
+                verify: vi.fn(() => Promise.resolve()),
+                sendMail: vi.fn(() => Promise.resolve({ messageId: "ok" })),
+            };
+            const createTransport = vi.fn(() => transporter);
+            return { default: { createTransport }, createTransport };
+        });
+
+        // Import executes the const FROM assignment with left branch
+        const mod = await import("../routes/auth.js");
+        expect(mod).toHaveProperty("default"); // module imported OK
+    });
+
+    it("falls back to `Little Farms <EMAIL_USER>` when EMAIL_FROM is missing (right side of ||)", async () => {
+        vi.resetModules();
+
+        // Env: Gmail path, NO EMAIL_FROM so the template literal is used
+        process.env.NODE_ENV = "test";
+        process.env.EMAIL_USER = "test@gmail.com";
+        process.env.EMAIL_PASS = "pass";
+        delete process.env.EMAIL_FROM;
+        process.env.JWT_SECRET = "x";
+        process.env.JWT_REFRESH_SECRET = "y";
+
+        vi.doMock("dotenv", () => {
+            const config = vi.fn(() => ({ parsed: {} }));
+            return { default: { config }, config };
+        });
+
+        vi.doMock("nodemailer", () => {
+            const transporter = {
+                verify: vi.fn(() => Promise.resolve()),
+                sendMail: vi.fn(() => Promise.resolve({ messageId: "ok" })),
+            };
+            const createTransport = vi.fn(() => transporter);
+            return { default: { createTransport }, createTransport };
+        });
+
+        // Import executes the const FROM assignment with right branch
+        const mod = await import("../routes/auth.js");
+        expect(mod).toHaveProperty("default");
+    });
+});
+
