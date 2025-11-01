@@ -17,7 +17,7 @@ export default function NotificationPanel() {
   };
 
   return (
-    <div className="absolute right-0 mt-2 w-80 bg-light-bg dark:bg-dark-bg rounded-lg shadow-lg border border-light-border dark:border-dark-border overflow-hidden">
+    <div className="absolute right-0 mt-2 w-74 bg-light-bg dark:bg-dark-bg rounded-lg shadow-lg z-30 border border-light-border dark:border-dark-border overflow-hidden">
       <div className="p-4 border-b border-light-border dark:border-dark-border flex justify-between items-center">
         <h3 className="text-lg font-semibold text-light-text-primary dark:text-dark-text-primary">
           Notifications

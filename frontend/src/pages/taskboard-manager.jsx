@@ -39,7 +39,7 @@ function ProjectPicker({ projects, valueId, onChange }) {
       </div>
 
       {open && projects.length > 0 && (
-        <div className="absolute right-0 z-40 mt-2 w-72 rounded-xl border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-bg p-1 shadow-2xl">
+        <div className="absolute left-0 z-50 mt-2 w-72 rounded-xl border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-bg p-1 shadow-2xl">
           {projects.map((p) => (
             <button
               key={p._id}
