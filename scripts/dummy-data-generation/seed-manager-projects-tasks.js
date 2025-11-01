@@ -886,6 +886,97 @@ async function scenario12(_, n) {
       `- Consultancy project & tasks seeded, incl. a cross-assigned "leak candidate".`
     );
   }
+
+
+async function scenario13({ manager, team }, n) {
+    const now = new Date();
+    const minus1d = new Date(now.getTime() - 1 * 86400000); // now - 1 day
+  
+    const p = await createProjectDirect({
+      name: `${SC_LABEL(n)} Boundary Project (-1d overdue)`,
+      description: 'Boundary test: task overdue by exactly 1 day',
+      departments: [DEPARTMENTS.SYSTEM_SOLUTIONING],
+      deadline: new Date(now.getTime() + 14 * 86400000), // project deadline arbitrary future
+      createdBy: manager._id,
+      teamMembers: team.map(t => t._id),
+    });
+  
+    await createTaskDirect({
+      title: `${SC_LABEL(n)} Overdue by 1 day`,
+      description: 'This task has a past deadline of exactly 1 day',
+      assignedProject: p._id,
+      assignedTeamMembers: [team[0]._id],
+      status: 'In Progress',
+      priority: 5,
+      deadline: minus1d,
+      createdBy: manager._id,
+      startAt: new Date(now.getTime() - 5 * 86400000), // started 5 days ago (arbitrary)
+      createdAt: new Date(now.getTime() - 5 * 86400000),
+      updatedAt: now,
+    });
+  
+    console.log('✅ Scenario 13 seeded: one task overdue by ~1 day.');
+}
+
+async function scenario14({ manager, team }, n) {
+    const now = new Date();
+    const eod = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+  
+    const p = await createProjectDirect({
+      name: `${SC_LABEL(n)} Boundary Project (deadline today EOD)`,
+      description: 'Boundary test: deadline later today, should not be overdue',
+      departments: [DEPARTMENTS.SYSTEM_SOLUTIONING],
+      deadline: new Date(now.getTime() + 21 * 86400000),
+      createdBy: manager._id,
+      teamMembers: team.map(t => t._id),
+    });
+  
+    await createTaskDirect({
+      title: `${SC_LABEL(n)} Deadline today 23:59 (not overdue)`,
+      description: 'This task is due later today at 23:59:59.999',
+      assignedProject: p._id,
+      assignedTeamMembers: [team[1 % team.length]._id],
+      status: 'In Progress',
+      priority: 5,
+      deadline: eod,             
+      createdBy: manager._id,
+      startAt: now,
+      createdAt: now,
+      updatedAt: now,
+    });
+  
+    console.log('✅ Scenario 14 seeded: one task with deadline today 23:59 (not overdue).');
+}
+
+async function scenario15({ manager, team }, n) {
+    const now = new Date();
+    const minus45d = new Date(now.getTime() - 45 * 86400000); // now - 45 days
+  
+    const p = await createProjectDirect({
+      name: `${SC_LABEL(n)} Boundary Project (-45d overdue)`,
+      description: 'Boundary test: task overdue by 45 days',
+      departments: [DEPARTMENTS.SYSTEM_SOLUTIONING],
+      deadline: new Date(now.getTime() + 30 * 86400000),
+      createdBy: manager._id,
+      teamMembers: team.map(t => t._id),
+    });
+  
+    await createTaskDirect({
+      title: `${SC_LABEL(n)} Overdue by 45 days`,
+      description: 'This task has a past deadline of 45 days ago',
+      assignedProject: p._id,
+      assignedTeamMembers: [team[2 % team.length]._id],
+      status: 'In Progress',
+      priority: 5,
+      deadline: minus45d,
+      createdBy: manager._id,
+      startAt: new Date(now.getTime() - 50 * 86400000), // started earlier than deadline for realism
+      createdAt: new Date(now.getTime() - 50 * 86400000),
+      updatedAt: now,
+    });
+  
+    console.log('✅ Scenario 15 seeded: one task overdue by ~45 days.');
+  }
   
 
   
@@ -905,6 +996,9 @@ const SCENARIOS = {
     10: scenario10,
     11: scenario11,
     12: scenario12,
+    13: scenario13,
+    14: scenario14,
+    15: scenario15,
 };
 
 // =====================
@@ -915,13 +1009,13 @@ async function main() {
 
     const arg = process.argv.find((x) => x.startsWith('--scenario='));
     if (!arg) {
-        console.error('❌ Missing --scenario=0..10');
+        console.error('❌ Missing --scenario=0..15');
         process.exit(1);
     }
     const scenarioNum = parseInt(arg.split('=')[1], 10);
     const scenarioFn = SCENARIOS[scenarioNum];
     if (!scenarioFn) {
-        console.error('❌ Invalid scenario number (0..10)');
+        console.error('❌ Invalid scenario number (0..15)');
         process.exit(1);
     }
 

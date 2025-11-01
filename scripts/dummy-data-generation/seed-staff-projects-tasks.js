@@ -503,6 +503,136 @@ async function staffScenario7({ manager, staff }, n) {
 }
 
 // =====================
+// Scenario 8: Task with No Deadline (Not Overdue)
+// =====================
+async function staffScenario8({ manager, staff }, n) {
+  const label = SC_LABEL(n);
+  const p = await createProjectDirect({
+    name: `${label} S8 No-Deadline Project`,
+    description: 'Staff task has no deadline; must not appear overdue',
+    departments: [DEPARTMENTS.SYSTEM_SOLUTIONING],
+    createdBy: manager._id,
+    teamMembers: [staff._id],
+  });
+
+  await createTaskDirect({
+    title: `${label} No-Deadline Task`,
+    description: 'No deadline field set',
+    assignedProject: p._id,
+    assignedTeamMembers: [staff._id],
+    status: 'In Progress',
+    priority: 5,
+    createdBy: manager._id,
+    startAt: now(),
+    createdAt: now(),
+    updatedAt: now(),
+  });
+
+  console.log('✅ Scenario 8 seeded: Staff task with NO deadline (should not be overdue).');
+}
+
+// =====================
+// Scenario 9: Overdue by 1 day
+// =====================
+async function staffScenario9({ manager, staff }, n) {
+  const label = SC_LABEL(n);
+  const deadline = new Date(now().getTime() - days(1)); // one day ago
+
+  const p = await createProjectDirect({
+    name: `${label} S9 Overdue-1d Project`,
+    description: 'Staff task overdue by exactly 1 day',
+    departments: [DEPARTMENTS.SYSTEM_SOLUTIONING],
+    createdBy: manager._id,
+    teamMembers: [staff._id],
+  });
+
+  await createTaskDirect({
+    title: `${label} Overdue by 1 day`,
+    description: 'Boundary test: should display “1 day overdue”',
+    assignedProject: p._id,
+    assignedTeamMembers: [staff._id],
+    status: 'In Progress',
+    priority: 5,
+    deadline,
+    createdBy: manager._id,
+    startAt: new Date(now().getTime() - days(5)),
+    createdAt: new Date(now().getTime() - days(5)),
+    updatedAt: now(),
+  });
+
+  console.log('✅ Scenario 9 seeded: Staff task overdue by ~1 day.');
+}
+
+// =====================
+// Scenario 10: Deadline today 23:59 (Not Overdue)
+// =====================
+async function staffScenario10({ manager, staff }, n) {
+  const label = SC_LABEL(n);
+  const eod = new Date(now().getFullYear(), now().getMonth(), now().getDate(), 23, 59, 59, 999);
+
+  const p = await createProjectDirect({
+    name: `${label} S10 Due-Today Project`,
+    description: 'Deadline later today; should not be overdue',
+    departments: [DEPARTMENTS.SYSTEM_SOLUTIONING],
+    createdBy: manager._id,
+    teamMembers: [staff._id],
+  });
+
+  await createTaskDirect({
+    title: `${label} Due Today 23:59`,
+    description: 'Boundary test: due later today',
+    assignedProject: p._id,
+    assignedTeamMembers: [staff._id],
+    status: 'In Progress',
+    priority: 5,
+    deadline: eod,
+    createdBy: manager._id,
+    startAt: now(),
+    createdAt: now(),
+    updatedAt: now(),
+  });
+
+  console.log('✅ Scenario 10 seeded: Staff task due today 23:59 (not overdue).');
+}
+
+// =====================
+// Scenario 11: Done late (should NOT appear in Overdue)
+// =====================
+async function staffScenario11({ manager, staff }, n) {
+  const label = SC_LABEL(n);
+  const deadline = new Date(now().getTime() - days(3)); // due 3 days ago
+  const completed = new Date(now().getTime() - days(1)); // finished 2 days late
+
+  const p = await createProjectDirect({
+    name: `${label} S11 Done-Late Project`,
+    description: 'Task completed after deadline; should not appear overdue',
+    departments: [DEPARTMENTS.SYSTEM_SOLUTIONING],
+    createdBy: manager._id,
+    teamMembers: [staff._id],
+  });
+
+  await createTaskDirect({
+    title: `${label} Done Late Task`,
+    description: 'Completed 2 days after deadline',
+    assignedProject: p._id,
+    assignedTeamMembers: [staff._id],
+    status: 'Done',
+    priority: 5,
+    deadline,
+    endAt: completed,
+    completedAt: completed,
+    createdBy: manager._id,
+    startAt: new Date(now().getTime() - days(7)),
+    createdAt: new Date(now().getTime() - days(7)),
+    updatedAt: completed,
+  });
+
+  console.log('✅ Scenario 11 seeded: Staff task completed late (should NOT be overdue).');
+}
+
+
+
+// =====================
 // SCENARIO MAP
 // =====================
 const SCENARIOS = {
@@ -514,6 +644,10 @@ const SCENARIOS = {
   5: staffScenario5,
   6: staffScenario6,
   7: staffScenario7,
+  8: staffScenario8,
+  9: staffScenario9,
+  10: staffScenario10, 
+  11: staffScenario11,
 };
 
 // =====================
@@ -524,13 +658,13 @@ async function main() {
 
   const arg = process.argv.find((x) => x.startsWith('--scenario='));
   if (!arg) {
-    console.error('❌ Missing --scenario=0..7');
+    console.error('❌ Missing --scenario=0..11');
     process.exit(1);
   }
   const scenarioNum = parseInt(arg.split('=')[1], 10);
   const scenarioFn = SCENARIOS[scenarioNum];
   if (!scenarioFn) {
-    console.error('❌ Invalid scenario number (0..7)');
+    console.error('❌ Invalid scenario number (0..11)');
     process.exit(1);
   }
 
