@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Modal } from "./Modal";
-import TaskForm from "./TaskForm";
+import { TaskForm } from "./TaskForm";
 
 const DEFAULT_LABEL = "Create Task";
 const BTN_PRIMARY_CLS =

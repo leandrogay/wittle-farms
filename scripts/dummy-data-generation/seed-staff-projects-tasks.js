@@ -630,6 +630,91 @@ async function staffScenario11({ manager, staff }, n) {
   console.log('✅ Scenario 11 seeded: Staff task completed late (should NOT be overdue).');
 }
 
+// =====================
+// Scenario 12: Daily Recurring Task (positive creation)
+// =====================
+async function staffScenario12({ manager, staff }, n) {
+  const label = SC_LABEL(n);
+  const today = now();
+  const tomorrow = new Date(today.getTime() + days(1));
+
+  const p = await createProjectDirect({
+    name: `${label} Recurrence Project (Daily)`,
+    description: 'For testing recurring daily tasks',
+    departments: [DEPARTMENTS.SYSTEM_SOLUTIONING],
+    createdBy: manager._id,
+    teamMembers: [staff._id],
+  });
+
+  await createTaskDirect({
+    title: `${label} Daily Recurring Report`,
+    description: 'Submit daily project report by EOD',
+    assignedProject: p._id,
+    assignedTeamMembers: [staff._id],
+    status: 'In Progress',
+    priority: 4,
+    deadline: tomorrow,
+    recurrence: 'daily',
+    createdBy: staff._id,
+    startAt: today,
+    createdAt: today,
+    updatedAt: today,
+  });
+
+  console.log('✅ Scenario 12 seeded: Daily recurring task created (initial instance).');
+}
+
+// =====================
+// Scenario 13: Weekly Recurring Task Completed → Next Instance Generated
+// =====================
+async function staffScenario13({ manager, staff }, n) {
+  const label = SC_LABEL(n);
+  const lastWeek = new Date(now().getTime() - days(7));
+  const nextWeek = new Date(now().getTime() + days(7));
+
+  const p = await createProjectDirect({
+    name: `${label} Recurrence Project (Weekly)`,
+    description: 'For testing recurring weekly task generation',
+    departments: [DEPARTMENTS.SYSTEM_SOLUTIONING],
+    createdBy: manager._id,
+    teamMembers: [staff._id],
+  });
+
+  // Original completed recurring task
+  const originalTask = await createTaskDirect({
+    title: `${label} Weekly Status Meeting`,
+    description: 'Prepare and upload meeting notes',
+    assignedProject: p._id,
+    assignedTeamMembers: [staff._id],
+    status: 'Done',
+    priority: 3,
+    recurrence: 'weekly',
+    deadline: lastWeek,
+    completedAt: now(),
+    createdBy: staff._id,
+    startAt: new Date(lastWeek.getTime() - days(2)),
+    createdAt: new Date(lastWeek.getTime() - days(2)),
+    updatedAt: now(),
+  });
+
+  // Automatically generated next instance
+  await createTaskDirect({
+    title: originalTask.title,
+    description: originalTask.description,
+    assignedProject: p._id,
+    assignedTeamMembers: originalTask.assignedTeamMembers,
+    status: 'To Do',
+    priority: 3,
+    recurrence: originalTask.recurrence,
+    deadline: nextWeek, // +7 days
+    createdBy: staff._id,
+    startAt: now(),
+    createdAt: now(),
+    updatedAt: now(),
+  });
+
+  console.log('✅ Scenario 13 seeded: Weekly recurring task and its next instance.');
+}
 
 
 // =====================
@@ -648,6 +733,8 @@ const SCENARIOS = {
   9: staffScenario9,
   10: staffScenario10, 
   11: staffScenario11,
+  12: staffScenario12,
+  13: staffScenario13,
 };
 
 // =====================
@@ -658,13 +745,13 @@ async function main() {
 
   const arg = process.argv.find((x) => x.startsWith('--scenario='));
   if (!arg) {
-    console.error('❌ Missing --scenario=0..11');
+    console.error('❌ Missing --scenario=0..14');
     process.exit(1);
   }
   const scenarioNum = parseInt(arg.split('=')[1], 10);
   const scenarioFn = SCENARIOS[scenarioNum];
   if (!scenarioFn) {
-    console.error('❌ Invalid scenario number (0..11)');
+    console.error('❌ Invalid scenario number (0..14)');
     process.exit(1);
   }
 

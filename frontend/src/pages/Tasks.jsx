@@ -23,6 +23,18 @@ function normalizeStatus(raw) {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
+async function fetchMyTasks(userId) {
+  const data = await getTasks();
+  if (!Array.isArray(data)) return [];
+  return data.filter(
+    (t) =>
+      Array.isArray(t.assignedTeamMembers) &&
+      t.assignedTeamMembers.some(
+        (m) => (typeof m === "string" ? m === userId : m?._id === userId)
+      )
+  );
+}
+
 /* ---------- Tasks Page ---------- */
 export default function Tasks() {
   const { user } = useAuth();
@@ -226,8 +238,14 @@ export default function Tasks() {
         <Modal title={activeTask.title || "Task Details"} onClose={() => setActiveTask(null)}>
           <TaskCard
             task={activeTask}
-            onTaskUpdated={(updated) => {
-              setTasks((prev) => prev.map((t) => (t._id === updated._id ? updated : t)));
+            onTaskUpdated={async (updated) => {
+              const completedRecurring = updated?.status === "Done" && !!updated?.recurrence;
+              if (completedRecurring) {
+                const fresh = await fetchMyTasks(user.id);
+                setTasks(fresh);
+              } else {
+                setTasks((prev) => prev.map((t) => (t._id === updated._id ? updated : t)));
+              }
               setActiveTask(null);
             }}
             onTaskDeleted={(deletedId) => {
@@ -255,7 +273,11 @@ export default function Tasks() {
               const ids = (created.assignedTeamMembers || []).map((m) =>
                 typeof m === "string" ? m : m?._id
               );
-              if (ids.includes(user.id)) {
+              const createdByMe =
+                (typeof created.createdBy === "string"
+                  ? created.createdBy === user.id
+                  : created.createdBy?._id === user.id);
+              if (ids.includes(user.id) || createdByMe) {
                 setTasks((prev) => [created, ...prev]);
               }
               setShowCreate(false);
