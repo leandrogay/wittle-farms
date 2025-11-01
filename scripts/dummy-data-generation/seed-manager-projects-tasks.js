@@ -773,8 +773,213 @@ async function scenario10({ manager, team }, n) {
     console.log("✅ Scenario 10 seeded with a Manager comment on 'Critical A'.");
 }
 
+async function scenario11(_, n) {
+    // Create a manager + team in System Solutioning, but seed NOTHING else.
+    // This allows UI/API to exercise "no projects / no tasks" empty-state behavior.
+    const { manager, team } = await ensureManagerAndTeam(n);
+  
+    console.log(
+      `✅ Scenario 11 ready: manager ${manager.email} with ${team.length} staff, ` +
+      ` 0 projects and 0 tasks created.`
+    );
+}
 
 
+async function scenario12(_, n) {
+    const { manager: sysMgr, team: sysTeam } = await ensureManagerAndTeam(n);
+
+    const suffix = `sc${n}`;
+    const consMgr = await getOrCreateUser({
+      name: `${SC_LABEL(n)} Consultancy Manager`,
+      email: `manager.consultancy.${suffix}@example.com`,
+      password: process.env.TEST_MANAGER_PASSWORD || 'Password123!',
+      role: 'Manager',
+      departmentId: DEPARTMENTS.CONSULTANCY,
+    });
+  
+    const consStaffEmails = [
+      `cons.alice.${suffix}@example.com`,
+      `cons.ben.${suffix}@example.com`,
+      `cons.chloe.${suffix}@example.com`,
+    ];
+    const consTeam = [];
+    for (let i = 0; i < consStaffEmails.length; i++) {
+      consTeam.push(
+        await getOrCreateUser({
+          name: `${SC_LABEL(n)} Consultancy Staff${i + 1}`,
+          email: consStaffEmails[i],
+          password: process.env.TEST_STAFF_PASSWORD || 'Password123!',
+          role: 'Staff',
+          departmentId: DEPARTMENTS.CONSULTANCY,
+        })
+      );
+    }
+  
+    // 3) Consultancy-only project
+    // Include ONE System Solutioning staff in teamMembers solely to allow a cross-assigned task,
+    // while keeping user.department intact for isolation tests.
+    const pConsultancy = await createProjectDirect({
+      name: `${SC_LABEL(n)} Consultancy Project A`,
+      description: 'Cross-department isolation test dataset',
+      departments: [DEPARTMENTS.CONSULTANCY],
+      deadline: new Date(Date.now() + 30 * 86400000),
+      createdBy: consMgr._id,
+      teamMembers: [
+        ...consTeam.map(t => t._id),
+        sysTeam[0]._id, // allow assigning a task to a System Solutioning staff (leak candidate)
+      ],
+    });
+  
+    // 4) Consultancy-only tasks (should NOT be visible to the System Solutioning manager)
+    await createTaskDirect({
+      title: `${SC_LABEL(n)} CONS Only - In Progress`,
+      description: `${SC_LABEL(n)} Consultancy-only task`,
+      assignedProject: pConsultancy._id,
+      assignedTeamMembers: [consTeam[0]._id],
+      status: 'In Progress',
+      priority: 5,
+      deadline: new Date(Date.now() + 7 * 86400000),
+      createdBy: consMgr._id,
+      startAt: new Date(),
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+  
+    const doneAt = new Date(Date.now() - 24 * 3600 * 1000);
+    await createTaskDirect({
+      title: `${SC_LABEL(n)} CONS Only - Done`,
+      description: `${SC_LABEL(n)} Consultancy-only done task`,
+      assignedProject: pConsultancy._id,
+      assignedTeamMembers: [consTeam[1]._id],
+      status: 'Done',
+      priority: 4,
+      deadline: new Date(Date.now() - 2 * 86400000),
+      createdBy: consMgr._id,
+      startAt: new Date(Date.now() - 5 * 86400000),
+      endAt: doneAt,
+      completedAt: doneAt,
+      createdAt: new Date(Date.now() - 5 * 86400000),
+      updatedAt: doneAt,
+    });
+  
+    // 5) Cross-assigned "leak candidate":
+    // - Consultancy project & creator (consMgr)
+    // - Assigned to a System Solutioning staff (sysTeam[0])
+    await createTaskDirect({
+      title: `${SC_LABEL(n)} CROSS Dept Leak Candidate`,
+      description: `${SC_LABEL(n)} Consultancy project task assigned to System staff`,
+      assignedProject: pConsultancy._id,
+      assignedTeamMembers: [sysTeam[0]._id],
+      status: 'To Do',
+      priority: 6,
+      deadline: new Date(Date.now() + 10 * 86400000),
+      createdBy: consMgr._id,
+      startAt: new Date(),
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+  
+    console.log(
+      `✅ Scenario 12 ready:\n` +
+      `- System manager: ${sysMgr.email} (dept=System Solutioning)\n` +
+      `- Consultancy manager: ${consMgr.email} (dept=Consultancy)\n` +
+      `- Consultancy project & tasks seeded, incl. a cross-assigned "leak candidate".`
+    );
+  }
+
+
+async function scenario13({ manager, team }, n) {
+    const now = new Date();
+    const minus1d = new Date(now.getTime() - 1 * 86400000); // now - 1 day
+  
+    const p = await createProjectDirect({
+      name: `${SC_LABEL(n)} Boundary Project (-1d overdue)`,
+      description: 'Boundary test: task overdue by exactly 1 day',
+      departments: [DEPARTMENTS.SYSTEM_SOLUTIONING],
+      deadline: new Date(now.getTime() + 14 * 86400000), // project deadline arbitrary future
+      createdBy: manager._id,
+      teamMembers: team.map(t => t._id),
+    });
+  
+    await createTaskDirect({
+      title: `${SC_LABEL(n)} Overdue by 1 day`,
+      description: 'This task has a past deadline of exactly 1 day',
+      assignedProject: p._id,
+      assignedTeamMembers: [team[0]._id],
+      status: 'In Progress',
+      priority: 5,
+      deadline: minus1d,
+      createdBy: manager._id,
+      startAt: new Date(now.getTime() - 5 * 86400000), // started 5 days ago (arbitrary)
+      createdAt: new Date(now.getTime() - 5 * 86400000),
+      updatedAt: now,
+    });
+  
+    console.log('✅ Scenario 13 seeded: one task overdue by ~1 day.');
+}
+
+async function scenario14({ manager, team }, n) {
+    const now = new Date();
+    const eod = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+  
+    const p = await createProjectDirect({
+      name: `${SC_LABEL(n)} Boundary Project (deadline today EOD)`,
+      description: 'Boundary test: deadline later today, should not be overdue',
+      departments: [DEPARTMENTS.SYSTEM_SOLUTIONING],
+      deadline: new Date(now.getTime() + 21 * 86400000),
+      createdBy: manager._id,
+      teamMembers: team.map(t => t._id),
+    });
+  
+    await createTaskDirect({
+      title: `${SC_LABEL(n)} Deadline today 23:59 (not overdue)`,
+      description: 'This task is due later today at 23:59:59.999',
+      assignedProject: p._id,
+      assignedTeamMembers: [team[1 % team.length]._id],
+      status: 'In Progress',
+      priority: 5,
+      deadline: eod,             
+      createdBy: manager._id,
+      startAt: now,
+      createdAt: now,
+      updatedAt: now,
+    });
+  
+    console.log('✅ Scenario 14 seeded: one task with deadline today 23:59 (not overdue).');
+}
+
+async function scenario15({ manager, team }, n) {
+    const now = new Date();
+    const minus45d = new Date(now.getTime() - 45 * 86400000); // now - 45 days
+  
+    const p = await createProjectDirect({
+      name: `${SC_LABEL(n)} Boundary Project (-45d overdue)`,
+      description: 'Boundary test: task overdue by 45 days',
+      departments: [DEPARTMENTS.SYSTEM_SOLUTIONING],
+      deadline: new Date(now.getTime() + 30 * 86400000),
+      createdBy: manager._id,
+      teamMembers: team.map(t => t._id),
+    });
+  
+    await createTaskDirect({
+      title: `${SC_LABEL(n)} Overdue by 45 days`,
+      description: 'This task has a past deadline of 45 days ago',
+      assignedProject: p._id,
+      assignedTeamMembers: [team[2 % team.length]._id],
+      status: 'In Progress',
+      priority: 5,
+      deadline: minus45d,
+      createdBy: manager._id,
+      startAt: new Date(now.getTime() - 50 * 86400000), // started earlier than deadline for realism
+      createdAt: new Date(now.getTime() - 50 * 86400000),
+      updatedAt: now,
+    });
+  
+    console.log('✅ Scenario 15 seeded: one task overdue by ~45 days.');
+  }
+  
+
+  
 
 
 const SCENARIOS = {
@@ -789,6 +994,11 @@ const SCENARIOS = {
     8: scenario8,
     9: scenario9,
     10: scenario10,
+    11: scenario11,
+    12: scenario12,
+    13: scenario13,
+    14: scenario14,
+    15: scenario15,
 };
 
 // =====================
@@ -799,13 +1009,13 @@ async function main() {
 
     const arg = process.argv.find((x) => x.startsWith('--scenario='));
     if (!arg) {
-        console.error('❌ Missing --scenario=0..10');
+        console.error('❌ Missing --scenario=0..15');
         process.exit(1);
     }
     const scenarioNum = parseInt(arg.split('=')[1], 10);
     const scenarioFn = SCENARIOS[scenarioNum];
     if (!scenarioFn) {
-        console.error('❌ Invalid scenario number (0..10)');
+        console.error('❌ Invalid scenario number (0..15)');
         process.exit(1);
     }
 

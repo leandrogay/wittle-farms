@@ -146,8 +146,21 @@ const CreateProjectForm = ({ onCancel, onCreated, project = null }) => {
 
   const dropdownRef = useRef(null);
   const dropdownBtnRef = useRef(null);
+  const fileInputRef = useRef(null);
 
   const [formData, setFormData] = useState(() => _initialFormData(user, project));
+
+  const deadlineMin = useMemo(() => { // NEW
+    return formData.startDate ? `${formData.startDate}T00:00` : "";
+  }, [formData.startDate]);
+
+  const invalidDeadline = useMemo(() => { // NEW
+    if (!deadline || !formData.startDate) return false;
+    const dl = dayjs.tz(deadline, DATE_TIME_LOCAL_FORMAT, DEFAULT_TIMEZONE);
+    const sd = dayjs.tz(formData.startDate, DATE_FORMAT, DEFAULT_TIMEZONE).startOf("day");
+    return dl.isBefore(sd);
+  }, [deadline, formData.startDate]);
+
 
   // ===== Effects =====
   useEffect(() => {
@@ -246,6 +259,11 @@ const CreateProjectForm = ({ onCancel, onCreated, project = null }) => {
       );
       return;
     }
+    if (invalidDeadline) { 
+      const msg = `Deadline cannot be earlier than the start date.\nStart: ${formData.startDate}\nDeadline: ${deadline || "—"}`;
+      setError(msg);
+      return;
+    }
     setSaving(true);
     setError(null);
     try {
@@ -255,6 +273,17 @@ const CreateProjectForm = ({ onCancel, onCreated, project = null }) => {
       // Keeping alert for now to avoid scope creep into custom toasts
       alert(isEdit ? "Project updated successfully!" : "Project created successfully!");
       onCancel?.();
+      if (isEdit) {
+        onCancel?.();
+      } else {
+        setFormData(_initialFormData(user, null));
+        setDepartmentIds([]);
+        setDeadline("");
+        setNoEndDate(false);
+        setShowMemberDropdown(false);
+        setError(null);
+        if (fileInputRef.current) fileInputRef.current.value = "";
+      }
     } catch (e) {
       setError(e.message || "Failed to save project");
     } finally {
@@ -362,6 +391,7 @@ const CreateProjectForm = ({ onCancel, onCreated, project = null }) => {
                       name="attachments"
                       multiple
                       onChange={handleChange}
+                      ref={fileInputRef}
                       className="block w-full text-xs file:mr-3 file:rounded-md file:border-0 file:bg-blue-600 file:px-3 file:py-1 file:text-xs file:font-medium file:text-white hover:file:bg-blue-700"
                     />
                     <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
@@ -534,6 +564,11 @@ const CreateProjectForm = ({ onCancel, onCreated, project = null }) => {
                     className={INPUT_BASE_CLS}
                   />
                   <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Optional — used for reporting/overdue calculations</p>
+                  {invalidDeadline && (
+                    <p className="mt-1 text-xs text-red-600 dark:text-red-400">
+                      Deadline must be on or after the start date ({formData.startDate}).
+                    </p>
+                  )}
                 </div>
 
                 {/* Dates */}

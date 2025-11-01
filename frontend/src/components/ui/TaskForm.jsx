@@ -113,7 +113,7 @@ const TaskForm = ({ onCancel, onCreated, onUpdated, task = null }) => {
       description: "",
       notes: "",
       assignedProject: "",
-      assignedTeamMembers: [],
+      assignedTeamMembers: [user.id],
       status: STATUS_OPTIONS[0],
       priority: "5",
       deadline: "",
@@ -165,12 +165,15 @@ const TaskForm = ({ onCancel, onCreated, onUpdated, task = null }) => {
         if (cancelled) return;
         setTeamMembers(Array.isArray(members) ? members : []);
         const validIds = new Set((members || []).map((m) => m._id));
-        setFormData((prev) => ({
-          ...prev,
-          assignedTeamMembers: (prev.assignedTeamMembers || []).filter((id) =>
-            validIds.has(id)
-          ),
-        }));
+        setFormData((prev) => {
+          const validIdsSet = new Set(validIds);
+          const base = new Set(prev.assignedTeamMembers || []);
+          if (validIdsSet.has(user.id)) base.add(user.id);
+          return {
+            ...prev,
+            assignedTeamMembers: [...base].filter((id) => validIdsSet.has(id)),
+          };
+        });
       } catch (err) {
         if (!cancelled) setError(err.message || "Failed to load team members");
         setTeamMembers([]);
@@ -180,10 +183,13 @@ const TaskForm = ({ onCancel, onCreated, onUpdated, task = null }) => {
     return () => {
       cancelled = true;
     };
-  }, [formData.assignedProject]);
+  }, [formData.assignedProject, user.id]);
 
   const handleChange = (e) => {
     const { name, value, files, options, type } = e.target;
+    if (name === "deadline" && !value) {
+      setRecurrenceEnabled(false);
+    }
     if (name === "priority") {
       const n = Math.max(1, Math.min(10, Math.trunc(Number(value) || 5)));
       setFormData((prev) => ({ ...prev, priority: String(n) }));
@@ -256,6 +262,7 @@ const TaskForm = ({ onCancel, onCreated, onUpdated, task = null }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setError(null);
     try {
       const payload = { ...formData };
       payload.priority = Math.max(
@@ -302,7 +309,7 @@ const TaskForm = ({ onCancel, onCreated, onUpdated, task = null }) => {
 
       if (recurrenceEnabled) {
         if (!hasDeadline) {
-          // non-blocking UX: you could set an inline error label instead of alerting
+          setError('To repeat this task, add a deadline or uncheck "Repeat this task".');
           return;
         }
 
@@ -317,8 +324,8 @@ const TaskForm = ({ onCancel, onCreated, onUpdated, task = null }) => {
             until:
               recurrenceEnds === "onDate" && recurrenceUntil
                 ? dayjs
-                    .tz(recurrenceUntil, DATE_TIME_LOCAL_FORMAT, SG_TZ)
-                    .toISOString()
+                  .tz(recurrenceUntil, DATE_TIME_LOCAL_FORMAT, SG_TZ)
+                  .toISOString()
                 : null,
           };
         }
@@ -335,11 +342,7 @@ const TaskForm = ({ onCancel, onCreated, onUpdated, task = null }) => {
       }
       onCancel();
     } catch (err) {
-      console.error(
-        `${isEdit ? "Error updating task: " : "Error creating task: "}${
-          err.message || "Unknown error"
-        }`
-      );
+      setError(err.message || (isEdit ? "Failed to update task" : "Failed to create task"));
     }
   };
 
@@ -564,8 +567,8 @@ const TaskForm = ({ onCancel, onCreated, onUpdated, task = null }) => {
                       {formData.assignedTeamMembers.length > 0
                         ? `${formData.assignedTeamMembers.length} selected`
                         : isEdit
-                        ? "Change assignees"
-                        : "Select team members"}
+                          ? "Change assignees"
+                          : "Select team members"}
                     </span>
                     <svg
                       className="w-4 h-4 transition-transform text-light-text-muted dark:text-dark-text-muted shrink-0 ml-2"
@@ -901,9 +904,8 @@ const TaskForm = ({ onCancel, onCreated, onUpdated, task = null }) => {
                               ].sort((a, b) => b - a),
                             }));
                           }}
-                          className={`px-3 py-2 text-sm rounded-lg bg-light-surface dark:bg-dark-surface border border-light-border dark:border-dark-border hover:bg-light-bg-secondary dark:hover:bg-dark-bg-secondary ${
-                            addDisabled ? "opacity-60 cursor-not-allowed" : ""
-                          }`}
+                          className={`px-3 py-2 text-sm rounded-lg bg-light-surface dark:bg-dark-surface border border-light-border dark:border-dark-border hover:bg-light-bg-secondary dark:hover:bg-dark-bg-secondary ${addDisabled ? "opacity-60 cursor-not-allowed" : ""
+                            }`}
                         >
                           Add
                         </button>
@@ -936,11 +938,12 @@ const TaskForm = ({ onCancel, onCreated, onUpdated, task = null }) => {
               </button>
               <button
                 type="submit"
-                className={`px-4 py-2 text-sm rounded-lg transition-colors font-medium shadow-sm ${
-                  isEdit
+                disabled={recurrenceEnabled && !formData.deadline}
+                aria-disabled={recurrenceEnabled && !formData.deadline}
+                className={`px-4 py-2 text-sm rounded-lg transition-colors font-medium shadow-sm ${isEdit
                     ? "bg-success text-white hover:bg-emerald-600"
                     : "bg-brand-primary text-white hover:bg-blue-700"
-                }`}
+                  }`}
               >
                 {isEdit ? "Save Changes" : "Create Task"}
               </button>

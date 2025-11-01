@@ -3,6 +3,7 @@ import dayjs from "dayjs";
 import TaskFormButton from "./TaskFormButton";
 import { DeleteTaskButton } from "./DeleteTaskButton";
 import { TaskComments } from "./TaskComments";
+import { updateTask } from "../../services/api.js";
 
 const PRIORITY = { LOW: "Low", MEDIUM: "Medium", HIGH: "High" };
 const PRIORITY_STYLES = {
@@ -45,6 +46,7 @@ const FieldRow = ({ label, children }) => (
   </p>
 );
 
+const STATUS_OPTIONS = ["To Do", "In Progress", "Done"];
 const TaskCard = ({ task, onTaskUpdated, onTaskDeleted, currentUser }) => {
   const priorityValue = Number(task?.priority);
   const priorityBucket = _getPriorityBucket(priorityValue);
@@ -61,9 +63,9 @@ const TaskCard = ({ task, onTaskUpdated, onTaskDeleted, currentUser }) => {
   // Normalize reminder offsets from API
   const rawOffsets = Array.isArray(task?.reminderOffsets)
     ? task.reminderOffsets
-        .map(Number)
-        .filter((n) => Number.isFinite(n) && n > 0)
-        .sort((a, b) => b - a)
+      .map(Number)
+      .filter((n) => Number.isFinite(n) && n > 0)
+      .sort((a, b) => b - a)
     : [];
 
   // If there IS a deadline and no custom reminders, show defaults (7/3/1)
@@ -75,12 +77,55 @@ const TaskCard = ({ task, onTaskUpdated, onTaskDeleted, currentUser }) => {
       : [];
 
   const [showComments, setShowComments] = useState(false);
+  const [savingStatus, setSavingStatus] = useState(false);
+  const [localStatus, setLocalStatus] = useState(task?.status ?? "To Do");
+
+  async function handleStatusChange(e) {
+    const next = e.target.value;
+    if (next === localStatus) return;
+    setLocalStatus(next);
+    setSavingStatus(true);
+    try {
+      const updated = await updateTask(task._id, { status: next });
+      onTaskUpdated?.(updated);
+    } catch (err) {
+      setLocalStatus(task?.status ?? "To Do");
+    } finally {
+      setSavingStatus(false);
+    }
+  }
+
 
   return (
     <article className={`rounded-2xl border p-6 shadow-sm bg-light-bg dark:bg-dark-bg ${isOverdue ? "border-danger ring-2 ring-danger/20" : "border-light-border dark:border-dark-border"}`}>
-      <p className="text-sm font-medium text-light-text-muted dark:text-dark-text-muted">Project: {task?.assignedProject?.name ?? "—"}</p>
-      <h2 className="mt-1 text-2xl font-extrabold tracking-tight text-light-text-primary dark:text-dark-text-primary">Title: {task?.title ?? "Untitled"}</h2>
 
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <p className="text-sm font-medium text-light-text-muted dark:text-dark-text-muted">
+            Project: {task?.assignedProject?.name ?? "—"}
+          </p>
+          <h2 className="mt-1 text-2xl font-extrabold tracking-tight text-light-text-primary dark:text-dark-text-primary">
+            Title: {task?.title ?? "Untitled"}
+          </h2>
+        </div>
+
+        {/* Status dropdown */}
+        <div className="flex items-center gap-2 shrink-0">
+          <span className="text-sm font-semibold text-light-text-secondary dark:text-dark-text-secondary">Status</span>
+          <select
+            value={localStatus}
+            onChange={handleStatusChange}
+            disabled={savingStatus}
+            aria-label="Change task status"
+            className={`text-sm px-2 py-1 rounded-md border ring-1 ring-light-border dark:ring-dark-border bg-light-surface dark:bg-dark-surface text-light-text-primary dark:text-dark-text-primary
+                   ${savingStatus ? "opacity-60 cursor-not-allowed" : "hover:bg-light-bg-secondary dark:hover:bg-dark-bg-secondary"}`}
+          >
+            {STATUS_OPTIONS.map((s) => (
+              <option key={s} value={s}>{s}</option>
+            ))}
+          </select>
+        </div>
+      </div>
       <FieldRow label="Description">{task?.description ?? "—"}</FieldRow>
       <FieldRow label="Notes">{task?.notes ?? "—"}</FieldRow>
 
