@@ -1364,6 +1364,9 @@ export default function Report() {
       
       if (user.role === "Senior Manager" || user.role === "HR") {
         filename = `Company-Wide Performance Report - ${currentDate}`;
+      } else if (user.role === "Director") {
+        const departmentName = reportData?.departmentInfo?.departmentName || "Department";
+        filename = `${departmentName} Performance Report - ${currentDate}`;
       } else {
         filename = `${user.role} Report - ${currentDate}`;
       }
