@@ -1000,11 +1000,16 @@ function SeniorManagerReport({ reportData, reportRef }) {
               Company Scale
             </p>
             <p className="text-lg font-bold text-light-text-primary dark:text-dark-text-primary">
-              {companyScope?.totalProjects} Projects
+              {companyScope?.totalProjects || 0} Projects
             </p>
             <p className="text-lg font-bold text-light-text-primary dark:text-dark-text-primary">
-              {companyScope?.totalTasks} Tasks
+              {companyScope?.totalTasks || 0} Tasks
             </p>
+            {(!companyScope?.totalProjects && !companyScope?.totalTasks) && (
+              <p className="text-xs text-light-text-muted dark:text-dark-text-muted mt-2 italic">
+                No projects or tasks yet. Company metrics will appear as work begins.
+              </p>
+            )}
           </div>
         </div>
       </div>
@@ -1099,7 +1104,14 @@ function SeniorManagerReport({ reportData, reportRef }) {
         <h2 className="text-xl font-bold text-light-text-primary dark:text-dark-text-primary mb-4">
           Department Performance Breakdown
         </h2>
-        <div className="overflow-x-auto">
+        {!departmentMetrics || departmentMetrics.length === 0 ? (
+          <div className="text-center py-8">
+            <p className="text-sm text-light-text-secondary dark:text-dark-text-secondary">
+              No department data available yet. Department metrics will appear here once projects and tasks are assigned.
+            </p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
           <table className="w-full department-table">
             <thead className="border-b border-light-border dark:border-dark-border">
               <tr>
@@ -1206,6 +1218,7 @@ function SeniorManagerReport({ reportData, reportRef }) {
             </tbody>
           </table>
         </div>
+        )}
       </div>
 
       {/* Top Projects by Task Volume */}
@@ -1213,7 +1226,15 @@ function SeniorManagerReport({ reportData, reportRef }) {
         <h2 className="text-xl font-bold text-light-text-primary dark:text-dark-text-primary mb-4">
           Project Performance Overview (Top Projects by Task Volume)
         </h2>
-        <div className="overflow-x-auto">
+        {!projectBreakdown || projectBreakdown.length === 0 ? (
+          <div className="text-center py-8">
+            <p className="text-sm text-light-text-secondary dark:text-dark-text-secondary">
+              No project data available yet. Project performance metrics will appear here once projects are created and have tasks assigned.
+            </p>
+          </div>
+        ) : (
+          <>
+            <div className="overflow-x-auto">
           <table className="w-full project-table">
             <thead className="border-b border-light-border dark:border-dark-border">
               <tr>
@@ -1278,6 +1299,8 @@ function SeniorManagerReport({ reportData, reportRef }) {
           <p className="text-xs text-light-text-muted dark:text-dark-text-muted mt-4 text-center">
             Showing top 20 projects by task volume. Total projects: {projectBreakdown.length}
           </p>
+        )}
+        </>
         )}
       </div>
     </div>
