@@ -97,6 +97,27 @@ function computeNextDeadline(currentDeadline, recurrence) {
   return next;
 }
 
+
+/**
+ * @openapi
+ * /api/tasks:
+ *   post:
+ *     tags: [Tasks]
+ *     summary: Create a task
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [title]
+ *             properties:
+ *               title: { type: string }
+ *     responses:
+ *       201:
+ *         description: Created
+ */
+
 /**
  * CREATE Task
  * POST /api/tasks
@@ -230,6 +251,18 @@ router.post('/', upload.array('attachments'), async (req, res) => {
     res.status(400).json({ error: e.message });
   }
 });
+
+
+/**
+ * @openapi
+ * /api/tasks:
+ *   get:
+ *     tags: [Tasks]
+ *     summary: List tasks
+ *     responses:
+ *       200:
+ *         description: OK
+ */
 
 /**
  * READ all tasks
