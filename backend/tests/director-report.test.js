@@ -956,5 +956,191 @@ describe("Director Report API", () => {
         expect(taskScopeOverdue).toBeGreaterThanOrEqual(teamOverdueSum);
       });
     });
+
+    describe("TC-008: Director 'No Data' Edge Cases", () => {
+      it("should handle completely empty department (no users, no projects, no tasks)", async () => {
+        // Create a completely empty department
+        const emptyDept = await Department.create({
+          name: "Completely Empty Department",
+          description: "Department with absolutely no data"
+        });
+
+        const response = await request(app)
+          .get(`/api/director/report?departmentId=${emptyDept._id}`)
+          .expect(200);
+
+        const reportData = response.body;
+
+        // Time performance metrics should default to 0
+        expect(reportData.avgTaskCompletionDays).toBe(0);
+        expect(reportData.avgProjectCompletionDays).toBe(0);
+
+        // Productivity trend should default to "Stable"
+        expect(reportData.productivityTrend).toBe("Stable");
+        expect(reportData.completionRateThisMonth).toBe(0);
+        expect(reportData.completionRateLastMonth).toBe(0);
+
+        // Project scope should show all zeros
+        expect(reportData.projectScope.totalProjects).toBe(0);
+        expect(reportData.projectScope.projectStatusCounts["To Do"]).toBe(0);
+        expect(reportData.projectScope.projectStatusCounts["In Progress"]).toBe(0);
+        expect(reportData.projectScope.projectStatusCounts["Done"]).toBe(0);
+        expect(reportData.projectScope.projectStatusCounts["Overdue"]).toBe(0);
+        expect(reportData.projectScope.projectStatusPercentages["To Do"]).toBe(0);
+        expect(reportData.projectScope.projectStatusPercentages["In Progress"]).toBe(0);
+        expect(reportData.projectScope.projectStatusPercentages["Done"]).toBe(0);
+        expect(reportData.projectScope.projectStatusPercentages["Overdue"]).toBe(0);
+        expect(reportData.projectScope.milestones).toHaveLength(0);
+
+        // Task scope should show all zeros
+        expect(reportData.taskScope.totalTasks).toBe(0);
+        expect(reportData.taskScope.taskStatusCounts["To Do"]).toBe(0);
+        expect(reportData.taskScope.taskStatusCounts["In Progress"]).toBe(0);
+        expect(reportData.taskScope.taskStatusCounts["Done"]).toBe(0);
+        expect(reportData.taskScope.taskStatusCounts["Overdue"]).toBe(0);
+        expect(reportData.taskScope.taskStatusPercentages["To Do"]).toBe(0);
+        expect(reportData.taskScope.taskStatusPercentages["In Progress"]).toBe(0);
+        expect(reportData.taskScope.taskStatusPercentages["Done"]).toBe(0);
+        expect(reportData.taskScope.taskStatusPercentages["Overdue"]).toBe(0);
+        expect(reportData.taskScope.overdueCount).toBe(0);
+        expect(reportData.taskScope.overduePercentage).toBe(0);
+        expect(reportData.taskScope.overdueTasksByProject).toHaveLength(0);
+
+        // Team performance should show no team members
+        expect(reportData.teamPerformance.teamSize).toBe(0);
+        expect(reportData.teamPerformance.departmentTeam).toHaveLength(0);
+
+        // Department info should be populated
+        expect(reportData.departmentInfo.departmentName).toBe("Completely Empty Department");
+        expect(reportData.departmentInfo.departmentId).toBe(emptyDept._id.toString());
+      });
+
+      it("should handle department with only director user (minimal viable state)", async () => {
+        // Create department with only director user (matching functional test scenario)
+        const minimalDept = await Department.create({
+          name: "Director Only Department",
+          description: "Department with only director user"
+        });
+
+        const director = await User.create({
+          name: "Lonely Director",
+          email: "lonely.director@test.com",
+          role: "Director",
+          department: minimalDept._id,
+          password: process.env.TEST_DIRECTOR_PASSWORD
+        });
+
+        const response = await request(app)
+          .get(`/api/director/report?departmentId=${minimalDept._id}`)
+          .expect(200);
+
+        const reportData = response.body;
+
+        // Should handle single user department gracefully
+        expect(reportData.teamPerformance.teamSize).toBe(1);
+        expect(reportData.teamPerformance.departmentTeam).toHaveLength(1);
+        
+        const directorMetrics = reportData.teamPerformance.departmentTeam[0];
+        expect(directorMetrics.name).toBe("Lonely Director");
+        expect(directorMetrics.role).toBe("Director");
+        expect(directorMetrics.tasksInvolved).toBe(0);
+        expect(directorMetrics.todoTasks).toBe(0);
+        expect(directorMetrics.inProgressTasks).toBe(0);
+        expect(directorMetrics.completedTasks).toBe(0);
+        expect(directorMetrics.overdueTasks).toBe(0);
+        expect(directorMetrics.overdueRate).toBe(0);
+
+        // All other metrics should be zero
+        expect(reportData.projectScope.totalProjects).toBe(0);
+        expect(reportData.taskScope.totalTasks).toBe(0);
+        expect(reportData.avgTaskCompletionDays).toBe(0);
+        expect(reportData.avgProjectCompletionDays).toBe(0);
+        expect(reportData.productivityTrend).toBe("Stable");
+      });
+
+      it("should handle department with users but zero completion rates", async () => {
+        // Create department with users but no completed tasks/projects
+        const zeroCompletionDept = await Department.create({
+          name: "Zero Completion Department",
+          description: "Department with no completed work"
+        });
+
+        const director = await User.create({
+          name: "Zero Director",
+          email: "zero.director@test.com",
+          role: "Director",
+          department: zeroCompletionDept._id,
+          password: process.env.TEST_DIRECTOR_PASSWORD
+        });
+
+        const manager = await User.create({
+          name: "Zero Manager",
+          email: "zero.manager@test.com",
+          role: "Manager",
+          department: zeroCompletionDept._id,
+          password: process.env.TEST_MANAGER_PASSWORD
+        });
+
+        // Create project and tasks but leave them incomplete
+        const incompleteProject = await Project.create({
+          name: "Incomplete Project",
+          department: [zeroCompletionDept._id],
+          description: "Project with no completed tasks",
+          deadline: dayjs().add(30, 'day').toDate(),
+          createdBy: director._id,
+          teamMembers: [manager._id]
+        });
+
+        await Task.create({
+          title: "Incomplete Task 1",
+          description: "Task that's not done",
+          status: "To Do",
+          priority: 3,
+          deadline: dayjs().add(15, 'day').toDate(),
+          assignedProject: incompleteProject._id,
+          assignedTeamMembers: [manager._id],
+          createdBy: director._id
+        });
+
+        await Task.create({
+          title: "Incomplete Task 2",
+          description: "Another task that's not done",
+          status: "In Progress",
+          priority: 2,
+          deadline: dayjs().add(20, 'day').toDate(),
+          assignedProject: incompleteProject._id,
+          assignedTeamMembers: [director._id],
+          createdBy: director._id
+        });
+
+        const response = await request(app)
+          .get(`/api/director/report?departmentId=${zeroCompletionDept._id}`)
+          .expect(200);
+
+        const reportData = response.body;
+
+        // Should show data exists but with zero completion rates
+        expect(reportData.projectScope.totalProjects).toBe(1);
+        expect(reportData.taskScope.totalTasks).toBe(2);
+        expect(reportData.taskScope.taskStatusCounts["Done"]).toBe(0);
+        expect(reportData.taskScope.taskStatusPercentages["Done"]).toBe(0);
+        expect(reportData.teamPerformance.teamSize).toBe(2);
+
+        // Completion rates should be zero
+        expect(reportData.completionRateThisMonth).toBe(0);
+        expect(reportData.completionRateLastMonth).toBe(0);
+        expect(reportData.productivityTrend).toBe("Stable");
+
+        // Team members should have zero completed tasks
+        reportData.teamPerformance.departmentTeam.forEach(member => {
+          expect(member.completedTasks).toBe(0);
+          expect(member.tasksInvolved).toBeGreaterThan(0); // Should have tasks assigned
+        });
+
+        // Project status should show no completed projects
+        expect(reportData.projectScope.projectStatusCounts["Done"]).toBe(0);
+        expect(reportData.projectScope.projectStatusPercentages["Done"]).toBe(0);
+      });
+    });
   });
 });
