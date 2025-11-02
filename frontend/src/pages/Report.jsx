@@ -477,81 +477,87 @@ function ManagerReport({ userId, reportData, reportRef }) {
           Project Performance Details
         </h2>
         <div className="space-y-6">
-          {projectMetrics.map((proj) => (
-            <div key={proj.projectId} className="border border-light-border dark:border-dark-border rounded-xl p-4">
-              <h3 className="text-lg font-semibold text-light-text-primary dark:text-dark-text-primary mb-3">
-                {proj.projectName}
-              </h3>
+          {!projectMetrics || projectMetrics.length === 0 ? (
+            <div className="text-center py-8 text-gray-500">
+              <p>No projects found for the selected period.</p>
+            </div>
+          ) : (
+            projectMetrics.map((proj) => (
+              <div key={proj.projectId} className="border border-light-border dark:border-dark-border rounded-xl p-4">
+                <h3 className="text-lg font-semibold text-light-text-primary dark:text-dark-text-primary mb-3">
+                  {proj.projectName}
+                </h3>
 
-              <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-4">
-                <div>
-                  <p className="text-xs text-light-text-secondary dark:text-dark-text-secondary">Total Tasks</p>
-                  <p className="text-xl font-bold text-light-text-primary dark:text-dark-text-primary">
-                    {proj.totalTasks}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-xs text-light-text-secondary dark:text-dark-text-secondary">Completed</p>
-                  <p className="text-xl font-bold text-success">{proj.completed}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-light-text-secondary dark:text-dark-text-secondary">In Progress</p>
-                  <p className="text-xl font-bold text-info">{proj.inProgress}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-light-text-secondary dark:text-dark-text-secondary">To Do</p>
-                  <p className="text-xl font-bold text-light-text-muted dark:text-dark-text-muted">
-                    {proj.todo}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-xs text-light-text-secondary dark:text-dark-text-secondary">Overdue</p>
-                  <p className="text-xl font-bold text-danger">{proj.overdue}</p>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4 mb-4">
-                <div>
-                  <p className="text-xs text-light-text-secondary dark:text-dark-text-secondary mb-1">
-                    Completion Rate
-                  </p>
-                  <div className="flex items-center gap-2">
-                    <div className="flex-1 bg-light-surface dark:bg-dark-surface rounded-full h-2">
-                      <div
-                        className="bg-success h-2 rounded-full transition-all"
-                        style={{ width: `${proj.completionRate}%` }}
-                      />
-                    </div>
-                    <span className="text-sm font-bold text-success">{proj.completionRate}%</span>
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-4">
+                  <div>
+                    <p className="text-xs text-light-text-secondary dark:text-dark-text-secondary">Total Tasks</p>
+                    <p className="text-xl font-bold text-light-text-primary dark:text-dark-text-primary">
+                      {proj.totalTasks}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-light-text-secondary dark:text-dark-text-secondary">Completed</p>
+                    <p className="text-xl font-bold text-success">{proj.completed}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-light-text-secondary dark:text-dark-text-secondary">In Progress</p>
+                    <p className="text-xl font-bold text-info">{proj.inProgress}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-light-text-secondary dark:text-dark-text-secondary">To Do</p>
+                    <p className="text-xl font-bold text-light-text-muted dark:text-dark-text-muted">
+                      {proj.todo}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-light-text-secondary dark:text-dark-text-secondary">Overdue</p>
+                    <p className="text-xl font-bold text-danger">{proj.overdue}</p>
                   </div>
                 </div>
-                <div>
-                  <p className="text-xs text-light-text-secondary dark:text-dark-text-secondary">
-                    Avg. Completion Time
-                  </p>
-                  <p className="text-lg font-bold text-light-text-primary dark:text-dark-text-primary">
-                    {proj.avgCompletionTime} days
-                  </p>
-                </div>
-              </div>
 
-              <div>
-                <p className="text-xs text-light-text-secondary dark:text-dark-text-secondary mb-2">
-                  Team Members ({proj.teamMembers.length})
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  {proj.teamMembers.map((member, mIdx) => (
-                    <span
-                      key={mIdx}
-                      className="inline-flex items-center bg-brand-primary/10 dark:bg-brand-secondary/10 text-brand-primary dark:text-brand-secondary px-3 py-1 rounded-full text-xs font-medium"
-                    >
-                      {member.name}
-                    </span>
-                  ))}
+                <div className="grid grid-cols-2 gap-4 mb-4">
+                  <div>
+                    <p className="text-xs text-light-text-secondary dark:text-dark-text-secondary mb-1">
+                      Completion Rate
+                    </p>
+                    <div className="flex items-center gap-2">
+                      <div className="flex-1 bg-light-surface dark:bg-dark-surface rounded-full h-2">
+                        <div
+                          className="bg-success h-2 rounded-full transition-all"
+                          style={{ width: `${proj.completionRate}%` }}
+                        />
+                      </div>
+                      <span className="text-sm font-bold text-success">{proj.completionRate}%</span>
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-xs text-light-text-secondary dark:text-dark-text-secondary">
+                      Avg. Completion Time
+                    </p>
+                    <p className="text-lg font-bold text-light-text-primary dark:text-dark-text-primary">
+                      {proj.avgCompletionTime} days
+                    </p>
+                  </div>
+                </div>
+
+                <div>
+                  <p className="text-xs text-light-text-secondary dark:text-dark-text-secondary mb-2">
+                    Team Members ({proj.teamMembers.length})
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {proj.teamMembers.map((member, mIdx) => (
+                      <span
+                        key={mIdx}
+                        className="inline-flex items-center bg-brand-primary/10 dark:bg-brand-secondary/10 text-brand-primary dark:text-brand-secondary px-3 py-1 rounded-full text-xs font-medium"
+                      >
+                        {member.name}
+                      </span>
+                    ))}
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            ))
+          )}
         </div>
       </div>
     </div>
@@ -688,7 +694,14 @@ function DirectorReport({ userId, reportData, reportRef }) {
           Project Milestones Status
         </h2>
         <div className="space-y-4">
-          {projectScope.milestones.map((milestone) => (
+        {!projectScope.milestones || projectScope.milestones.length === 0 ? (
+          <div className="text-center py-8">
+            <p className="text-light-text-muted dark:text-dark-text-muted">
+              No project milestones available yet. Project milestones will appear here once projects are created and assigned to your department.
+            </p>
+          </div>
+        ) : (
+          projectScope.milestones.map((milestone) => (
             <div
               key={milestone.projectId}
               className="border border-light-border dark:border-dark-border rounded-lg p-4"
@@ -748,7 +761,8 @@ function DirectorReport({ userId, reportData, reportRef }) {
                 </div>
               </div>
             </div>
-          ))}
+          ))
+        )}
         </div>
       </div>
 
@@ -757,6 +771,14 @@ function DirectorReport({ userId, reportData, reportRef }) {
         <h2 className="text-xl font-bold text-light-text-primary dark:text-dark-text-primary mb-4">
           Task Scope
         </h2>
+        {!taskScope || taskScope.totalTasks === 0 ? (
+          <div className="text-center py-8">
+            <p className="text-light-text-muted dark:text-dark-text-muted">
+              No tasks available yet for your department. Task metrics will appear here once projects are created and tasks are assigned.
+            </p>
+          </div>
+        ) : (
+          <>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
           <div className="text-center">
             <p className="text-2xl font-bold text-light-text-primary dark:text-dark-text-primary">
@@ -799,6 +821,8 @@ function DirectorReport({ userId, reportData, reportRef }) {
             </p>
           </div>
         </div>
+        </>
+        )}
       </div>
 
       {/* Enhanced Overdue Tasks Breakdown by Project */}
@@ -878,60 +902,66 @@ function DirectorReport({ userId, reportData, reportRef }) {
           </p>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="border-b border-light-border dark:border-dark-border">
-              <tr>
-                <th className="text-left py-3 px-4 text-sm font-semibold text-light-text-primary dark:text-dark-text-primary">
-                  Team Member
-                </th>
-                <th className="text-left py-3 px-4 text-sm font-semibold text-light-text-primary dark:text-dark-text-primary">
-                  Role
-                </th>
-                <th className="text-right py-3 px-4 text-sm font-semibold text-light-text-primary dark:text-dark-text-primary">
-                  Tasks Involved
-                </th>
-                <th className="text-right py-3 px-4 text-sm font-semibold text-light-text-primary dark:text-dark-text-primary">
-                  To Do
-                </th>
-                <th className="text-right py-3 px-4 text-sm font-semibold text-light-text-primary dark:text-dark-text-primary">
-                  In Progress
-                </th>
-                <th className="text-right py-3 px-4 text-sm font-semibold text-light-text-primary dark:text-dark-text-primary">
-                  Completed
-                </th>
-                <th className="text-right py-3 px-4 text-sm font-semibold text-light-text-primary dark:text-dark-text-primary">
-                  Overdue
-                </th>
-                <th className="text-right py-3 px-4 text-sm font-semibold text-light-text-primary dark:text-dark-text-primary">
-                  Overdue Rate
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {teamPerformance.departmentTeam.map((member) => (
-                <tr key={member.userId} className="border-b border-light-border dark:border-dark-border">
-                  <td className="py-3 px-4 text-sm text-light-text-primary dark:text-dark-text-primary">
-                    {member.name}
-                  </td>
-                  <td className="py-3 px-4 text-sm text-light-text-secondary dark:text-dark-text-secondary">
-                    {member.role}
-                  </td>
-                  <td className="py-3 px-4 text-sm text-right text-light-text-primary dark:text-dark-text-primary">
-                    {member.tasksInvolved}
-                  </td>
-                  <td className="py-3 px-4 text-sm text-right text-light-text-muted dark:text-dark-text-muted">
-                    {member.todoTasks}
-                  </td>
-                  <td className="py-3 px-4 text-sm text-right text-info">{member.inProgressTasks}</td>
-                  <td className="py-3 px-4 text-sm text-right text-success">{member.completedTasks}</td>
-                  <td className="py-3 px-4 text-sm text-right text-danger">{member.overdueTasks}</td>
-                  <td className="py-3 px-4 text-sm text-right font-semibold text-danger">
-                    {member.overdueRate}%
-                  </td>
+          {!teamPerformance || !teamPerformance.departmentTeam || teamPerformance.departmentTeam.length === 0 ? (
+            <div className="text-center py-8 text-gray-500">
+              <p>No team members found for the selected period.</p>
+            </div>
+          ) : (
+            <table className="w-full">
+              <thead className="border-b border-light-border dark:border-dark-border">
+                <tr>
+                  <th className="text-left py-3 px-4 text-sm font-semibold text-light-text-primary dark:text-dark-text-primary">
+                    Team Member
+                  </th>
+                  <th className="text-left py-3 px-4 text-sm font-semibold text-light-text-primary dark:text-dark-text-primary">
+                    Role
+                  </th>
+                  <th className="text-right py-3 px-4 text-sm font-semibold text-light-text-primary dark:text-dark-text-primary">
+                    Tasks Involved
+                  </th>
+                  <th className="text-right py-3 px-4 text-sm font-semibold text-light-text-primary dark:text-dark-text-primary">
+                    To Do
+                  </th>
+                  <th className="text-right py-3 px-4 text-sm font-semibold text-light-text-primary dark:text-dark-text-primary">
+                    In Progress
+                  </th>
+                  <th className="text-right py-3 px-4 text-sm font-semibold text-light-text-primary dark:text-dark-text-primary">
+                    Completed
+                  </th>
+                  <th className="text-right py-3 px-4 text-sm font-semibold text-light-text-primary dark:text-dark-text-primary">
+                    Overdue
+                  </th>
+                  <th className="text-right py-3 px-4 text-sm font-semibold text-light-text-primary dark:text-dark-text-primary">
+                    Overdue Rate
+                  </th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {teamPerformance.departmentTeam.map((member) => (
+                  <tr key={member.userId} className="border-b border-light-border dark:border-dark-border">
+                    <td className="py-3 px-4 text-sm text-light-text-primary dark:text-dark-text-primary">
+                      {member.name}
+                    </td>
+                    <td className="py-3 px-4 text-sm text-light-text-secondary dark:text-dark-text-secondary">
+                      {member.role}
+                    </td>
+                    <td className="py-3 px-4 text-sm text-right text-light-text-primary dark:text-dark-text-primary">
+                      {member.tasksInvolved}
+                    </td>
+                    <td className="py-3 px-4 text-sm text-right text-light-text-muted dark:text-dark-text-muted">
+                      {member.todoTasks}
+                    </td>
+                    <td className="py-3 px-4 text-sm text-right text-info">{member.inProgressTasks}</td>
+                    <td className="py-3 px-4 text-sm text-right text-success">{member.completedTasks}</td>
+                    <td className="py-3 px-4 text-sm text-right text-danger">{member.overdueTasks}</td>
+                    <td className="py-3 px-4 text-sm text-right font-semibold text-danger">
+                      {member.overdueRate}%
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </div>
       </div>
     </div>
