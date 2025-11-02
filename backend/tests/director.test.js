@@ -265,3 +265,136 @@ describe("routes/director.js - GET /api/director/report", () => {
     expect(typeof res.body.avgTaskCompletionDays).toBe("number");
   });
 });
+
+describe("routes/director.js - edge branches", () => {
+  let mongo, app, request;
+
+  beforeAll(async () => {
+    mongo = await MongoMemoryServer.create();
+    await mongoose.connect(mongo.getUri(), { dbName: "director-edges" });
+    app = express();
+    app.use(express.json());
+    app.use("/api/director", directorRouter);
+    request = supertest(app);
+  });
+
+  afterAll(async () => {
+    await mongoose.disconnect();
+    await mongo.stop();
+  });
+
+  beforeEach(async () => {
+    await Promise.all([
+      Department.deleteMany({}),
+      Project.deleteMany({}),
+      Task.deleteMany({}),
+      User.deleteMany({}),
+    ]);
+  });
+
+  it("hits the reducer early-return when projectTasks length becomes 0 (covers line 110)", async () => {
+    // Real department so Department.findById(...).lean() works
+    const dept = await Department.create({ name: "Eng" });
+
+    // We'll mock the heavy queries; only Department stays real
+    const projId = new mongoose.Types.ObjectId();
+    const projectLeanRow = { _id: projId, name: "Toggle Project", createdAt: new Date() };
+
+    // Mock Project.find(...).populate(...).populate(...).populate(...).lean() -> [project]
+    const projectFindSpy = vi.spyOn(Project, "find").mockReturnValue({
+      populate() { return this; },
+      lean: async () => [projectLeanRow],
+    });
+
+    // Mock User.find(...).select().lean() -> empty (we don't need members for this branch)
+    const userFindSpy = vi.spyOn(User, "find").mockReturnValue({
+      select() { return { lean: async () => [] }; },
+    });
+
+    // Task list: make assignedProject._id.toString() return the real id once, then a different id.
+    let firstPass = true;
+    const trickyId = {
+      toString() {
+        if (firstPass) { firstPass = false; return String(projId); }
+        // second time the reducer runs its filter: mismatch → projectTasks.length === 0
+        return String(new mongoose.Types.ObjectId());
+      }
+    };
+
+    const taskLeanRow = {
+      title: "Done once, then vanishes",
+      status: "Done",
+      // assignedProject shaped like the populated doc the route expects
+      assignedProject: { _id: trickyId, name: "Toggle Project" },
+      createdAt: new Date(),
+      completedAt: new Date(),
+      assignedTeamMembers: [],
+    };
+
+    // Mock Task.find(...).populate(...).populate(...).populate(...).lean() -> [task]
+    const taskFindSpy = vi.spyOn(Task, "find").mockReturnValue({
+      populate() { return this; },
+      lean: async () => [taskLeanRow],
+    });
+
+    const res = await request
+      .get("/api/director/report")
+      .query({ departmentId: String(dept._id) })
+      .expect(200);
+
+    // Sanity: route returned structured payload
+    expect(res.body?.projectScope?.projectStatusCounts).toBeTruthy();
+
+    // Clean up mocks
+    projectFindSpy.mockRestore();
+    userFindSpy.mockRestore();
+    taskFindSpy.mockRestore();
+  });
+
+  it("coerces NaN avgProjectCompletionDays to 0 (covers line 399)", async () => {
+    const dept = await Department.create({ name: "Ops" });
+    const projId = new mongoose.Types.ObjectId();
+
+    // Project with invalid createdAt to force NaN in the reducer fallback
+    const projectLeanRow = { _id: projId, name: "NaN Project", createdAt: "bogus" };
+
+    const projectFindSpy = vi.spyOn(Project, "find").mockReturnValue({
+      populate() { return this; },
+      lean: async () => [projectLeanRow],
+    });
+
+    // A "completed" project (all tasks Done) but tasks have NO completedAt,
+    // so reducer uses fallback: diff(dayjs(now), dayjs(project.createdAt)).
+    // With invalid createdAt, diff => NaN, so avgProjectCompletionDays must be coerced to 0.
+    const taskLeanRow = {
+      title: "Done but no completedAt",
+      status: "Done",
+      assignedProject: { _id: projId, name: "NaN Project" },
+      createdAt: new Date(),     // present but not used by fallback
+      // completedAt intentionally omitted
+      assignedTeamMembers: [],
+    };
+
+    const taskFindSpy = vi.spyOn(Task, "find").mockReturnValue({
+      populate() { return this; },
+      lean: async () => [taskLeanRow],
+    });
+
+    // Users not needed for this check
+    const userFindSpy = vi.spyOn(User, "find").mockReturnValue({
+      select() { return { lean: async () => [] }; },
+    });
+
+    const res = await request
+      .get("/api/director/report")
+      .query({ departmentId: String(dept._id) })
+      .expect(200);
+
+    // Assert the NaN guard produced 0
+    expect(res.body?.avgProjectCompletionDays).toBe(0);
+
+    projectFindSpy.mockRestore();
+    taskFindSpy.mockRestore();
+    userFindSpy.mockRestore();
+  });
+});
