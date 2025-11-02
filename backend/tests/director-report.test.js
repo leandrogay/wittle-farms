@@ -1142,5 +1142,355 @@ describe("Director Report API", () => {
         expect(reportData.projectScope.projectStatusPercentages["Done"]).toBe(0);
       });
     });
+
+    describe("TC-009: PDF Export Data Validation", () => {
+      let testData;
+
+      beforeEach(async () => {
+        testData = await setupTestData();
+      });
+
+      it("should provide complete data structure required for PDF generation", async () => {
+        const response = await request(app)
+          .get(`/api/director/report?departmentId=${testDepartmentId}`)
+          .expect(200);
+        
+        const reportData = response.body;
+
+        // Verify all required top-level sections exist for PDF
+        const requiredSections = [
+          'avgTaskCompletionDays',
+          'avgProjectCompletionDays',
+          'productivityTrend',
+          'completionRateThisMonth',
+          'completionRateLastMonth',
+          'projectScope',
+          'taskScope',
+          'teamPerformance',
+          'departmentInfo'
+        ];
+
+        requiredSections.forEach(section => {
+          expect(reportData).toHaveProperty(section);
+          expect(reportData[section]).toBeDefined();
+        });
+
+        // Verify department info for PDF header section
+        expect(reportData.departmentInfo).toHaveProperty('departmentName');
+        expect(reportData.departmentInfo).toHaveProperty('departmentId');
+        expect(typeof reportData.departmentInfo.departmentName).toBe('string');
+        expect(typeof reportData.departmentInfo.departmentId).toBe('string');
+
+        // Verify project scope data for PDF project section
+        expect(reportData.projectScope).toHaveProperty('totalProjects');
+        expect(reportData.projectScope).toHaveProperty('projectStatusCounts');
+        expect(reportData.projectScope).toHaveProperty('projectStatusPercentages');
+        expect(reportData.projectScope).toHaveProperty('milestones');
+
+        // Verify task scope data for PDF task analysis section
+        expect(reportData.taskScope).toHaveProperty('totalTasks');
+        expect(reportData.taskScope).toHaveProperty('taskStatusCounts');
+        expect(reportData.taskScope).toHaveProperty('taskStatusPercentages');
+        expect(reportData.taskScope).toHaveProperty('overdueTasksByProject');
+
+        // Verify team performance data for PDF team section
+        expect(reportData.teamPerformance).toHaveProperty('teamSize');
+        expect(reportData.teamPerformance).toHaveProperty('departmentTeam');
+        expect(Array.isArray(reportData.teamPerformance.departmentTeam)).toBe(true);
+      });
+
+      it("should provide properly formatted data for PDF table generation", async () => {
+        const response = await request(app)
+          .get(`/api/director/report?departmentId=${testDepartmentId}`)
+          .expect(200);
+        
+        const reportData = response.body;
+
+        // Verify numerical values are properly formatted (not null/undefined)
+        expect(typeof reportData.avgTaskCompletionDays).toBe('number');
+        expect(typeof reportData.avgProjectCompletionDays).toBe('number');
+        expect(typeof reportData.completionRateThisMonth).toBe('number');
+        expect(typeof reportData.completionRateLastMonth).toBe('number');
+
+        // Verify percentages are in correct range for PDF display
+        expect(reportData.completionRateThisMonth).toBeGreaterThanOrEqual(0);
+        expect(reportData.completionRateThisMonth).toBeLessThanOrEqual(100);
+        expect(reportData.completionRateLastMonth).toBeGreaterThanOrEqual(0);
+        expect(reportData.completionRateLastMonth).toBeLessThanOrEqual(100);
+
+        // Verify project scope has consistent data types for PDF tables
+        expect(typeof reportData.projectScope.totalProjects).toBe('number');
+        Object.values(reportData.projectScope.projectStatusCounts).forEach(count => {
+          expect(typeof count).toBe('number');
+          expect(count).toBeGreaterThanOrEqual(0);
+        });
+
+        Object.values(reportData.projectScope.projectStatusPercentages).forEach(percentage => {
+          expect(typeof percentage).toBe('number');
+          expect(percentage).toBeGreaterThanOrEqual(0);
+          expect(percentage).toBeLessThanOrEqual(100);
+        });
+
+        // Verify task scope has consistent formatting for PDF
+        expect(typeof reportData.taskScope.totalTasks).toBe('number');
+        expect(typeof reportData.taskScope.overdueCount).toBe('number');
+        expect(typeof reportData.taskScope.overduePercentage).toBe('number');
+
+        Object.values(reportData.taskScope.taskStatusCounts).forEach(count => {
+          expect(typeof count).toBe('number');
+          expect(count).toBeGreaterThanOrEqual(0);
+        });
+
+        // Verify team performance has consistent data types for PDF
+        expect(typeof reportData.teamPerformance.teamSize).toBe('number');
+        reportData.teamPerformance.departmentTeam.forEach(member => {
+          expect(typeof member.name).toBe('string');
+          expect(typeof member.role).toBe('string');
+          expect(typeof member.tasksInvolved).toBe('number');
+          expect(typeof member.completedTasks).toBe('number');
+          expect(typeof member.overdueTasks).toBe('number');
+          expect(typeof member.overdueRate).toBe('number');
+          
+          // Verify rates are in valid percentage range
+          expect(member.overdueRate).toBeGreaterThanOrEqual(0);
+          expect(member.overdueRate).toBeLessThanOrEqual(100);
+        });
+      });
+
+      it("should provide appropriate labels and metadata for PDF headers", async () => {
+        const response = await request(app)
+          .get(`/api/director/report?departmentId=${testDepartmentId}`)
+          .expect(200);
+        
+        const reportData = response.body;
+
+        // Verify productivity trend has valid labels for PDF
+        expect(['Improving', 'Stable', 'Declining']).toContain(reportData.productivityTrend);
+
+        // Verify department info exists for PDF header/footer
+        expect(typeof reportData.departmentInfo.departmentName).toBe('string');
+        expect(reportData.departmentInfo.departmentName.length).toBeGreaterThan(0);
+        expect(typeof reportData.departmentInfo.departmentId).toBe('string');
+        expect(reportData.departmentInfo.departmentId.length).toBeGreaterThan(0);
+
+        // Verify milestone data has proper labels for PDF
+        reportData.projectScope.milestones.forEach(milestone => {
+          expect(typeof milestone.projectName).toBe('string');
+          expect(milestone.projectName.length).toBeGreaterThan(0);
+          expect(typeof milestone.milestone).toBe('string');
+          expect(['To Do', 'In Progress', 'Done', 'Overdue']).toContain(milestone.status);
+          expect(Array.isArray(milestone.overdueResponsibility)).toBe(true);
+        });
+
+        // Verify overdue tasks by project have proper structure for PDF
+        reportData.taskScope.overdueTasksByProject.forEach(project => {
+          expect(typeof project.projectName).toBe('string');
+          expect(project.projectName.length).toBeGreaterThan(0);
+          expect(typeof project.overdueCount).toBe('number');
+          expect(Array.isArray(project.overdueTasks)).toBe(true);
+          
+          project.overdueTasks.forEach(task => {
+            expect(typeof task.taskName).toBe('string');
+            expect(task.taskName.length).toBeGreaterThan(0);
+            expect(typeof task.daysPastDue).toBe('number');
+            expect(task.daysPastDue).toBeGreaterThan(0);
+            expect(Array.isArray(task.assignedMembers)).toBe(true);
+          });
+        });
+
+        // Verify team member names are strings for PDF content
+        reportData.teamPerformance.departmentTeam.forEach(member => {
+          expect(typeof member.name).toBe('string');
+          expect(member.name.length).toBeGreaterThan(0);
+          expect(typeof member.role).toBe('string');
+          expect(member.role.length).toBeGreaterThan(0);
+        });
+      });
+
+      it("should handle empty data scenarios gracefully for PDF export", async () => {
+        // Test with empty department (no projects, no users)
+        const emptyDept = await Department.create({
+          name: "Empty PDF Test Department",
+          description: "Department for PDF empty state testing"
+        });
+
+        const response = await request(app)
+          .get(`/api/director/report?departmentId=${emptyDept._id}`)
+          .expect(200);
+        
+        const reportData = response.body;
+
+        // Verify empty data is handled properly for PDF generation
+        expect(reportData.projectScope.totalProjects).toBe(0);
+        expect(reportData.taskScope.totalTasks).toBe(0);
+        expect(reportData.teamPerformance.teamSize).toBe(0);
+
+        // Verify arrays are empty but still exist for PDF table generation
+        expect(Array.isArray(reportData.projectScope.milestones)).toBe(true);
+        expect(reportData.projectScope.milestones).toHaveLength(0);
+        expect(Array.isArray(reportData.taskScope.overdueTasksByProject)).toBe(true);
+        expect(reportData.taskScope.overdueTasksByProject).toHaveLength(0);
+        expect(Array.isArray(reportData.teamPerformance.departmentTeam)).toBe(true);
+        expect(reportData.teamPerformance.departmentTeam).toHaveLength(0);
+
+        // Verify default values for empty state PDF display
+        expect(reportData.productivityTrend).toBe('Stable');
+        expect(reportData.avgTaskCompletionDays).toBe(0);
+        expect(reportData.avgProjectCompletionDays).toBe(0);
+        expect(reportData.taskScope.overdueCount).toBe(0);
+        expect(reportData.taskScope.overduePercentage).toBe(0);
+
+        // Verify department info still exists for PDF metadata
+        expect(reportData.departmentInfo.departmentName).toBe("Empty PDF Test Department");
+        expect(typeof reportData.departmentInfo.departmentId).toBe('string');
+      });
+
+      it("should provide data consistency for PDF table calculations", async () => {
+        const response = await request(app)
+          .get(`/api/director/report?departmentId=${testDepartmentId}`)
+          .expect(200);
+        
+        const reportData = response.body;
+
+        // Verify project status counts and percentages are consistent
+        const projectCountSum = Object.values(reportData.projectScope.projectStatusCounts)
+          .reduce((sum, count) => sum + count, 0);
+        expect(projectCountSum).toBe(reportData.projectScope.totalProjects);
+
+        if (reportData.projectScope.totalProjects > 0) {
+          const projectPercentSum = Object.values(reportData.projectScope.projectStatusPercentages)
+            .reduce((sum, pct) => sum + pct, 0);
+          expect(Math.abs(projectPercentSum - 100)).toBeLessThan(1); // Allow for rounding errors
+        }
+
+        // Verify task status counts and percentages are consistent
+        const taskCountSum = Object.values(reportData.taskScope.taskStatusCounts)
+          .reduce((sum, count) => sum + count, 0);
+        expect(taskCountSum).toBe(reportData.taskScope.totalTasks);
+
+        if (reportData.taskScope.totalTasks > 0) {
+          const taskPercentSum = Object.values(reportData.taskScope.taskStatusPercentages)
+            .reduce((sum, pct) => sum + pct, 0);
+          expect(Math.abs(taskPercentSum - 100)).toBeLessThan(1); // Allow for rounding errors
+        }
+
+        // Verify overdue count consistency across different views
+        const totalOverdueFromProjects = reportData.taskScope.overdueTasksByProject
+          .reduce((sum, project) => sum + project.overdueCount, 0);
+        expect(totalOverdueFromProjects).toBeLessThanOrEqual(reportData.taskScope.overdueCount);
+
+        // Verify team performance consistency
+        reportData.teamPerformance.departmentTeam.forEach(member => {
+          // Task involvement should equal sum of individual task states
+          expect(member.tasksInvolved).toBe(
+            member.todoTasks + member.inProgressTasks + member.completedTasks
+          );
+          
+          // Verify overdue rate calculation
+          if (member.tasksInvolved > 0) {
+            const expectedOverdueRate = Number(((member.overdueTasks / member.tasksInvolved) * 100).toFixed(1));
+            expect(member.overdueRate).toBe(expectedOverdueRate);
+          } else {
+            expect(member.overdueRate).toBe(0);
+          }
+        });
+
+        // Verify milestone count matches project count
+        expect(reportData.projectScope.milestones).toHaveLength(reportData.projectScope.totalProjects);
+      });
+
+      it("should provide complete data for PDF summary statistics", async () => {
+        const response = await request(app)
+          .get(`/api/director/report?departmentId=${testDepartmentId}`)
+          .expect(200);
+        
+        const reportData = response.body;
+
+        // Verify all required metrics exist for PDF summary section
+        const requiredMetrics = [
+          'avgTaskCompletionDays',
+          'avgProjectCompletionDays',
+          'completionRateThisMonth',
+          'completionRateLastMonth'
+        ];
+
+        requiredMetrics.forEach(metric => {
+          expect(reportData).toHaveProperty(metric);
+          expect(typeof reportData[metric]).toBe('number');
+          expect(reportData[metric]).toBeGreaterThanOrEqual(0);
+        });
+
+        // Verify scope data exists for PDF overview
+        expect(typeof reportData.projectScope.totalProjects).toBe('number');
+        expect(typeof reportData.taskScope.totalTasks).toBe('number');
+        expect(typeof reportData.teamPerformance.teamSize).toBe('number');
+
+        // Verify status breakdown data exists for PDF charts
+        expect(reportData.projectScope).toHaveProperty('projectStatusCounts');
+        expect(reportData.projectScope).toHaveProperty('projectStatusPercentages');
+        expect(reportData.taskScope).toHaveProperty('taskStatusCounts');
+        expect(reportData.taskScope).toHaveProperty('taskStatusPercentages');
+
+        // Verify productivity comparison data for PDF trend display
+        expect(['Improving', 'Stable', 'Declining']).toContain(reportData.productivityTrend);
+
+        // Verify overdue analysis data for PDF attention areas
+        expect(typeof reportData.taskScope.overdueCount).toBe('number');
+        expect(typeof reportData.taskScope.overduePercentage).toBe('number');
+        expect(reportData.taskScope.overduePercentage).toBeGreaterThanOrEqual(0);
+        expect(reportData.taskScope.overduePercentage).toBeLessThanOrEqual(100);
+
+        // Verify department identification for PDF context
+        expect(typeof reportData.departmentInfo.departmentName).toBe('string');
+        expect(reportData.departmentInfo.departmentName).toBe("System Solutioning");
+        expect(reportData.departmentInfo.departmentId).toBe(testDepartmentId.toString());
+      });
+
+      it("should provide milestone data formatted for PDF project timeline", async () => {
+        const response = await request(app)
+          .get(`/api/director/report?departmentId=${testDepartmentId}`)
+          .expect(200);
+        
+        const reportData = response.body;
+
+        // Verify milestones exist and are properly formatted for PDF
+        expect(Array.isArray(reportData.projectScope.milestones)).toBe(true);
+        expect(reportData.projectScope.milestones.length).toBeGreaterThan(0);
+
+        reportData.projectScope.milestones.forEach(milestone => {
+          // Essential fields for PDF milestone table
+          expect(milestone).toHaveProperty('projectId');
+          expect(milestone).toHaveProperty('projectName');
+          expect(milestone).toHaveProperty('milestone');
+          expect(milestone).toHaveProperty('status');
+          expect(milestone).toHaveProperty('overdueResponsibility');
+
+          // Data type validation for PDF formatting
+          expect(typeof milestone.projectName).toBe('string');
+          expect(milestone.projectName.length).toBeGreaterThan(0);
+          expect(typeof milestone.milestone).toBe('string');
+          expect(['To Do', 'In Progress', 'Done', 'Overdue']).toContain(milestone.status);
+          expect(Array.isArray(milestone.overdueResponsibility)).toBe(true);
+
+          // Verify overdue responsibility data for PDF alerts
+          milestone.overdueResponsibility.forEach(responsibility => {
+            expect(typeof responsibility).toBe('object');
+            expect(responsibility).toHaveProperty('departmentName');
+            expect(responsibility).toHaveProperty('overdueTaskCount');
+            expect(responsibility).toHaveProperty('overdueTasks');
+            expect(typeof responsibility.departmentName).toBe('string');
+            expect(typeof responsibility.overdueTaskCount).toBe('number');
+            expect(Array.isArray(responsibility.overdueTasks)).toBe(true);
+          });
+        });
+
+        // Verify milestone statuses align with overall project health for PDF summary
+        const milestoneStatuses = reportData.projectScope.milestones.map(m => m.status);
+        const uniqueStatuses = [...new Set(milestoneStatuses)];
+        expect(uniqueStatuses.every(status => 
+          ['To Do', 'In Progress', 'Done', 'Overdue'].includes(status)
+        )).toBe(true);
+      });
+    });
   });
 });
