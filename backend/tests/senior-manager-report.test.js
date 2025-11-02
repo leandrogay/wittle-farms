@@ -1015,5 +1015,250 @@ describe("Senior Manager Company-Wide Report API", () => {
         expect(response.body.companyScope.totalProjects).toBe(6);
       });
     });
+
+    describe("TC-008: PDF Export Data Validation", () => {
+      it("should provide complete data structure required for PDF generation", async () => {
+        const response = await request(app).get("/api/senior-manager/report");
+        expect(response.status).toBe(200);
+        
+        const reportData = response.body;
+
+        // Verify all required top-level sections exist for PDF
+        const requiredSections = [
+          'productivityTrend',
+          'projectCompletionRateThisMonth', 
+          'projectCompletionRateLastMonth',
+          'companyScope',
+          'departmentMetrics',
+          'projectBreakdown',
+          'companyInfo'
+        ];
+
+        requiredSections.forEach(section => {
+          expect(reportData).toHaveProperty(section);
+          expect(reportData[section]).toBeDefined();
+        });
+
+        // Verify company scope data for PDF header section
+        expect(reportData.companyScope).toHaveProperty('totalProjects');
+        expect(reportData.companyScope).toHaveProperty('totalTasks');
+        expect(reportData.companyScope).toHaveProperty('totalEmployees');
+        expect(reportData.companyScope).toHaveProperty('totalDepartments');
+
+        // Verify department metrics array for PDF table generation
+        expect(Array.isArray(reportData.departmentMetrics)).toBe(true);
+        if (reportData.departmentMetrics.length > 0) {
+          const deptMetric = reportData.departmentMetrics[0];
+          expect(deptMetric).toHaveProperty('departmentName');
+          expect(deptMetric).toHaveProperty('teamSize');
+          expect(deptMetric).toHaveProperty('projectStatusCounts');
+          expect(deptMetric).toHaveProperty('taskStatusCounts');
+        }
+
+        // Verify project breakdown array for PDF project details section
+        expect(Array.isArray(reportData.projectBreakdown)).toBe(true);
+        if (reportData.projectBreakdown.length > 0) {
+          const project = reportData.projectBreakdown[0];
+          expect(project).toHaveProperty('projectName');
+          expect(project).toHaveProperty('departments');
+          expect(project).toHaveProperty('totalTasks');
+          expect(project).toHaveProperty('completedTasks');
+          expect(project).toHaveProperty('completionRate');
+        }
+      });
+
+      it("should provide properly formatted data for PDF table generation", async () => {
+        const response = await request(app).get("/api/senior-manager/report");
+        const reportData = response.body;
+
+        // Verify numerical values are properly formatted (not null/undefined)
+        expect(typeof reportData.projectCompletionRateThisMonth).toBe('number');
+        expect(typeof reportData.projectCompletionRateLastMonth).toBe('number');
+
+        // Verify percentages are in correct range for PDF display
+        expect(reportData.projectCompletionRateThisMonth).toBeGreaterThanOrEqual(0);
+        expect(reportData.projectCompletionRateThisMonth).toBeLessThanOrEqual(100);
+        expect(reportData.projectCompletionRateLastMonth).toBeGreaterThanOrEqual(0);
+        expect(reportData.projectCompletionRateLastMonth).toBeLessThanOrEqual(100);
+
+        // Verify department metrics have consistent data types for PDF tables
+        reportData.departmentMetrics.forEach(dept => {
+          expect(typeof dept.teamSize).toBe('number');
+          expect(dept.teamSize).toBeGreaterThanOrEqual(0);
+          expect(dept).toHaveProperty('projectStatusCounts');
+          expect(dept).toHaveProperty('taskStatusCounts');
+          expect(dept).toHaveProperty('projectStatusPercentages');
+          expect(dept).toHaveProperty('taskStatusPercentages');
+        });
+
+        // Verify project breakdown has consistent formatting for PDF
+        reportData.projectBreakdown.forEach(project => {
+          expect(typeof project.completionRate).toBe('number');
+          expect(typeof project.overdueRate).toBe('number');
+          expect(typeof project.totalTasks).toBe('number');
+          expect(typeof project.completedTasks).toBe('number');
+          expect(typeof project.projectName).toBe('string');
+          expect(Array.isArray(project.departments)).toBe(true);
+          
+          // Verify rates are in valid percentage range
+          expect(project.completionRate).toBeGreaterThanOrEqual(0);
+          expect(project.completionRate).toBeLessThanOrEqual(100);
+          expect(project.overdueRate).toBeGreaterThanOrEqual(0);
+          expect(project.overdueRate).toBeLessThanOrEqual(100);
+        });
+      });
+
+      it("should provide appropriate labels and metadata for PDF headers", async () => {
+        const response = await request(app).get("/api/senior-manager/report");
+        const reportData = response.body;
+
+        // Verify productivity trend has valid labels for PDF
+        expect(['Improving', 'Stable', 'Declining']).toContain(reportData.productivityTrend);
+
+        // Verify company info exists for PDF header/footer
+        expect(reportData.companyInfo).toHaveProperty('reportGeneratedAt');
+        expect(reportData.companyInfo).toHaveProperty('totalEmployees');
+        expect(reportData.companyInfo).toHaveProperty('totalDepartments');
+
+        // Verify date is properly formatted for PDF display
+        const reportDate = reportData.companyInfo.reportGeneratedAt;
+        expect(typeof reportDate).toBe('string');
+        expect(new Date(reportDate).toString()).not.toBe('Invalid Date');
+
+        // Verify all department names are strings for PDF table headers
+        reportData.departmentMetrics.forEach(dept => {
+          expect(typeof dept.departmentName).toBe('string');
+          expect(dept.departmentName.length).toBeGreaterThan(0);
+        });
+
+        // Verify all project names are strings for PDF content
+        reportData.projectBreakdown.forEach(project => {
+          expect(typeof project.projectName).toBe('string');
+          expect(project.projectName.length).toBeGreaterThan(0);
+          project.departments.forEach(deptName => {
+            expect(typeof deptName).toBe('string');
+            expect(deptName.length).toBeGreaterThan(0);
+          });
+        });
+      });
+
+      it("should handle empty data scenarios gracefully for PDF export", async () => {
+        // Clear all data to test empty state PDF export
+        await Project.deleteMany({});
+        await Task.deleteMany({});
+        
+        const response = await request(app).get("/api/senior-manager/report");
+        expect(response.status).toBe(200);
+        
+        const reportData = response.body;
+
+        // Verify empty data is handled properly for PDF generation
+        expect(reportData.companyScope.totalProjects).toBe(0);
+        expect(reportData.companyScope.totalTasks).toBe(0);
+        
+        // Verify arrays are empty but still exist for PDF table generation
+        expect(Array.isArray(reportData.departmentMetrics)).toBe(true);
+        expect(Array.isArray(reportData.projectBreakdown)).toBe(true);
+        
+        // Verify default values for empty state PDF display
+        expect(reportData.productivityTrend).toBe('Stable');
+        expect(reportData.projectCompletionRateThisMonth).toBe(0);
+        expect(reportData.projectCompletionRateLastMonth).toBe(0);
+
+        // Verify company info still exists for PDF metadata
+        expect(reportData.companyInfo).toHaveProperty('reportGeneratedAt');
+        expect(reportData.companyInfo).toHaveProperty('totalEmployees');
+        expect(reportData.companyInfo.totalEmployees).toBeGreaterThanOrEqual(0); // Users may still exist
+      });
+
+      it("should provide data consistency for PDF table calculations", async () => {
+        const response = await request(app).get("/api/senior-manager/report");
+        const reportData = response.body;
+
+        // Verify department metrics exist and are internally consistent
+        reportData.departmentMetrics.forEach(dept => {
+          expect(dept.teamSize).toBeGreaterThanOrEqual(0);
+          expect(typeof dept.departmentName).toBe('string');
+          expect(dept.departmentName.length).toBeGreaterThan(0);
+          
+          // Verify status percentages are in valid range
+          Object.values(dept.projectStatusPercentages).forEach(percentage => {
+            expect(percentage).toBeGreaterThanOrEqual(0);
+            expect(percentage).toBeLessThanOrEqual(100);
+          });
+          
+          Object.values(dept.taskStatusPercentages).forEach(percentage => {
+            expect(percentage).toBeGreaterThanOrEqual(0);
+            expect(percentage).toBeLessThanOrEqual(100);
+          });
+        });
+
+        // Verify project breakdown consistency
+        reportData.projectBreakdown.forEach(project => {
+          expect(project.completedTasks).toBeLessThanOrEqual(project.totalTasks);
+          expect(project.overdueTasks).toBeLessThanOrEqual(project.totalTasks);
+          
+          // Verify completion rate calculation consistency
+          if (project.totalTasks > 0) {
+            const expectedCompletionRate = Number(((project.completedTasks / project.totalTasks) * 100).toFixed(1));
+            expect(project.completionRate).toBe(expectedCompletionRate);
+          } else {
+            expect(project.completionRate).toBe(0);
+          }
+        });
+
+        // Verify status percentages add up correctly for PDF charts
+        const { projectStatusPercentages, taskStatusPercentages } = reportData.companyScope;
+        
+        if (reportData.companyScope.totalProjects > 0) {
+          const projectPercentSum = Object.values(projectStatusPercentages).reduce((sum, pct) => sum + pct, 0);
+          expect(Math.abs(projectPercentSum - 100)).toBeLessThan(1); // Allow for rounding errors
+        }
+        
+        if (reportData.companyScope.totalTasks > 0) {
+          const taskPercentSum = Object.values(taskStatusPercentages).reduce((sum, pct) => sum + pct, 0);
+          expect(Math.abs(taskPercentSum - 100)).toBeLessThan(1); // Allow for rounding errors
+        }
+      });
+
+      it("should provide complete data for PDF summary statistics", async () => {
+        const response = await request(app).get("/api/senior-manager/report");
+        const reportData = response.body;
+
+        // Verify all required metrics exist for PDF summary section
+        const requiredMetrics = [
+          'totalProjects',
+          'totalTasks',
+          'totalEmployees', 
+          'totalDepartments'
+        ];
+
+        requiredMetrics.forEach(metric => {
+          expect(reportData.companyScope).toHaveProperty(metric);
+          expect(typeof reportData.companyScope[metric]).toBe('number');
+          expect(reportData.companyScope[metric]).toBeGreaterThanOrEqual(0);
+        });
+
+        // Verify status breakdown data exists for PDF charts
+        expect(reportData.companyScope).toHaveProperty('projectStatusCounts');
+        expect(reportData.companyScope).toHaveProperty('taskStatusCounts');
+        expect(reportData.companyScope).toHaveProperty('projectStatusPercentages');
+        expect(reportData.companyScope).toHaveProperty('taskStatusPercentages');
+
+        // Verify productivity comparison data for PDF trend display
+        expect(typeof reportData.projectCompletionRateThisMonth).toBe('number');
+        expect(typeof reportData.projectCompletionRateLastMonth).toBe('number');
+        expect(['Improving', 'Stable', 'Declining']).toContain(reportData.productivityTrend);
+
+        // Verify timestamp for PDF generation metadata
+        const generatedDate = new Date(reportData.companyInfo.reportGeneratedAt);
+        expect(generatedDate instanceof Date).toBe(true);
+        expect(!isNaN(generatedDate.getTime())).toBe(true);
+
+        // Verify department count consistency for PDF overview
+        expect(reportData.companyScope.totalDepartments).toBe(reportData.departmentMetrics.length);
+        expect(reportData.companyInfo.totalDepartments).toBe(reportData.departmentMetrics.length);
+      });
+    });
   });
 });
