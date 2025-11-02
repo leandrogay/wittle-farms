@@ -2,6 +2,7 @@ import request from 'supertest';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import app from '../../app.js';
 import User from '../../models/User.js';
+import express from "express";
 
 // Mock the User model
 vi.mock('../../models/User.js', () => {
@@ -344,4 +345,257 @@ describe('User Routes', () => {
       expect(res.body.error).toBeDefined();
     });
   });
+});
+
+function thenableResult(result) {
+  // A minimal "thenable" so `await <query>` works like Mongoose Query
+  return { then: (resolve) => resolve(result) };
+}
+
+function makeUsersMock() {
+  const store = {
+    docs: [
+      { _id: "65a1bc2de3f4567890abc123", name: "alice", role: "admin" },
+      { _id: "65b2cd3ee4f567890abc1234", name: "bob", role: "user" },
+    ],
+  };
+
+  // For GET / (find + populate + lean)
+  const find = vi.fn((filter = {}) => ({
+    populate: vi.fn(() => ({
+      lean: vi.fn(async () => {
+        if (filter.role) return store.docs.filter((d) => d.role === filter.role);
+        return store.docs.slice();
+      }),
+    })),
+  }));
+
+  // For GET /username/:username (findOne + populate + lean)
+  const findOne = vi.fn((q) => ({
+    populate: vi.fn(() => ({
+      lean: vi.fn(async () => store.docs.find((d) => d.name === q.name) || null),
+    })),
+  }));
+
+  // For GET /:id (findById + populate + lean)
+  const findById = vi.fn((id) => ({
+    populate: vi.fn(() => ({
+      lean: vi.fn(async () => store.docs.find((d) => d._id === id) || null),
+    })),
+  }));
+
+  // For POST / (create)
+  const create = vi.fn(async (body) => {
+    if (body && body.__forceError) {
+      const e = new Error("Validation failed");
+      e.name = "ValidationError";
+      throw e;
+    }
+    const doc = { _id: "65c3de4ff5a67890abc12345", ...body };
+    store.docs.push(doc);
+    return doc;
+  });
+
+  // For PUT /:id (findByIdAndUpdate + populate thenable)
+  const findByIdAndUpdate = vi.fn((id, body, _opts) => ({
+    // populate().then(...) should resolve the updated doc (or null)
+    populate: vi.fn(() => thenableResult(
+      store.docs.find((d) => d._id === id)
+        ? Object.assign({}, store.docs.find((d) => d._id === id), body)
+        : null
+    )),
+  }));
+
+  // For DELETE /:id (findByIdAndDelete)
+  const findByIdAndDelete = vi.fn(async (id) => {
+    const idx = store.docs.findIndex((d) => d._id === id);
+    if (idx === -1) return null;
+    const [removed] = store.docs.splice(idx, 1);
+    return removed;
+  });
+
+  return {
+    store,
+    fns: {
+      find,
+      findOne,
+      findById,
+      create,
+      findByIdAndUpdate,
+      findByIdAndDelete,
+    },
+  };
+}
+
+/* ---------- Module loader that injects mocks, then imports router ---------- */
+async function loadRouter() {
+  vi.resetModules();
+
+  const mock = makeUsersMock();
+  vi.doMock("../../models/User.js", () => ({
+    default: mock.fns,
+  }));
+
+  const router = (await import("../../routes/users.js")).default;
+
+  // Minimal app + error handler so next(err) returns JSON
+  const app = express();
+  app.use(express.json());
+  app.use("/api/users", router);
+  app.use((err, _req, res, _next) => {
+    res.status(500).json({ error: String(err?.message || err) });
+  });
+
+  return { app, mock };
+}
+
+/* ============================== TESTS ============================== */
+
+describe("users router", () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  /* ---- Directly covering your uncovered lines (79–80, 102–103) ---- */
+
+  it("PUT /:id => 400 when id is not a valid ObjectId (covers lines 79–80)", async () => {
+    const { app } = await loadRouter();
+    const res = await request(app)
+      .put("/api/users/not-an-objectid")
+      .send({ role: "user" });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/invalid user id/i);
+  });
+
+  it("DELETE /:id => 400 when id is not a valid ObjectId (covers lines 102–103)", async () => {
+    const { app } = await loadRouter();
+    const res = await request(app).delete("/api/users/also-bad-id");
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/invalid user id/i);
+  });
+
+  /* ---- A few extra branches to lift overall coverage nicely ---- */
+
+  it("GET / filters by role when provided", async () => {
+    const { app } = await loadRouter();
+    const res = await request(app).get("/api/users").query({ role: "user" });
+    expect(res.status).toBe(200);
+    expect(res.body.every((u) => u.role === "user")).toBe(true);
+  });
+
+  it("GET /username/:username returns 404 when not found", async () => {
+    const { app } = await loadRouter();
+    const res = await request(app).get("/api/users/username/charlie");
+    expect(res.status).toBe(404);
+    expect(res.body.error).toMatch(/not found/i);
+  });
+
+  it("GET /:id returns 400 for invalid id; 404 for valid-but-missing id", async () => {
+    const { app } = await loadRouter();
+
+    const bad = await request(app).get("/api/users/nothexid");
+    expect(bad.status).toBe(400);
+
+    const missing = await request(app).get("/api/users/65ffffffffffffffffffff00"); // valid 24-hex, not in store
+    expect(missing.status).toBe(404);
+  });
+
+  it("PUT /:id updates and returns populated user when found", async () => {
+    const { app, mock } = await loadRouter();
+    const target = mock.store.docs[0]; // existing
+    const res = await request(app)
+      .put(`/api/users/${target._id}`)
+      .send({ role: "power-user" });
+
+    expect(res.status).toBe(200);
+    // Not strictly populated checking, but ensures the pipeline returned an object
+    expect(res.body.role).toBe("power-user");
+  });
+
+  it("PUT /:id returns 404 when user not found", async () => {
+    const { app } = await loadRouter();
+    const res = await request(app)
+      .put("/api/users/65eeeeeeeeeeeeeeeeeeeeee")
+      .send({ role: "ghost" });
+    expect(res.status).toBe(404);
+  });
+
+  it("POST / returns 201 on success; 400 on validation error", async () => {
+    const { app } = await loadRouter();
+
+    const ok = await request(app)
+      .post("/api/users")
+      .send({ name: "charlie", role: "user" });
+    expect(ok.status).toBe(201);
+
+    const bad = await request(app)
+      .post("/api/users")
+      .send({ __forceError: true });
+    expect(bad.status).toBe(400);
+  });
+
+  it("DELETE /:id returns 200 on success; 404 when not found", async () => {
+    const { app, mock } = await loadRouter();
+
+    const target = mock.store.docs[1];
+    const ok = await request(app).delete(`/api/users/${target._id}`);
+    expect(ok.status).toBe(200);
+    expect(ok.body.message).toMatch(/deleted/i);
+
+    const miss = await request(app).delete(`/api/users/${target._id}`); // already deleted
+    expect(miss.status).toBe(404);
+  });
+
+  it("GET / returns 500 when the model throws (covers error path)", async () => {
+    vi.resetModules();
+    // Force find() to throw
+    vi.doMock("../../models/User.js", () => ({
+      default: {
+        find: vi.fn(() => {
+          throw new Error("DB read failed");
+        }),
+      },
+    }));
+    const router = (await import("../../routes/users.js")).default;
+    const app = express();
+    app.use(express.json());
+    app.use("/api/users", router);
+    app.use((err, _req, res, _next) => res.status(500).json({ error: err.message }));
+
+    const res = await request(app).get("/api/users");
+    expect(res.status).toBe(500);
+    expect(res.body.error).toMatch(/db read failed/i);
+  });
+
+  // Append to backend/tests/users.test.js
+
+  it("GET /username/:username → 500 when model throws (covers lines 50–51)", async () => {
+    const { app, mock } = await loadRouter();
+
+    // Force an error in the findOne pipeline
+    mock.fns.findOne = vi.fn(() => {
+      throw new Error("findOne exploded");
+    });
+
+    const res = await request(app).get("/api/users/username/alice");
+    expect(res.status).toBe(500);
+    expect(String(res.body.error)).toMatch(/findOne exploded/i);
+  });
+
+  it("GET /:id → 500 when model throws (covers lines 67–68)", async () => {
+    const { app, mock } = await loadRouter();
+
+    // Use a valid 24-hex id so the route proceeds past ObjectId validation
+    const validId = "65a1bc2de3f4567890abc123";
+
+    // Force an error before populate/lean
+    mock.fns.findById = vi.fn(() => {
+      throw new Error("findById kaboom");
+    });
+
+    const res = await request(app).get(`/api/users/${validId}`);
+    expect(res.status).toBe(500);
+    expect(String(res.body.error)).toMatch(/kaboom/i);
+  });
+
 });
