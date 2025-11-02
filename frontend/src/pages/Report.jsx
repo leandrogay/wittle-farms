@@ -477,81 +477,87 @@ function ManagerReport({ userId, reportData, reportRef }) {
           Project Performance Details
         </h2>
         <div className="space-y-6">
-          {projectMetrics.map((proj) => (
-            <div key={proj.projectId} className="border border-light-border dark:border-dark-border rounded-xl p-4">
-              <h3 className="text-lg font-semibold text-light-text-primary dark:text-dark-text-primary mb-3">
-                {proj.projectName}
-              </h3>
+          {!projectMetrics || projectMetrics.length === 0 ? (
+            <div className="text-center py-8 text-gray-500">
+              <p>No projects found for the selected period.</p>
+            </div>
+          ) : (
+            projectMetrics.map((proj) => (
+              <div key={proj.projectId} className="border border-light-border dark:border-dark-border rounded-xl p-4">
+                <h3 className="text-lg font-semibold text-light-text-primary dark:text-dark-text-primary mb-3">
+                  {proj.projectName}
+                </h3>
 
-              <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-4">
-                <div>
-                  <p className="text-xs text-light-text-secondary dark:text-dark-text-secondary">Total Tasks</p>
-                  <p className="text-xl font-bold text-light-text-primary dark:text-dark-text-primary">
-                    {proj.totalTasks}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-xs text-light-text-secondary dark:text-dark-text-secondary">Completed</p>
-                  <p className="text-xl font-bold text-success">{proj.completed}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-light-text-secondary dark:text-dark-text-secondary">In Progress</p>
-                  <p className="text-xl font-bold text-info">{proj.inProgress}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-light-text-secondary dark:text-dark-text-secondary">To Do</p>
-                  <p className="text-xl font-bold text-light-text-muted dark:text-dark-text-muted">
-                    {proj.todo}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-xs text-light-text-secondary dark:text-dark-text-secondary">Overdue</p>
-                  <p className="text-xl font-bold text-danger">{proj.overdue}</p>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4 mb-4">
-                <div>
-                  <p className="text-xs text-light-text-secondary dark:text-dark-text-secondary mb-1">
-                    Completion Rate
-                  </p>
-                  <div className="flex items-center gap-2">
-                    <div className="flex-1 bg-light-surface dark:bg-dark-surface rounded-full h-2">
-                      <div
-                        className="bg-success h-2 rounded-full transition-all"
-                        style={{ width: `${proj.completionRate}%` }}
-                      />
-                    </div>
-                    <span className="text-sm font-bold text-success">{proj.completionRate}%</span>
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-4">
+                  <div>
+                    <p className="text-xs text-light-text-secondary dark:text-dark-text-secondary">Total Tasks</p>
+                    <p className="text-xl font-bold text-light-text-primary dark:text-dark-text-primary">
+                      {proj.totalTasks}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-light-text-secondary dark:text-dark-text-secondary">Completed</p>
+                    <p className="text-xl font-bold text-success">{proj.completed}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-light-text-secondary dark:text-dark-text-secondary">In Progress</p>
+                    <p className="text-xl font-bold text-info">{proj.inProgress}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-light-text-secondary dark:text-dark-text-secondary">To Do</p>
+                    <p className="text-xl font-bold text-light-text-muted dark:text-dark-text-muted">
+                      {proj.todo}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-light-text-secondary dark:text-dark-text-secondary">Overdue</p>
+                    <p className="text-xl font-bold text-danger">{proj.overdue}</p>
                   </div>
                 </div>
-                <div>
-                  <p className="text-xs text-light-text-secondary dark:text-dark-text-secondary">
-                    Avg. Completion Time
-                  </p>
-                  <p className="text-lg font-bold text-light-text-primary dark:text-dark-text-primary">
-                    {proj.avgCompletionTime} days
-                  </p>
-                </div>
-              </div>
 
-              <div>
-                <p className="text-xs text-light-text-secondary dark:text-dark-text-secondary mb-2">
-                  Team Members ({proj.teamMembers.length})
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  {proj.teamMembers.map((member, mIdx) => (
-                    <span
-                      key={mIdx}
-                      className="inline-flex items-center bg-brand-primary/10 dark:bg-brand-secondary/10 text-brand-primary dark:text-brand-secondary px-3 py-1 rounded-full text-xs font-medium"
-                    >
-                      {member.name}
-                    </span>
-                  ))}
+                <div className="grid grid-cols-2 gap-4 mb-4">
+                  <div>
+                    <p className="text-xs text-light-text-secondary dark:text-dark-text-secondary mb-1">
+                      Completion Rate
+                    </p>
+                    <div className="flex items-center gap-2">
+                      <div className="flex-1 bg-light-surface dark:bg-dark-surface rounded-full h-2">
+                        <div
+                          className="bg-success h-2 rounded-full transition-all"
+                          style={{ width: `${proj.completionRate}%` }}
+                        />
+                      </div>
+                      <span className="text-sm font-bold text-success">{proj.completionRate}%</span>
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-xs text-light-text-secondary dark:text-dark-text-secondary">
+                      Avg. Completion Time
+                    </p>
+                    <p className="text-lg font-bold text-light-text-primary dark:text-dark-text-primary">
+                      {proj.avgCompletionTime} days
+                    </p>
+                  </div>
+                </div>
+
+                <div>
+                  <p className="text-xs text-light-text-secondary dark:text-dark-text-secondary mb-2">
+                    Team Members ({proj.teamMembers.length})
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {proj.teamMembers.map((member, mIdx) => (
+                      <span
+                        key={mIdx}
+                        className="inline-flex items-center bg-brand-primary/10 dark:bg-brand-secondary/10 text-brand-primary dark:text-brand-secondary px-3 py-1 rounded-full text-xs font-medium"
+                      >
+                        {member.name}
+                      </span>
+                    ))}
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            ))
+          )}
         </div>
       </div>
     </div>
@@ -688,7 +694,14 @@ function DirectorReport({ userId, reportData, reportRef }) {
           Project Milestones Status
         </h2>
         <div className="space-y-4">
-          {projectScope.milestones.map((milestone) => (
+        {!projectScope.milestones || projectScope.milestones.length === 0 ? (
+          <div className="text-center py-8">
+            <p className="text-light-text-muted dark:text-dark-text-muted">
+              No project milestones available yet. Project milestones will appear here once projects are created and assigned to your department.
+            </p>
+          </div>
+        ) : (
+          projectScope.milestones.map((milestone) => (
             <div
               key={milestone.projectId}
               className="border border-light-border dark:border-dark-border rounded-lg p-4"
@@ -748,7 +761,8 @@ function DirectorReport({ userId, reportData, reportRef }) {
                 </div>
               </div>
             </div>
-          ))}
+          ))
+        )}
         </div>
       </div>
 
@@ -757,6 +771,14 @@ function DirectorReport({ userId, reportData, reportRef }) {
         <h2 className="text-xl font-bold text-light-text-primary dark:text-dark-text-primary mb-4">
           Task Scope
         </h2>
+        {!taskScope || taskScope.totalTasks === 0 ? (
+          <div className="text-center py-8">
+            <p className="text-light-text-muted dark:text-dark-text-muted">
+              No tasks available yet for your department. Task metrics will appear here once projects are created and tasks are assigned.
+            </p>
+          </div>
+        ) : (
+          <>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
           <div className="text-center">
             <p className="text-2xl font-bold text-light-text-primary dark:text-dark-text-primary">
@@ -799,6 +821,8 @@ function DirectorReport({ userId, reportData, reportRef }) {
             </p>
           </div>
         </div>
+        </>
+        )}
       </div>
 
       {/* Enhanced Overdue Tasks Breakdown by Project */}
@@ -878,60 +902,66 @@ function DirectorReport({ userId, reportData, reportRef }) {
           </p>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="border-b border-light-border dark:border-dark-border">
-              <tr>
-                <th className="text-left py-3 px-4 text-sm font-semibold text-light-text-primary dark:text-dark-text-primary">
-                  Team Member
-                </th>
-                <th className="text-left py-3 px-4 text-sm font-semibold text-light-text-primary dark:text-dark-text-primary">
-                  Role
-                </th>
-                <th className="text-right py-3 px-4 text-sm font-semibold text-light-text-primary dark:text-dark-text-primary">
-                  Tasks Involved
-                </th>
-                <th className="text-right py-3 px-4 text-sm font-semibold text-light-text-primary dark:text-dark-text-primary">
-                  To Do
-                </th>
-                <th className="text-right py-3 px-4 text-sm font-semibold text-light-text-primary dark:text-dark-text-primary">
-                  In Progress
-                </th>
-                <th className="text-right py-3 px-4 text-sm font-semibold text-light-text-primary dark:text-dark-text-primary">
-                  Completed
-                </th>
-                <th className="text-right py-3 px-4 text-sm font-semibold text-light-text-primary dark:text-dark-text-primary">
-                  Overdue
-                </th>
-                <th className="text-right py-3 px-4 text-sm font-semibold text-light-text-primary dark:text-dark-text-primary">
-                  Overdue Rate
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {teamPerformance.departmentTeam.map((member) => (
-                <tr key={member.userId} className="border-b border-light-border dark:border-dark-border">
-                  <td className="py-3 px-4 text-sm text-light-text-primary dark:text-dark-text-primary">
-                    {member.name}
-                  </td>
-                  <td className="py-3 px-4 text-sm text-light-text-secondary dark:text-dark-text-secondary">
-                    {member.role}
-                  </td>
-                  <td className="py-3 px-4 text-sm text-right text-light-text-primary dark:text-dark-text-primary">
-                    {member.tasksInvolved}
-                  </td>
-                  <td className="py-3 px-4 text-sm text-right text-light-text-muted dark:text-dark-text-muted">
-                    {member.todoTasks}
-                  </td>
-                  <td className="py-3 px-4 text-sm text-right text-info">{member.inProgressTasks}</td>
-                  <td className="py-3 px-4 text-sm text-right text-success">{member.completedTasks}</td>
-                  <td className="py-3 px-4 text-sm text-right text-danger">{member.overdueTasks}</td>
-                  <td className="py-3 px-4 text-sm text-right font-semibold text-danger">
-                    {member.overdueRate}%
-                  </td>
+          {!teamPerformance || !teamPerformance.departmentTeam || teamPerformance.departmentTeam.length === 0 ? (
+            <div className="text-center py-8 text-gray-500">
+              <p>No team members found for the selected period.</p>
+            </div>
+          ) : (
+            <table className="w-full">
+              <thead className="border-b border-light-border dark:border-dark-border">
+                <tr>
+                  <th className="text-left py-3 px-4 text-sm font-semibold text-light-text-primary dark:text-dark-text-primary">
+                    Team Member
+                  </th>
+                  <th className="text-left py-3 px-4 text-sm font-semibold text-light-text-primary dark:text-dark-text-primary">
+                    Role
+                  </th>
+                  <th className="text-right py-3 px-4 text-sm font-semibold text-light-text-primary dark:text-dark-text-primary">
+                    Tasks Involved
+                  </th>
+                  <th className="text-right py-3 px-4 text-sm font-semibold text-light-text-primary dark:text-dark-text-primary">
+                    To Do
+                  </th>
+                  <th className="text-right py-3 px-4 text-sm font-semibold text-light-text-primary dark:text-dark-text-primary">
+                    In Progress
+                  </th>
+                  <th className="text-right py-3 px-4 text-sm font-semibold text-light-text-primary dark:text-dark-text-primary">
+                    Completed
+                  </th>
+                  <th className="text-right py-3 px-4 text-sm font-semibold text-light-text-primary dark:text-dark-text-primary">
+                    Overdue
+                  </th>
+                  <th className="text-right py-3 px-4 text-sm font-semibold text-light-text-primary dark:text-dark-text-primary">
+                    Overdue Rate
+                  </th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {teamPerformance.departmentTeam.map((member) => (
+                  <tr key={member.userId} className="border-b border-light-border dark:border-dark-border">
+                    <td className="py-3 px-4 text-sm text-light-text-primary dark:text-dark-text-primary">
+                      {member.name}
+                    </td>
+                    <td className="py-3 px-4 text-sm text-light-text-secondary dark:text-dark-text-secondary">
+                      {member.role}
+                    </td>
+                    <td className="py-3 px-4 text-sm text-right text-light-text-primary dark:text-dark-text-primary">
+                      {member.tasksInvolved}
+                    </td>
+                    <td className="py-3 px-4 text-sm text-right text-light-text-muted dark:text-dark-text-muted">
+                      {member.todoTasks}
+                    </td>
+                    <td className="py-3 px-4 text-sm text-right text-info">{member.inProgressTasks}</td>
+                    <td className="py-3 px-4 text-sm text-right text-success">{member.completedTasks}</td>
+                    <td className="py-3 px-4 text-sm text-right text-danger">{member.overdueTasks}</td>
+                    <td className="py-3 px-4 text-sm text-right font-semibold text-danger">
+                      {member.overdueRate}%
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </div>
       </div>
     </div>
@@ -1000,11 +1030,16 @@ function SeniorManagerReport({ reportData, reportRef }) {
               Company Scale
             </p>
             <p className="text-lg font-bold text-light-text-primary dark:text-dark-text-primary">
-              {companyScope?.totalProjects} Projects
+              {companyScope?.totalProjects || 0} Projects
             </p>
             <p className="text-lg font-bold text-light-text-primary dark:text-dark-text-primary">
-              {companyScope?.totalTasks} Tasks
+              {companyScope?.totalTasks || 0} Tasks
             </p>
+            {(!companyScope?.totalProjects && !companyScope?.totalTasks) && (
+              <p className="text-xs text-light-text-muted dark:text-dark-text-muted mt-2 italic">
+                No projects or tasks yet. Company metrics will appear as work begins.
+              </p>
+            )}
           </div>
         </div>
       </div>
@@ -1095,12 +1130,19 @@ function SeniorManagerReport({ reportData, reportRef }) {
       </div>
 
       {/* Department Performance Breakdown */}
-      <div className="rounded-2xl border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-bg p-6">
+      <div className="rounded-2xl border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-bg p-6 table-section">
         <h2 className="text-xl font-bold text-light-text-primary dark:text-dark-text-primary mb-4">
           Department Performance Breakdown
         </h2>
-        <div className="overflow-x-auto">
-          <table className="w-full">
+        {!departmentMetrics || departmentMetrics.length === 0 ? (
+          <div className="text-center py-8">
+            <p className="text-sm text-light-text-secondary dark:text-dark-text-secondary">
+              No department data available yet. Department metrics will appear here once projects and tasks are assigned.
+            </p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+          <table className="w-full department-table">
             <thead className="border-b border-light-border dark:border-dark-border">
               <tr>
                 <th
@@ -1133,20 +1175,20 @@ function SeniorManagerReport({ reportData, reportRef }) {
                 <th className="text-center py-2 px-2 text-xs font-semibold">In Progress</th>
                 <th className="text-center py-2 px-2 text-xs font-semibold">Done</th>
                 <th className="text-center py-2 px-2 text-xs font-semibold">Overdue</th>
-                <th className="text-center py-2 px-2 text-xs font-semibold text-success">
+                <th className="text-center py-2 px-2 text-xs font-semibold">
                   Completion Rate
                 </th>
-                <th className="text-center py-2 px-2 text-xs font-semibold text-danger">
+                <th className="text-center py-2 px-2 text-xs font-semibold">
                   Overdue Rate
                 </th>
                 <th className="text-center py-2 px-2 text-xs font-semibold">To Do</th>
                 <th className="text-center py-2 px-2 text-xs font-semibold">In Progress</th>
                 <th className="text-center py-2 px-2 text-xs font-semibold">Done</th>
                 <th className="text-center py-2 px-2 text-xs font-semibold">Overdue</th>
-                <th className="text-center py-2 px-2 text-xs font-semibold text-success">
+                <th className="text-center py-2 px-2 text-xs font-semibold">
                   Completion Rate
                 </th>
-                <th className="text-center py-2 px-2 text-xs font-semibold text-danger">
+                <th className="text-center py-2 px-2 text-xs font-semibold">
                   Overdue Rate
                 </th>
               </tr>
@@ -1206,15 +1248,24 @@ function SeniorManagerReport({ reportData, reportRef }) {
             </tbody>
           </table>
         </div>
+        )}
       </div>
 
       {/* Top Projects by Task Volume */}
-      <div className="rounded-2xl border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-bg p-6">
+      <div className="rounded-2xl border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-bg p-6 table-section">
         <h2 className="text-xl font-bold text-light-text-primary dark:text-dark-text-primary mb-4">
           Project Performance Overview (Top Projects by Task Volume)
         </h2>
-        <div className="overflow-x-auto">
-          <table className="w-full">
+        {!projectBreakdown || projectBreakdown.length === 0 ? (
+          <div className="text-center py-8">
+            <p className="text-sm text-light-text-secondary dark:text-dark-text-secondary">
+              No project data available yet. Project performance metrics will appear here once projects are created and have tasks assigned.
+            </p>
+          </div>
+        ) : (
+          <>
+            <div className="overflow-x-auto">
+          <table className="w-full project-table">
             <thead className="border-b border-light-border dark:border-dark-border">
               <tr>
                 <th className="text-left py-3 px-4 text-sm font-semibold text-light-text-primary dark:text-dark-text-primary">
@@ -1278,6 +1329,8 @@ function SeniorManagerReport({ reportData, reportRef }) {
           <p className="text-xs text-light-text-muted dark:text-dark-text-muted mt-4 text-center">
             Showing top 20 projects by task volume. Total projects: {projectBreakdown.length}
           </p>
+        )}
+        </>
         )}
       </div>
     </div>
@@ -1358,6 +1411,19 @@ export default function Report() {
     try {
       setIsExporting(true);
 
+      // Generate filename based on user role and date
+      const currentDate = dayjs().format("YYYY-MM-DD");
+      let filename;
+      
+      if (user.role === "Senior Manager" || user.role === "HR") {
+        filename = `Company-Wide Performance Report - ${currentDate}`;
+      } else if (user.role === "Director") {
+        const departmentName = reportData?.departmentInfo?.departmentName || "Department";
+        filename = `${departmentName} Performance Report - ${currentDate}`;
+      } else {
+        filename = `${user.role} Report - ${currentDate}`;
+      }
+
       // Simple print-based PDF export
       const printWindow = window.open("", "_blank");
       if (!printWindow) {
@@ -1373,10 +1439,10 @@ export default function Report() {
         <html>
           <head>
             <meta charset="UTF-8">
-            <title>${user.role} Report - ${dayjs().format("YYYY-MM-DD")}</title>
+            <title>${filename}</title>
             <style>
               * { margin: 0; padding: 0; box-sizing: border-box; }
-              body { font-family: system-ui, -apple-system, sans-serif; line-height: 1.5; color: #1f2937; background: white; padding: 20px; }
+              body { font-family: system-ui, -apple-system, sans-serif; line-height: 1.4; color: #1f2937; background: white; padding: 15px; }
               .space-y-6 > * + * { margin-top: 1.5rem; }
               .space-y-4 > * + * { margin-top: 1rem; }
               .space-y-3 > * + * { margin-top: 0.75rem; }
@@ -1391,36 +1457,36 @@ export default function Report() {
                 .md\\:grid-cols-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
               }
               @media (min-width: 1024px) { .lg\\:grid-cols-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
-              .rounded-2xl { border-radius: 1rem; }
-              .rounded-xl { border-radius: 0.75rem; }
-              .rounded-lg { border-radius: 0.5rem; }
+              .rounded-2xl { border-radius: 0.5rem; }
+              .rounded-xl { border-radius: 0.5rem; }
+              .rounded-lg { border-radius: 0.25rem; }
               .rounded-full { border-radius: 9999px; }
               .border { border: 1px solid #e5e7eb; }
-              .p-6 { padding: 1.5rem; }
-              .p-4 { padding: 1rem; }
-              .p-3 { padding: 0.75rem; }
-              .px-3 { padding-left: 0.75rem; padding-right: 0.75rem; }
+              .p-6 { padding: 1rem; }
+              .p-4 { padding: 0.75rem; }
+              .p-3 { padding: 0.5rem; }
+              .px-3 { padding-left: 0.5rem; padding-right: 0.5rem; }
               .py-1 { padding-top: 0.25rem; padding-bottom: 0.25rem; }
-              .pb-4 { padding-bottom: 1rem; }
-              .mb-4 { margin-bottom: 1rem; }
-              .mb-3 { margin-bottom: 0.75rem; }
+              .pb-4 { padding-bottom: 0.75rem; }
+              .mb-4 { margin-bottom: 0.75rem; }
+              .mb-3 { margin-bottom: 0.5rem; }
               .mb-2 { margin-bottom: 0.5rem; }
               .mb-1 { margin-bottom: 0.25rem; }
               .mt-1 { margin-top: 0.25rem; }
               .mt-2 { margin-top: 0.5rem; }
-              .mt-4 { margin-top: 1rem; }
+              .mt-4 { margin-top: 0.75rem; }
               .text-center { text-align: center; }
               .text-left { text-align: left; }
               .text-right { text-align: right; }
               .font-bold { font-weight: 700; }
               .font-semibold { font-weight: 600; }
               .font-medium { font-weight: 500; }
-              .text-3xl { font-size: 1.875rem; }
-              .text-2xl { font-size: 1.5rem; }
-              .text-xl { font-size: 1.25rem; }
-              .text-lg { font-size: 1.125rem; }
-              .text-sm { font-size: 0.875rem; }
-              .text-xs { font-size: 0.75rem; }
+              .text-3xl { font-size: 1.5rem; }
+              .text-2xl { font-size: 1.25rem; }
+              .text-xl { font-size: 1.125rem; }
+              .text-lg { font-size: 1rem; }
+              .text-sm { font-size: 0.8rem; }
+              .text-xs { font-size: 0.7rem; }
               .flex { display: flex; }
               .items-center { align-items: center; }
               .justify-between { justify-content: space-between; }
@@ -1430,16 +1496,119 @@ export default function Report() {
               .gap-6 { gap: 1.5rem; }
               .flex-wrap { flex-wrap: wrap; }
               .inline-flex { display: inline-flex; }
-              .overflow-x-auto { overflow-x: auto; }
+              .overflow-x-auto { overflow-x: visible; }
               .w-full { width: 100%; }
               .h-2 { height: 0.5rem; }
-              table { width: 100%; border-collapse: collapse; }
+              
+              /* Table styling optimized for PDF print */
+              table { 
+                width: 100%; 
+                border-collapse: collapse; 
+                table-layout: fixed;
+                margin: 0.5rem 0;
+              }
               thead { border-bottom: 2px solid #e5e7eb; }
               tbody tr { border-bottom: 1px solid #e5e7eb; }
-              th, td { padding: 0.75rem 1rem; }
-              th { font-weight: 600; text-align: left; }
-              .shadow-sm { box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05); }
-              @media print { body { padding: 0; } .page-break { page-break-before: always; } }
+              th, td { 
+                padding: 0.3rem 0.2rem; 
+                font-size: 0.65rem;
+                word-wrap: break-word;
+                overflow-wrap: break-word;
+                hyphens: auto;
+                vertical-align: top;
+              }
+              th { 
+                font-weight: 600; 
+                text-align: left; 
+                background-color: #f9fafb;
+                font-size: 0.6rem;
+                line-height: 1.2;
+              }
+              
+              /* Department column specific styling */
+              .department-table td:nth-child(1) {
+                font-size: 0.6rem;
+                line-height: 1.1;
+                word-break: break-word;
+              }
+              
+              /* Specific column widths for Department Performance Breakdown table */
+              .department-table th:nth-child(1), .department-table td:nth-child(1) { width: 8%; } /* Department */
+              .department-table th:nth-child(2), .department-table td:nth-child(2) { width: 5%; }  /* Team Size */
+              .department-table th:nth-child(n+3), .department-table td:nth-child(n+3) { width: 7.25%; } /* All other columns */
+              
+              /* Project table column widths */
+              .project-table th:nth-child(1), .project-table td:nth-child(1) { width: 25%; } /* Project Name */
+              .project-table th:nth-child(2), .project-table td:nth-child(2) { width: 20%; } /* Department */
+              .project-table th:nth-child(n+3), .project-table td:nth-child(n+3) { width: 11%; } /* Other columns */
+              
+              .shadow-sm { box-shadow: none; }
+              
+              /* Color classes for print */
+              .text-success { color: #065f46 !important; }
+              .text-danger { color: #dc2626 !important; }
+              .text-info { color: #0369a1 !important; }
+              
+              @media print { 
+                body { 
+                  padding: 0; 
+                  font-size: 10px;
+                }
+                .page-break { 
+                  page-break-before: always; 
+                }
+                .overflow-x-auto {
+                  overflow: visible !important;
+                }
+                table {
+                  page-break-inside: auto;
+                  table-layout: fixed;
+                  width: 100% !important;
+                }
+                thead {
+                  display: table-header-group;
+                }
+                tbody {
+                  display: table-row-group;
+                }
+                tr {
+                  page-break-inside: avoid;
+                  page-break-after: auto;
+                }
+                th, td {
+                  font-size: 6.5px !important;
+                  padding: 1.5px 1px !important;
+                  line-height: 1.2 !important;
+                }
+                .department-table th, .department-table td {
+                  font-size: 6px !important;
+                }
+                .p-6 { padding: 0.5rem !important; }
+                .mb-4 { margin-bottom: 0.5rem !important; }
+                h1 { font-size: 16px !important; }
+                h2 { font-size: 14px !important; }
+                .text-3xl { font-size: 16px !important; }
+                .text-2xl { font-size: 14px !important; }
+                .text-xl { font-size: 12px !important; }
+                
+                /* Ensure table headers repeat on each page */
+                .department-table thead,
+                .project-table thead {
+                  display: table-header-group;
+                }
+                
+                /* Better page breaking for table sections */
+                .table-section {
+                  page-break-inside: avoid;
+                  break-inside: avoid;
+                }
+                
+                /* Prevent orphaned table headers */
+                .table-section h2 {
+                  page-break-after: avoid;
+                  break-after: avoid;
+                }
+              }
             </style>
           </head>
           <body>
