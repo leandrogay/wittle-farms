@@ -141,7 +141,7 @@ export async function sendPendingEmails() {
   const due = await Notification.find({
     sent: false,
     read: false,
-    type: { $in: ['reminder', 'overdue'] },
+    type: { $in: ['reminder', 'overdue', 'update'] },
     scheduledFor: { $lte: now },
   })
     .populate('userId', 'name email')
@@ -160,6 +160,9 @@ export async function sendPendingEmails() {
     const subject =
       n.type === 'overdue'
         ? `Overdue: ${n.taskId?.title ?? 'Task'}`
+        // : `Reminder: ${n.taskId?.title ?? 'Task'} due soon`;
+      :n.type === 'update'
+        ? `Update: ${n.taskId?.title ?? 'Task'}`
         : `Reminder: ${n.taskId?.title ?? 'Task'} due soon`;
 
     const html = buildEmailHtml({ notification: n });
@@ -269,7 +272,12 @@ function buildEmailHtml({ notification }) {
   const deadline = notification.taskId?.deadline
     ? dayjs(notification.taskId.deadline).format('ddd, DD MMM YYYY HH:mm')
     : 'N/A';
-  const heading = notification.type === 'overdue' ? 'Task Overdue' : 'Task Reminder';
+   const heading =
+   notification.type === 'overdue'
+     ? 'Task Overdue'
+     : notification.type === 'update'
+       ? 'Task Updated'
+       : 'Task Reminder';
 
   return `
     <div style="font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;">
@@ -323,3 +331,39 @@ export async function createMentionNotifications({ taskId, commentId, authorId, 
   return created;
 
 }
+
+
+export async function createUpdateNotifications({ taskId, authorId }) {
+  const [task, author] = await Promise.all([
+    Task.findById(taskId)
+      .select('assignedTeamMembers title')
+      .lean(),
+    User.findById(authorId)
+      .select('name')
+      .lean()
+  ]);
+
+  if (!task) return [];
+
+  const authorName = author?.name ?? 'Someone';
+
+  const assigneeIds = (task.assignedTeamMembers || []).map(String);
+  const recipients = [...new Set(assigneeIds.filter(uid => uid !== String(authorId)))];
+  if (!recipients.length) return [];
+
+  const message = `${authorName} updated "${task.title}".`;
+
+  const docs = recipients.map(userId => ({
+    userId,
+    taskId,
+    type: 'update',
+    message,
+    scheduledFor: new Date(), 
+    read: false,
+    sent: false
+  }));
+
+  const created = await Notification.insertMany(docs, { ordered: false });
+  return created;
+}
+

@@ -1,5 +1,7 @@
 import express from 'express';
 import cors from 'cors';
+import swaggerUi from 'swagger-ui-express';
+import { swaggerSpec } from './swagger.js';
 
 import authRouter from './routes/auth.js';
 import userRouter from './routes/users.js';
@@ -30,5 +32,8 @@ app.use('/api/tasks', commentsRouter);
 app.use('/api/timeline', timelineRouter);
 app.use('/api/director', directorRouter);
 app.use('/api/senior-manager', seniorManagerRouter);
+app.get('/api/docs.json', (_req, res) => res.json(swaggerSpec));
+app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 export default app;
+

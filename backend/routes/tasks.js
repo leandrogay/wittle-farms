@@ -4,6 +4,7 @@ import multer from 'multer';
 
 import Task, { DEFAULT_REMINDERS_MIN } from '../models/Task.js';
 import Attachment from '../models/Attachment.js';
+import { createUpdateNotifications, sendPendingEmails } from '../services/notificationService.js';
 
 const router = Router();
 const upload = multer({ storage: multer.memoryStorage() });
@@ -465,6 +466,25 @@ router.put('/:id', upload.array('attachments'), async (req, res) => {
     } catch (spawnErr) {
       console.error('[recurrence] spawn-next failed:', spawnErr);
     }
+
+
+    const updateNotifs = await createUpdateNotifications({
+      taskId: String(task._id),
+      authorId: String(
+          (req.user && req.user._id) ??
+          req.body.updatedBy ??
+          req.body.createdBy ??
+          existing.createdBy
+          )
+    })
+
+    // const io = req.app.get('io');
+    for (const n of [...updateNotifs]) {
+      io?.emit?.(`notification:${n.userId}`, n);
+    }
+    io?.emit?.('task:updated', { taskId: String(task._id) });
+
+    if (updateNotifs.length) await sendPendingEmails();
 
     res.json(populatedTask);
   } catch (e) {
