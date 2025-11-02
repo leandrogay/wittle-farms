@@ -874,6 +874,132 @@ describe("Senior Manager Company-Wide Report API", () => {
       });
     });
 
+    describe("Empty Data Edge Cases (TC-007)", () => {
+      it("should handle company-wide report with no projects and tasks (empty state)", async () => {
+        // Clear all projects and tasks to create "no data" state
+        await Task.deleteMany({});
+        await Project.deleteMany({});
+        
+        const response = await request(app).get("/api/senior-manager/report");
+        
+        expect(response.status).toBe(200);
+        
+        // Verify company scope shows zero for all metrics
+        expect(response.body.companyScope).toMatchObject({
+          totalProjects: 0,
+          totalTasks: 0,
+          projectStatusCounts: {
+            "To Do": 0,
+            "In Progress": 0,
+            "Done": 0,
+            "Overdue": 0
+          },
+          taskStatusCounts: {
+            "To Do": 0,
+            "In Progress": 0, 
+            "Done": 0,
+            "Overdue": 0
+          },
+          projectStatusPercentages: {
+            "To Do": 0,
+            "In Progress": 0,
+            "Done": 0,
+            "Overdue": 0
+          },
+          taskStatusPercentages: {
+            "To Do": 0,
+            "In Progress": 0,
+            "Done": 0,
+            "Overdue": 0
+          }
+        });
+        
+        // Verify productivity metrics default to zero/stable
+        expect(response.body.productivityTrend).toBe("Stable");
+        expect(response.body.projectCompletionRateThisMonth).toBe(0);
+        expect(response.body.projectCompletionRateLastMonth).toBe(0);
+        
+        // Verify departments still exist but with zero metrics
+        expect(response.body.departmentMetrics).toBeInstanceOf(Array);
+        expect(response.body.departmentMetrics.length).toBeGreaterThan(0); // Departments should still exist
+        
+        // Each department should have zero metrics
+        response.body.departmentMetrics.forEach(dept => {
+          expect(dept).toMatchObject({
+            projectStatusCounts: {
+              "To Do": 0,
+              "In Progress": 0,
+              "Done": 0,
+              "Overdue": 0
+            },
+            projectStatusPercentages: {
+              "To Do": 0,
+              "In Progress": 0,
+              "Done": 0,
+              "Overdue": 0
+            },
+            taskStatusCounts: {
+              "To Do": 0,
+              "In Progress": 0,
+              "Done": 0,
+              "Overdue": 0
+            },
+            taskStatusPercentages: {
+              "To Do": 0,
+              "In Progress": 0,
+              "Done": 0,
+              "Overdue": 0
+            }
+          });
+          // Should have department name and id
+          expect(dept.departmentName).toBeDefined();
+          expect(dept.departmentId).toBeDefined();
+        });
+        
+        // Verify project breakdown is empty
+        expect(response.body.projectBreakdown).toBeInstanceOf(Array);
+        expect(response.body.projectBreakdown).toHaveLength(0);
+        
+        // Verify company info still shows departments and users
+        expect(response.body.companyInfo.totalDepartments).toBe(3);
+        expect(response.body.companyInfo.totalEmployees).toBe(9);
+      });
+
+      it("should handle report with departments but no users assigned", async () => {
+        // Clear all users except one HR user for authentication
+        await User.deleteMany({ role: { $ne: "HR" } });
+        await Task.deleteMany({});
+        await Project.deleteMany({});
+        
+        const response = await request(app).get("/api/senior-manager/report");
+        
+        expect(response.status).toBe(200);
+        
+        // Should show minimal data
+        expect(response.body.companyScope.totalProjects).toBe(0);
+        expect(response.body.companyScope.totalTasks).toBe(0);
+        expect(response.body.companyInfo.totalEmployees).toBe(1); // Only HR user
+        expect(response.body.companyInfo.totalDepartments).toBe(3); // Departments preserved
+        expect(response.body.departmentMetrics).toHaveLength(3);
+        expect(response.body.projectBreakdown).toHaveLength(0);
+      });
+
+      it("should calculate productivity trend as 'Stable' with zero completion rates", async () => {
+        // Clear all projects and tasks
+        await Task.deleteMany({});
+        await Project.deleteMany({});
+        
+        const response = await request(app).get("/api/senior-manager/report");
+        
+        expect(response.status).toBe(200);
+        
+        // When both months have 0% completion, trend should be "Stable"
+        expect(response.body.projectCompletionRateThisMonth).toBe(0);
+        expect(response.body.projectCompletionRateLastMonth).toBe(0);
+        expect(response.body.productivityTrend).toBe("Stable");
+      });
+    });
+
     describe("Performance and Scalability", () => {
       it("should handle reasonable dataset sizes efficiently", async () => {
         const startTime = Date.now();
