@@ -1,8 +1,7 @@
-// tests/daily-overdue-manager.test.js
+// backend/tests/daily-overdue-manager.test.js
 import { describe, it, beforeAll, afterAll, beforeEach, expect, vi } from "vitest";
 import { MongoMemoryServer } from "mongodb-memory-server";
 import mongoose from "mongoose";
-import dayjs from "dayjs";
 
 import { runDailyOverdueDigest } from "../jobs/dailyOverdueTaskEmails.js";
 import User from "../models/User.js";
@@ -14,6 +13,22 @@ const sendEmailMock = vi.fn().mockResolvedValue({ messageId: "mock" });
 vi.mock("../utils/mailer.js", () => ({
   sendEmail: (...args) => sendEmailMock(...args),
 }));
+
+// ---- Freeze time so day math is stable ----
+const ANCHOR_ISO = "2025-11-01T00:00:00Z";
+vi.useFakeTimers();
+vi.setSystemTime(new Date(ANCHOR_ISO));
+
+// ---- helpers to mirror job’s day-diff logic ----
+const DAY_MS = 24 * 60 * 60 * 1000;
+function startOfUTC(d) {
+  const dt = new Date(d);
+  return Date.UTC(dt.getUTCFullYear(), dt.getUTCMonth(), dt.getUTCDate());
+}
+function daysOverdueUTC(anchorISO, dueISO) {
+  // If your job uses ceil instead of floor, switch Math.floor -> Math.ceil
+  return Math.floor((startOfUTC(anchorISO) - startOfUTC(dueISO)) / DAY_MS);
+}
 
 let mongo;
 const STRONG = "Password123!";
@@ -27,6 +42,7 @@ describe("Daily Overdue Digest Job", () => {
   afterAll(async () => {
     await mongoose.disconnect();
     await mongo.stop();
+    vi.useRealTimers();
   });
 
   beforeEach(async () => {
@@ -56,12 +72,17 @@ describe("Daily Overdue Digest Job", () => {
       password: STRONG,
     });
 
+    // Create explicit due dates relative to the frozen anchor:
+    // Alpha: 2025-10-29 (3 days overdue); Beta: 2025-10-26 (6 days overdue)
+    const ALPHA_DUE = "2025-10-29T10:00:00Z";
+    const BETA_DUE  = "2025-10-26T10:00:00Z";
+
     await Task.create([
       {
         title: "Alpha Task 1",
         assignedProject: proj1._id,
         assignedTeamMembers: [staff._id],
-        deadline: dayjs().subtract(2, "day").toDate(),
+        deadline: new Date(ALPHA_DUE),
         status: "In Progress",
         createdBy: manager._id,
       },
@@ -69,7 +90,7 @@ describe("Daily Overdue Digest Job", () => {
         title: "Beta Task 1",
         assignedProject: proj2._id,
         assignedTeamMembers: [staff._id],
-        deadline: dayjs().subtract(5, "day").toDate(),
+        deadline: new Date(BETA_DUE),
         status: "To Do",
         createdBy: manager._id,
       },
@@ -81,12 +102,14 @@ describe("Daily Overdue Digest Job", () => {
     const call = sendEmailMock.mock.calls[0][0];
 
     expect(call.to).toBe("manager@example.com");
-    expect(call.subject).toContain("overdue item");
+    expect(call.subject).toMatch(/overdue item/i);
     expect(call.html).toContain("Project Alpha");
-    const expectedAlphaDays = dayjs().diff(dayjs().subtract(2, "day"), "day") + 1;
-    expect(call.html).toContain(`${expectedAlphaDays} day(s) overdue`);
     expect(call.html).toContain("Project Beta");
-    const expectedBetaDays = dayjs().diff(dayjs().subtract(5, "day"), "day") + 1;
+
+    const expectedAlphaDays = daysOverdueUTC(ANCHOR_ISO, ALPHA_DUE); // 3
+    const expectedBetaDays  = daysOverdueUTC(ANCHOR_ISO, BETA_DUE);  // 6
+
+    expect(call.html).toContain(`${expectedAlphaDays} day(s) overdue`);
     expect(call.html).toContain(`${expectedBetaDays} day(s) overdue`);
   });
 
@@ -124,7 +147,8 @@ describe("Daily Overdue Digest Job", () => {
       assignedProject: proj._id,
       assignedTeamMembers: [staff._id],
       status: "In Progress",
-      deadline: dayjs().subtract(1, "day").toDate(),
+      // 1 day overdue relative to anchor (but we won't assert the number here)
+      deadline: new Date("2025-10-31T12:00:00Z"),
       createdBy: mgr._id,
     });
 
@@ -155,7 +179,7 @@ describe("Daily Overdue Digest Job", () => {
       assignedProject: proj._id,
       assignedTeamMembers: [staff._id],
       status: "In Progress",
-      deadline: dayjs().subtract(2, "day").toDate(),
+      deadline: new Date("2025-10-30T10:00:00Z"), // 2 days overdue vs anchor
       createdBy: mgr._id,
     });
 
@@ -189,7 +213,7 @@ describe("Daily Overdue Digest Job", () => {
       assignedProject: proj._id,
       assignedTeamMembers: [staff._id],
       status: "In Progress",
-      deadline: dayjs().add(2, "day").toDate(),
+      deadline: new Date("2025-11-03T10:00:00Z"), // after anchor
       createdBy: mgr._id,
     });
 
@@ -199,7 +223,7 @@ describe("Daily Overdue Digest Job", () => {
       assignedProject: proj._id,
       assignedTeamMembers: [staff._id],
       status: "Done",
-      deadline: dayjs().subtract(2, "day").toDate(),
+      deadline: new Date("2025-10-29T10:00:00Z"),
       createdBy: mgr._id,
     });
 
@@ -222,7 +246,7 @@ describe("Daily Overdue Digest Job", () => {
       assignedProject: proj._id,
       assignedTeamMembers: [], // empty array path
       status: "In Progress",
-      deadline: dayjs().subtract(1, "day").toDate(),
+      deadline: new Date("2025-10-31T10:00:00Z"),
       createdBy: mgr._id,
     });
 
@@ -249,7 +273,7 @@ describe("Daily Overdue Digest Job", () => {
       title: "Overdue Unassigned Undefined",
       assignedProject: proj._id,
       status: "In Progress",
-      deadline: dayjs().subtract(1, "day").toDate(),
+      deadline: new Date("2025-10-31T09:00:00Z"),
       createdBy: mgr._id,
     });
 
@@ -284,7 +308,7 @@ describe("Daily Overdue Digest Job", () => {
         assignedProject: proj._id,
         assignedTeamMembers: [staff._id],
         status: "In Progress",
-        deadline: dayjs().subtract(1, "day").toDate(),
+        deadline: new Date("2025-10-31T10:00:00Z"),
         createdBy: mgr._id,
       },
       {
@@ -292,7 +316,7 @@ describe("Daily Overdue Digest Job", () => {
         assignedProject: proj._id, // same project key → push into existing array
         assignedTeamMembers: [staff._id],
         status: "In Progress",
-        deadline: dayjs().subtract(3, "day").toDate(),
+        deadline: new Date("2025-10-29T10:00:00Z"),
         createdBy: mgr._id,
       },
     ]);
@@ -330,7 +354,7 @@ describe("Daily Overdue Digest Job", () => {
       assignedProject: proj._id,
       assignedTeamMembers: [staff._id],
       status: "In Progress",
-      deadline: dayjs().subtract(1, "day").toDate(),
+      deadline: new Date("2025-10-31T10:00:00Z"),
       createdBy: mgr._id,
     });
 
@@ -343,7 +367,6 @@ describe("Daily Overdue Digest Job", () => {
   });
 
   it("edge: task without deadline and assignees → renders 0 day(s) & Unassigned", async () => {
-    // 1) Create a manager + a project normally (we won't stub these)
     const mgr = await User.create({
       name: "Mgr",
       email: "mgr@example.com",
@@ -352,7 +375,7 @@ describe("Daily Overdue Digest Job", () => {
     });
     const proj = await Project.create({ name: "EdgeProj", createdBy: mgr._id });
 
-    // 2) Stub Task.find chain to bypass the DB filter (so we can return a task with no deadline)
+    // Stub Task.find chain to return one item with no deadline & no assignees
     const findSpy = vi.spyOn(Task, "find").mockReturnValue({
       populate: () => ({
         lean: async () => ([
@@ -360,10 +383,10 @@ describe("Daily Overdue Digest Job", () => {
             _id: new mongoose.Types.ObjectId(),
             title: "No Deadline & No Assignees",
             assignedProject: proj._id,
-            // Note: intentionally no deadline field here
-            assignedTeamMembers: [], // empty → should render "Unassigned"
+            assignedTeamMembers: [],
             status: "In Progress",
             createdBy: mgr._id,
+            // no deadline field
           }
         ]),
       }),
@@ -372,18 +395,12 @@ describe("Daily Overdue Digest Job", () => {
     await runDailyOverdueDigest();
     findSpy.mockRestore();
 
-    // 3) Assert: email went to the manager and HTML hit both branches
     expect(sendEmailMock).toHaveBeenCalledTimes(1);
     const { to, html } = sendEmailMock.mock.calls[0][0];
     expect(to).toBe("mgr@example.com");
-
-    // "Unassigned" branch (no team members)
     expect(html).toContain("Team Members: Unassigned");
-
-    // "no deadline" branch: dlate is null → `${dlate ?? 0}` renders 0 day(s)
     expect(html).toContain("0 day(s) overdue");
   });
-
 
   it('uses "Untitled Project" when project.name is missing', async () => {
     const mgr = await User.create({
@@ -408,7 +425,7 @@ describe("Daily Overdue Digest Job", () => {
       assignedProject: proj._id,
       assignedTeamMembers: [staff._id],
       status: "In Progress",
-      deadline: dayjs().subtract(1, "day").toDate(),
+      deadline: new Date("2025-10-31T10:00:00Z"),
       createdBy: mgr._id,
     });
 
