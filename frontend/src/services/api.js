@@ -24,6 +24,7 @@ function toFormDataIfFiles(obj) {
 
   const fd = new FormData();
   Object.entries(obj).forEach(([key, value]) => {
+    if (value === undefined || value === null) return;
     if (key === "attachments") {
       Array.from(value).forEach(file => fd.append("attachments", file));
     }
@@ -60,6 +61,7 @@ export async function createTask(formData) {
       method: "POST",
       headers: isFormData ? {} : { "Content-Type": "application/json" },
       body: isFormData ? body : body,
+      credentials: "include",
     });
 
     // const data = await jsonOrText(res);
@@ -76,7 +78,7 @@ export async function createTask(formData) {
 }
 
 export async function getTasks() {
-  const res = await fetch(`${API_BASE}/api/tasks`);
+  const res = await fetch(`${API_BASE}/api/tasks`, {credentials: "include"});
   if (!res.ok) {
     throw new Error("Failed to fetch tasks");
   }
@@ -140,6 +142,18 @@ export async function getProjectTasks(projectId) {
     return String(id) === pid;
   });
 }
+
+/** Get all subtasks for a given parent task id */
+export async function getSubtasks(taskId) {
+    if (!taskId) return [];
+    const res = await fetch(`${API_BASE}/api/tasks/${taskId}/subtasks`, {
+      credentials: "include",
+    });
+    if (!res.ok) throw new Error("Failed to fetch subtasks");
+    const data = await res.json();
+    return Array.isArray(data) ? data : [];
+  }
+  
 
 export async function getManagerProjects(userId) {
   const res = await fetch(`${API_BASE}/api/projects/user/${userId}`, { credentials: "include" });
@@ -224,6 +238,7 @@ export async function updateTask(taskId, formData) {
       method: "PUT",
       headers: isFormData ? {} : { "Content-Type": "application/json" },
       body: isFormData ? body : body,
+      credentials: "include",
     });
 
     if (!res.ok) {

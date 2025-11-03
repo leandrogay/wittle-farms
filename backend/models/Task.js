@@ -17,6 +17,7 @@ const RecurrenceSchema = new Schema(
 
 const TaskSchema = new Schema(
   {
+    parentTask: { type: Types.ObjectId, ref: 'Task', default: null },
     title: { type: String, required: true, trim: true, maxlength: 200 },
     description: { type: String, default: '' },
     notes: { type: String, default: '' },
@@ -65,6 +66,15 @@ TaskSchema.index({ assignedTeamMembers: 1 });
 TaskSchema.index({ attachments: 1 });
 TaskSchema.index({ createdBy: 1 });
 TaskSchema.index({ 'recurrence.frequency': 1, 'recurrence.interval': 1 });
+TaskSchema.index({ parentTask: 1, deadline: 1, createdAt: -1 });
+
+TaskSchema.virtual('subtasks', {
+  ref: 'Task',
+  localField: '_id',
+  foreignField: 'parentTask',
+  justOne: false,
+  options: { sort: { createdAt: 1 } },
+});
 
 function normalizeOffsets(val) {
   const arr = Array.isArray(val) ? val : [];

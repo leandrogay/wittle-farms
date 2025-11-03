@@ -45,7 +45,7 @@ const _getMaxOffsetMinutesFromNow = (localDeadlineStr) => {
 
 const _fmtDays = (m) => `${Math.floor(m / MINUTES.DAY)} day(s) before`;
 
-const TaskForm = ({ onCancel, onCreated, onUpdated, task = null }) => {
+const TaskForm = ({ onCancel, onCreated, onUpdated, task = null, parentTask = null }) => {
   const [projects, setProjects] = useState([]);
   const [teamMembers, setTeamMembers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -106,13 +106,15 @@ const TaskForm = ({ onCancel, onCreated, onUpdated, task = null }) => {
             ? Math.max(1, Math.min(10, Math.trunc(Number(task.priority))))
             : 5
         ),
+        parentTask: task.parentTask || null,
       };
     }
     return {
       title: "",
       description: "",
       notes: "",
-      assignedProject: "",
+      // assignedProject: "",
+      assignedProject: parentTask?.assignedProject?._id || parentTask?.assignedProject || "",
       assignedTeamMembers: [user.id],
       status: STATUS_OPTIONS[0],
       priority: "5",
@@ -120,6 +122,7 @@ const TaskForm = ({ onCancel, onCreated, onUpdated, task = null }) => {
       createdBy: user.id,
       attachments: [],
       reminderOffsets: [],
+      parentTask: parentTask?._id || parentTask || null,
     };
   });
 
@@ -269,6 +272,11 @@ const TaskForm = ({ onCancel, onCreated, onUpdated, task = null }) => {
         1,
         Math.min(10, Math.trunc(Number(formData.priority) || 5))
       );
+
+      payload.parentTask = formData.parentTask || null;
+      if (payload.parentTask && !payload.assignedProject) {
+        delete payload.assignedProject;
+      }
 
       const hasDeadline = !noDueDate && !!formData.deadline;
 
@@ -499,15 +507,17 @@ const TaskForm = ({ onCancel, onCreated, onUpdated, task = null }) => {
               <div className="space-y-4 w-full max-w-[250px]">
                 <div>
                   <label className="block text-sm font-semibold text-light-text-primary dark:text-dark-text-primary mb-1">
-                    Project *
+                    Project{formData.parentTask ? "" : " *"}
                   </label>
                   <select
                     name="assignedProject"
                     value={formData.assignedProject}
                     onChange={handleChange}
                     className="w-full max-w-[250px] px-3 py-2 text-sm border border-light-border dark:border-dark-border rounded-lg bg-light-bg dark:bg-dark-bg-secondary text-light-text-primary dark:text-dark-text-primary hover:bg-light-surface dark:hover:bg-dark-surface flex justify-between items-center focus:ring-2 focus:ring-brand-primary dark:focus:ring-brand-secondary focus:border-transparent transition-all"
-                    required
-                    disabled={projects.length === 0}
+                    // required
+                    // disabled={projects.length === 0}
+                    required={!formData.parentTask}
+                    disabled={!!formData.parentTask || projects.length === 0}
                   >
                     <option value="">
                       {projects.length
@@ -941,8 +951,8 @@ const TaskForm = ({ onCancel, onCreated, onUpdated, task = null }) => {
                 disabled={recurrenceEnabled && !formData.deadline}
                 aria-disabled={recurrenceEnabled && !formData.deadline}
                 className={`px-4 py-2 text-sm rounded-lg transition-colors font-medium shadow-sm ${isEdit
-                    ? "bg-success text-white hover:bg-emerald-600"
-                    : "bg-brand-primary text-white hover:bg-blue-700"
+                  ? "bg-success text-white hover:bg-emerald-600"
+                  : "bg-brand-primary text-white hover:bg-blue-700"
                   }`}
               >
                 {isEdit ? "Save Changes" : "Create Task"}

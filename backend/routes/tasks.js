@@ -139,6 +139,7 @@ router.post('/', upload.array('attachments'), async (req, res) => {
       endAt,
       reminderOffsets,
       recurrence,
+      parentTask,
     } = req.body;
 
     // === DEBUG LOGS FOR RECURRENCE TESTING ===
@@ -162,6 +163,18 @@ router.post('/', upload.array('attachments'), async (req, res) => {
     if (!title) return res.status(400).json({ error: 'Title is required' });
     if (!assignedProject) return res.status(400).json({ error: 'Assigned project is required' });
     if (!createdBy) return res.status(400).json({ error: 'Created by is required' });
+
+    let parentDoc = null;
+    let projectToUse = assignedProject || null;
+    if (parentTask) {
+      if (!mongoose.Types.ObjectId.isValid(parentTask)) {
+        return res.status(400).json({ error: 'Invalid parentTask ID' });
+      }
+      parentDoc = await Task.findById(parentTask);
+      if (!parentDoc) return res.status(404).json({ error: 'Parent task not found' });
+      if (!projectToUse) projectToUse = parentDoc.assignedProject ?? null;
+    }
+
 
     // Validate IDs
     if (!mongoose.Types.ObjectId.isValid(assignedProject)) {
@@ -210,6 +223,7 @@ router.post('/', upload.array('attachments'), async (req, res) => {
       title,
       description,
       notes,
+      parentTask: parentTask || null, 
       assignedProject,
       assignedTeamMembers: teamMembers,
       status,
@@ -270,7 +284,7 @@ router.post('/', upload.array('attachments'), async (req, res) => {
  */
 router.get('/', async (req, res) => {
   try {
-    const { status, assignedProject, assignee, createdBy, manager } = req.query; // ← Add 'manager'
+    const { status, assignedProject, assignee, createdBy, manager, parentTask, includeSubtasks } = req.query; // ← Add 'manager'
     const filter = {};
 
     if (status) filter.status = status;
@@ -284,6 +298,12 @@ router.get('/', async (req, res) => {
       const managerProjects = await Project.find({ createdBy: manager }).select('_id');
       const projectIds = managerProjects.map(p => p._id);
       filter.assignedProject = { $in: projectIds };
+    }
+
+    if (parentTask) {
+      filter.parentTask = parentTask === 'null' ? null : new mongoose.Types.ObjectId(parentTask);
+    } else if (includeSubtasks !== 'true') {
+      filter.parentTask = null; // default to root tasks only
     }
 
     const tasks = await populateTask(
@@ -329,6 +349,7 @@ router.put('/:id', upload.array('attachments'), async (req, res) => {
       endAt,
       reminderOffsets,
       recurrence,
+      parentTask, 
     } = req.body;
 
     const existing = await Task.findById(req.params.id);
@@ -340,6 +361,13 @@ router.put('/:id', upload.array('attachments'), async (req, res) => {
     }
     if (createdBy !== undefined && !mongoose.Types.ObjectId.isValid(createdBy)) {
       return res.status(400).json({ error: 'Invalid creator ID' });
+    }
+    if (parentTask !== undefined && parentTask !== null) {
+      if (!mongoose.Types.ObjectId.isValid(parentTask)) {
+        return res.status(400).json({ error: 'Invalid parentTask ID' });
+      }
+      const p = await Task.findById(parentTask);
+      if (!p) return res.status(404).json({ error: 'Parent task not found' });
     }
 
     // Team members (optional)
@@ -373,6 +401,7 @@ router.put('/:id', upload.array('attachments'), async (req, res) => {
       updateData.priority = coerced;
     }
     if (createdBy !== undefined) updateData.createdBy = createdBy;
+    if (parentTask !== undefined) updateData.parentTask = parentTask || null;
     if (deadline !== undefined) updateData.deadline = deadline ? new Date(deadline) : null;
     if (allDay !== undefined) updateData.allDay = (allDay === true || allDay === 'true');
     if (startAt !== undefined) updateData.startAt = startAt ? new Date(startAt) : null;
@@ -474,6 +503,7 @@ router.put('/:id', upload.array('attachments'), async (req, res) => {
             title: task.title,
             description: task.description,
             notes: task.notes,
+            parentTask: task.parentTask || null, 
             assignedProject: task.assignedProject,
             assignedTeamMembers: task.assignedTeamMembers,
             status: 'To Do',
@@ -525,9 +555,32 @@ router.put('/:id', upload.array('attachments'), async (req, res) => {
   }
 });
 
-/** DELETE task */
+/** LIST subtasks of a task */
+router.get('/:id/subtasks', async (req, res) => {
+  try {
+    const children = await Task.find({ parentTask: req.params.id })
+      .sort({ deadline: 1, createdAt: 1 })
+      .populate('assignedTeamMembers', 'name email')
+      .populate('createdBy', 'name email')
+      .populate('assignedProject', 'name')
+      .lean();
+    res.json(children);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+/** CREATE subtasks */
+router.post('/:id/subtasks', upload.array('attachments'), async (req, res) => {
+  req.body.parentTask = req.params.id;
+  return router.handle({ ...req, method: 'POST', url: '/' }, res);
+});
+
+
+/** DELETE task (cascade subtasks)*/
 router.delete('/:id', async (req, res) => {
   try {
+    await Task.deleteMany({ parentTask: req.params.id });
     const task = await Task.findByIdAndDelete(req.params.id);
     if (!task) return res.status(404).json({ error: 'Task not found' });
 

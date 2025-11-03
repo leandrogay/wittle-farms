@@ -218,8 +218,11 @@ export default function TaskBoardMgr() {
     setTasksError(null);
     setActiveTask(null);
     try {
+      // const data = await getProjectTasks(projectId);
+      // setTasks(Array.isArray(data) ? data : []);
       const data = await getProjectTasks(projectId);
-      setTasks(Array.isArray(data) ? data : []);
+      const roots = Array.isArray(data) ? data.filter((t) => !t.parentTask) : [];
+      setTasks(roots);
     } catch (err) {
       setTasksError(err?.message || "Failed to load tasks");
     } finally {

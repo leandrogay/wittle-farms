@@ -1,10 +1,14 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
+import SubtaskForm from "./SubtaskForm.jsx";
 import dayjs from "dayjs";
 import TaskFormButton from "./TaskFormButton";
 import { DeleteTaskButton } from "./DeleteTaskButton";
 import { TaskComments } from "./TaskComments";
-import { updateTask } from "../../services/api.js";
+import { updateTask, createTask, getSubtasks } from "../../services/api.js";
 
+
+const BTN_PRIMARY_CLS =
+  "px-5 py-2 bg-brand-primary/90 text-white rounded-lg shadow hover:bg-brand-primary transition-colors font-medium";
 const PRIORITY = { LOW: "Low", MEDIUM: "Medium", HIGH: "High" };
 const PRIORITY_STYLES = {
   [PRIORITY.LOW]:
@@ -80,6 +84,28 @@ const TaskCard = ({ task, onTaskUpdated, onTaskDeleted, currentUser }) => {
   const [savingStatus, setSavingStatus] = useState(false);
   const [localStatus, setLocalStatus] = useState(task?.status ?? "To Do");
 
+  const isRoot = !task?.parentTask;
+  const [subtasks, setSubtasks] = useState([]);
+  const [subsLoading, setSubsLoading] = useState(false);
+  const [newSubTitle, setNewSubTitle] = useState("");
+  const [creatingSub, setCreatingSub] = useState(false);
+  const [editingSub, setEditingSub] = useState(null);
+  const [pendingSub, setPendingSub] = useState(new Set());
+
+  useEffect(() => {
+    if (!isRoot || !task?._id) return;
+    (async () => {
+      setSubsLoading(true);
+      try {
+        const data = await getSubtasks(task._id);
+        setSubtasks(Array.isArray(data) ? data : []);
+      } finally {
+        setSubsLoading(false);
+      }
+    })();
+  }, [isRoot, task?._id]);
+
+
   async function handleStatusChange(e) {
     const next = e.target.value;
     if (next === localStatus) return;
@@ -92,6 +118,47 @@ const TaskCard = ({ task, onTaskUpdated, onTaskDeleted, currentUser }) => {
       setLocalStatus(task?.status ?? "To Do");
     } finally {
       setSavingStatus(false);
+    }
+  }
+
+  async function addSubtask() {
+    const title = newSubTitle.trim();
+    if (!title) return;
+    setCreatingSub(true);
+    try {
+      const created = await createTask({
+        title,
+        parentTask: task._id,
+        assignedProject: task?.assignedProject?._id || task?.assignedProject || undefined,
+        createdBy: currentUser?._id || task?.createdBy?._id || task?.createdBy,
+        assignedTeamMembers: (task?.assignedTeamMembers || []).map((u) => u?._id || u).filter(Boolean),
+        status: "To Do",
+        priority: task?.priority ?? 5,
+      });
+      setSubtasks((prev) => [...prev, created]);
+      setNewSubTitle("");
+    } finally {
+      setCreatingSub(false);
+    }
+  }
+
+  async function setSubStatus(sub, next) {
+    if (!sub?._id) return;
+    if (pendingSub.has(sub._id)) return;
+    const prevStatus = sub.status;
+    setSubtasks((prev) => prev.map((s) => (s._id === sub._id ? { ...s, status: next } : s)));
+    setPendingSub((old) => new Set(old).add(sub._id));
+    try {
+      const updated = await updateTask(sub._id, { status: next });
+      setSubtasks((prev) => prev.map((s) => (s._id === sub._id ? updated : s)));
+    } catch (e) {
+      setSubtasks((prev) => prev.map((s) => (s._id === sub._id ? { ...s, status: prevStatus } : s)));
+    } finally {
+      setPendingSub((old) => {
+        const n = new Set(old);
+        n.delete(sub._id);
+        return n;
+      });
     }
   }
 
@@ -216,6 +283,116 @@ const TaskCard = ({ task, onTaskUpdated, onTaskDeleted, currentUser }) => {
         </p>
       </div>
 
+      {isRoot && (
+        <section className="mt-6">
+          <h3 className="mb-3 text-lg font-semibold text-light-text-primary dark:text-dark-text-primary">
+            Subtasks
+          </h3>
+
+          {/* quick add */}
+          <div className="mb-3 flex gap-2">
+            <input
+              type="text"
+              placeholder="Add a subtask title…"
+              value={newSubTitle}
+              onChange={(e) => setNewSubTitle(e.target.value)}
+              className="flex-1 rounded-lg border px-3 py-2 bg-light-surface dark:bg-dark-surface text-light-text-primary dark:text-dark-text-primary ring-1 ring-light-border dark:ring-dark-border"
+            />
+            <button
+              onClick={addSubtask}
+              disabled={creatingSub || !newSubTitle.trim()}
+              className="rounded-lg px-3 py-2 text-sm font-semibold bg-brand-primary/90 text-white hover:opacity-95 disabled:opacity-60"
+            >
+              {creatingSub ? "Adding…" : "Add"}
+            </button>
+          </div>
+
+          {/* list */}
+          <div className="rounded-xl ring-1 ring-light-border dark:ring-dark-border bg-light-surface dark:bg-dark-surface">
+            {subsLoading ? (
+              <p className="p-3 text-light-text-muted dark:text-dark-text-muted">Loading…</p>
+            ) : subtasks.length === 0 ? (
+              <p className="p-3 text-light-text-muted dark:text-dark-text-muted">— No subtasks</p>
+            ) : (
+              <ul className="divide-y divide-light-border/60 dark:divide-dark-border/60">
+                {subtasks.map((st) => {
+                  const dl = st?.deadline ? dayjs(st.deadline).format(REMINDER_FORMAT) : "—";
+                  return (
+                    <li key={st._id} className="flex items-center justify-between gap-3 p-3">
+                      <div className="min-w-0">
+                        <p className="truncate font-medium text-light-text-primary dark:text-dark-text-primary">
+                          {st.title}
+                        </p>
+                        <p className="text-xs text-light-text-muted dark:text-dark-text-muted">
+                          Deadline: {dl} • Priority: {st?.priority ?? "—"}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <label className="text-sm text-light-text-secondary dark:text-dark-text-secondary">Status</label>
+                        <select
+                          value={st.status || "To Do"}
+                          onChange={(e) => setSubStatus(st, e.target.value)}
+                          className="text-sm px-2 py-1 rounded-md border ring-1 ring-light-border dark:ring-dark-border bg-light-bg dark:bg-dark-bg disabled:opacity-60"
+                          disabled={pendingSub.has(st._id)}
+                        >
+                          {["To Do", "In Progress", "Done"].map((s) => (
+                            <option key={s} value={s}>{s}</option>
+                          ))}
+                        </select>
+                        <button
+                          type="button"
+                          onClick={() => setEditingSub(st)}
+                          className={BTN_PRIMARY_CLS}
+                        >
+                          Edit
+                        </button>
+
+                        <DeleteTaskButton
+                          task={st}
+                          onTaskDeleted={() => {
+                            setSubtasks((prev) => prev.filter((x) => x._id !== st._id));
+                          }}
+                        >
+                          Delete
+                        </DeleteTaskButton>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
+        </section>
+      )
+      }
+
+      {/* Subtask edit modal */}
+      {editingSub && (
+        <div
+          className="fixed inset-0 z-[90] grid place-items-center bg-black/50 dark:bg-black/70 backdrop-blur-sm"
+          onMouseDown={(e) => e.target === e.currentTarget && setEditingSub(null)}
+          role="dialog"
+          aria-modal="true"
+        >
+          <div className="w-[min(90vw,740px)] rounded-2xl bg-light-bg dark:bg-dark-bg shadow-2xl p-6 border border-light-border dark:border-dark-border max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-bold">Edit Subtask</h3>
+              <button onClick={() => setEditingSub(null)} className="text-2xl font-bold">×</button>
+            </div>
+            <SubtaskForm
+              parentTask={task}
+              subtask={editingSub}
+              onCancel={() => setEditingSub(null)}
+              onUpdated={(updated) => {
+                setSubtasks((prev) => prev.map((x) => (x._id === updated._id ? updated : x)));
+                setEditingSub(null);
+              }}
+            />
+          </div>
+        </div>
+      )}
+
+
       {/* Actions */}
       <div className="mt-4 flex flex-wrap gap-3 justify-end">
         <button
@@ -231,15 +408,17 @@ const TaskCard = ({ task, onTaskUpdated, onTaskDeleted, currentUser }) => {
       </div>
 
       {/* Comments */}
-      {showComments ? (
-        <section className="mt-6">
-          <h3 className="mb-2 text-lg font-semibold text-light-text-primary dark:text-dark-text-primary">Comments</h3>
-          <div className="rounded-2xl border p-3 bg-light-surface dark:bg-dark-surface ring-1 ring-light-border dark:ring-dark-border">
-            <TaskComments taskId={task?._id} currentUser={currentUser} />
-          </div>
-        </section>
-      ) : null}
-    </article>
+      {
+        showComments ? (
+          <section className="mt-6">
+            <h3 className="mb-2 text-lg font-semibold text-light-text-primary dark:text-dark-text-primary">Comments</h3>
+            <div className="rounded-2xl border p-3 bg-light-surface dark:bg-dark-surface ring-1 ring-light-border dark:ring-dark-border">
+              <TaskComments taskId={task?._id} currentUser={currentUser} />
+            </div>
+          </section>
+        ) : null
+      }
+    </article >
   );
 };
 

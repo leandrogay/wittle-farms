@@ -53,9 +53,20 @@ export default function Tasks() {
       try {
         setLoading(true);
         const data = await getTasks();
+        // const myTasks = Array.isArray(data)
+        //   ? data.filter(
+        //     (t) =>
+        //       Array.isArray(t.assignedTeamMembers) &&
+        //       t.assignedTeamMembers.some(
+        //         (m) =>
+        //           (typeof m === "string" && m === user.id) ||
+        //           (m && m._id === user.id)
+        //       )
+        //   )
         const myTasks = Array.isArray(data)
           ? data.filter(
             (t) =>
+              !t.parentTask && // ⬅️ show only ROOT tasks on the page
               Array.isArray(t.assignedTeamMembers) &&
               t.assignedTeamMembers.some(
                 (m) =>
