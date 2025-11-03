@@ -45,7 +45,7 @@ function coercePriority(input) {
 
 /** Parse & normalize recurrence from body (object or JSON string). Returns {frequency, interval, ends, until} or null */
 function coerceRecurrence(input) {
-  console.log("➡️ [coerceRecurrence] input:", input);
+  console.log(" [coerceRecurrence] input:", input);
 
   if (!input) return null;
   if (typeof input === "string") {
@@ -57,7 +57,7 @@ function coerceRecurrence(input) {
 
   const freq = (input.frequency || "").toLowerCase();
   if (!["daily", "weekly", "monthly"].includes(freq)) {
-    if (freq === "none") console.log("ℹ️ Ignoring 'none' recurrence from client");
+    if (freq === "none") console.log(" Ignoring 'none' recurrence from client");
     return null;
   }
 
@@ -154,7 +154,7 @@ router.post('/', upload.array('attachments'), async (req, res) => {
     } else if (req.body.recurrence && typeof req.body.recurrence === "object") {
       console.log("Recurrence already an object:", req.body.recurrence);
     } else {
-      console.log("⚠️ No recurrence data received or null");
+      console.log(" No recurrence data received or null");
     }
 
     const coercedPriority = coercePriority(priority);
