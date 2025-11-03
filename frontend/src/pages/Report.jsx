@@ -1420,9 +1420,9 @@ export default function Report() {
         const departmentName = reportData?.departmentInfo?.departmentName || "Department";
         filename = `${departmentName} Performance Report - ${currentDate}`;
       } else if (user.role === "Manager") {
-        filename = `Manager Report - ${currentDate}`;
+        filename = `Manager Performance Report - ${currentDate}`;
       } else {
-        filename = `${user.role} ${user.name}'s Report - ${currentDate}`;
+        filename = `${user.role} ${user.name} Performance Report - ${currentDate}`;
       }
 
       // Simple print-based PDF export
