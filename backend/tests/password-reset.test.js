@@ -375,7 +375,7 @@ describe("Password Reset & Recovery", () => {
       // If not checked, this validates that frontend must handle it
       // Either way, we document the expected behavior
       
-      console.log("✅ TC-009 tested: Password confirmation behavior documented");
+      console.log(" TC-009 tested: Password confirmation behavior documented");
       console.log(`   Response: ${response.status}`);
       console.log(`   Note: Current API ${response.body.password ? 'does not' : 'may'} validate confirmPassword field`);
     });
