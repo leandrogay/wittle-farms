@@ -131,7 +131,7 @@ async function createProjectDirect({
 }
 
 async function createTaskDirect({
-    title, description, assignedProject, assignedTeamMembers,
+    title, description, assignedProject, assignedTeamMembers, parentTask,
     status = 'To Do',
     priority = 5,
     deadline,
@@ -150,6 +150,7 @@ async function createTaskDirect({
         title,
         description: description ?? '',
         notes,
+        parentTask: parentTask ? oid(parentTask) : null,
         assignedProject: oid(assignedProject),
         assignedTeamMembers: (assignedTeamMembers || []).map(oid),
         status,
@@ -200,6 +201,14 @@ async function createCommentDirect({
     const res = await Comments.insertOne(doc);
     return { _id: res.insertedId, ...doc };
 }
+
+async function createSubtaskDirect(parentTaskDoc, payload) {
+    return createTaskDirect({
+      ...payload,
+      parentTask: parentTaskDoc._id,
+      assignedProject: parentTaskDoc.assignedProject, // required by your validator
+    });
+  }
 
 
 // =====================
@@ -945,7 +954,7 @@ async function scenario14({ manager, team }, n) {
       updatedAt: now,
     });
   
-    console.log('✅ Scenario 14 seeded: one task with deadline today 23:59 (not overdue).');
+    console.log('Scenario 14 seeded: one task with deadline today 23:59 (not overdue).');
 }
 
 async function scenario15({ manager, team }, n) {
@@ -975,9 +984,68 @@ async function scenario15({ manager, team }, n) {
       updatedAt: now,
     });
   
-    console.log('✅ Scenario 15 seeded: one task overdue by ~45 days.');
+    console.log('Scenario 15 seeded: one task overdue by ~45 days.');
   }
+ 
+  async function scenario16({ manager, team }, n) {
+    const now = new Date();
+    const DAY = 86400000;
   
+    // --- Project ---
+    const p = await createProjectDirect({
+      name: `${SC_LABEL(n)} Subtask Test Project`,
+      description: "Project used to test parent/subtask relationships & UI",
+      departments: [DEPARTMENTS.SYSTEM_SOLUTIONING],
+      deadline: new Date(now.getTime() + 14 * DAY),
+      createdBy: manager._id,
+      teamMembers: team.map(t => t._id),
+    });
+  
+    // --- Parent task ---
+    const parent = await createTaskDirect({
+      title: `${SC_LABEL(n)} Parent Task for Subtask Testing`,
+      description: "Parent task with two subtasks: one future (with reminders), one overdue & done.",
+      assignedProject: p._id,
+      assignedTeamMembers: [team[0 % team.length]._id],
+      status: "In Progress",
+      priority: 6,
+      deadline: new Date(now.getTime() + 7 * DAY),
+      createdBy: manager._id,
+      startAt: new Date(now.getTime() - 2 * DAY),
+      createdAt: new Date(now.getTime() - 2 * DAY),
+      updatedAt: now,
+    });
+  
+    // --- Subtask A: future due + explicit reminders (3d, 1d) ---
+    const subA = await createSubtaskDirect(parent, {
+      title: `${SC_LABEL(n)} Subtask A (future, reminders 3d/1d)`,
+      description: "Due in 3 days; should show reminders and be quick to flip status.",
+      assignedTeamMembers: [team[1 % team.length]._id],
+      status: "To Do",
+      priority: 4,
+      deadline: new Date(now.getTime() + 3 * DAY),
+      reminderOffsets: [4320, 1440], // 3 days, 1 day (in minutes)
+      createdBy: manager._id,
+      createdAt: new Date(now.getTime() - 1 * DAY),
+      updatedAt: now,
+    });
+  
+    // --- Subtask B: overdue by 2 days, already Done ---
+    const subB = await createSubtaskDirect(parent, {
+      title: `${SC_LABEL(n)} Subtask B (overdue by 2d, Done)`,
+      description: "Overdue subtask already completed; used to test overdue styling vs. Done state.",
+      assignedTeamMembers: [team[2 % team.length]._id],
+      status: "Done",
+      priority: 5,
+      deadline: new Date(now.getTime() - 2 * DAY),
+      createdBy: manager._id,
+      createdAt: new Date(now.getTime() - 4 * DAY),
+      updatedAt: now,
+    });
+  
+    console.log("✅ Scenario 16 seeded (revised): parent + 2 subtasks (future w/ reminders, overdue Done).");
+    return { parent, subA, subB, project: p };
+  }
 
   
 
@@ -999,6 +1067,7 @@ const SCENARIOS = {
     13: scenario13,
     14: scenario14,
     15: scenario15,
+    16: scenario16, 
 };
 
 // =====================
@@ -1009,13 +1078,13 @@ async function main() {
 
     const arg = process.argv.find((x) => x.startsWith('--scenario='));
     if (!arg) {
-        console.error('❌ Missing --scenario=0..15');
+        console.error('❌ Missing --scenario=0..16');
         process.exit(1);
     }
     const scenarioNum = parseInt(arg.split('=')[1], 10);
     const scenarioFn = SCENARIOS[scenarioNum];
     if (!scenarioFn) {
-        console.error('❌ Invalid scenario number (0..15)');
+        console.error('❌ Invalid scenario number (0..16)');
         process.exit(1);
     }
 
