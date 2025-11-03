@@ -163,7 +163,7 @@ function StaffReport({ userId, reportData, reportRef }) {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
         <MetricCard icon={ReportIcon} label="Total Tasks" value={metrics.total} color="brand" />
         <MetricCard icon={ClipboardListIcon} label="To Do" value={metrics.todo} color="warning" />
-        <MetricCard icon={ClockIcon} label="In Progress" value={metrics.inProgress} color="info"/>
+        <MetricCard icon={ClockIcon} label="In Progress" value={metrics.inProgress} color="info" />
         <MetricCard icon={CheckIcon} label="Completed" value={metrics.completed} color="success" />
         <MetricCard icon={ReportIcon} label="Overdue" value={metrics.overdue} color="danger" />
       </div>
@@ -694,75 +694,75 @@ function DirectorReport({ userId, reportData, reportRef }) {
           Project Milestones Status
         </h2>
         <div className="space-y-4">
-        {!projectScope.milestones || projectScope.milestones.length === 0 ? (
-          <div className="text-center py-8">
-            <p className="text-light-text-muted dark:text-dark-text-muted">
-              No project milestones available yet. Project milestones will appear here once projects are created and assigned to your department.
-            </p>
-          </div>
-        ) : (
-          projectScope.milestones.map((milestone) => (
-            <div
-              key={milestone.projectId}
-              className="border border-light-border dark:border-dark-border rounded-lg p-4"
-            >
-              <div className="flex justify-between items-start">
-                <div className="flex-1">
-                  <h3 className="text-lg font-semibold text-light-text-primary dark:text-dark-text-primary">
-                    {milestone.projectName}
-                  </h3>
-                  <p className="text-sm text-light-text-secondary dark:text-dark-text-secondary">
-                    {milestone.milestone}
-                  </p>
-                  {milestone.deadline && (
-                    <p className="text-xs text-light-text-muted dark:text-dark-text-muted mt-1">
-                      Deadline: {dayjs(milestone.deadline).format("MMM D, YYYY")}
+          {!projectScope.milestones || projectScope.milestones.length === 0 ? (
+            <div className="text-center py-8">
+              <p className="text-light-text-muted dark:text-dark-text-muted">
+                No project milestones available yet. Project milestones will appear here once projects are created and assigned to your department.
+              </p>
+            </div>
+          ) : (
+            projectScope.milestones.map((milestone) => (
+              <div
+                key={milestone.projectId}
+                className="border border-light-border dark:border-dark-border rounded-lg p-4"
+              >
+                <div className="flex justify-between items-start">
+                  <div className="flex-1">
+                    <h3 className="text-lg font-semibold text-light-text-primary dark:text-dark-text-primary">
+                      {milestone.projectName}
+                    </h3>
+                    <p className="text-sm text-light-text-secondary dark:text-dark-text-secondary">
+                      {milestone.milestone}
                     </p>
-                  )}
-
-                  {/* Enhanced: Show department responsibility for overdue tasks */}
-                  {milestone.overdueResponsibility && milestone.overdueResponsibility.length > 0 && (
-                    <div className="mt-3">
-                      <p className="text-xs font-medium text-light-text-secondary dark:text-dark-text-secondary mb-2">
-                        Departments with overdue tasks:
+                    {milestone.deadline && (
+                      <p className="text-xs text-light-text-muted dark:text-dark-text-muted mt-1">
+                        Deadline: {dayjs(milestone.deadline).format("MMM D, YYYY")}
                       </p>
-                      <div className="space-y-1">
-                        {milestone.overdueResponsibility.map((dept, idx) => (
-                          <div
-                            key={idx}
-                            className="flex justify-between items-center p-2 bg-danger/5 border border-danger/20 rounded"
-                          >
-                            <span className="text-xs font-medium text-light-text-primary dark:text-dark-text-primary">
-                              {dept.departmentName}
-                            </span>
-                            <span className="text-xs text-danger font-semibold">
-                              {dept.overdueTaskCount} overdue task
-                              {dept.overdueTaskCount !== 1 ? "s" : ""}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                      {milestone.hasOverdueFromOtherDepts && (
-                        <p className="text-xs text-warning mt-2 italic">
-                          ⚠️ This project has overdue tasks from other departments
+                    )}
+
+                    {/* Enhanced: Show department responsibility for overdue tasks */}
+                    {milestone.overdueResponsibility && milestone.overdueResponsibility.length > 0 && (
+                      <div className="mt-3">
+                        <p className="text-xs font-medium text-light-text-secondary dark:text-dark-text-secondary mb-2">
+                          Departments with overdue tasks:
                         </p>
-                      )}
-                    </div>
-                  )}
-                </div>
-                <div className="text-right">
-                  <span
-                    className={`inline-flex px-3 py-1 rounded-full text-sm font-semibold ${getStatusColor(
-                      milestone.status
-                    )}`}
-                  >
-                    {milestone.status}
-                  </span>
+                        <div className="space-y-1">
+                          {milestone.overdueResponsibility.map((dept, idx) => (
+                            <div
+                              key={idx}
+                              className="flex justify-between items-center p-2 bg-danger/5 border border-danger/20 rounded"
+                            >
+                              <span className="text-xs font-medium text-light-text-primary dark:text-dark-text-primary">
+                                {dept.departmentName}
+                              </span>
+                              <span className="text-xs text-danger font-semibold">
+                                {dept.overdueTaskCount} overdue task
+                                {dept.overdueTaskCount !== 1 ? "s" : ""}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                        {milestone.hasOverdueFromOtherDepts && (
+                          <p className="text-xs text-warning mt-2 italic">
+                            ⚠️ This project has overdue tasks from other departments
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                  <div className="text-right">
+                    <span
+                      className={`inline-flex px-3 py-1 rounded-full text-sm font-semibold ${getStatusColor(
+                        milestone.status
+                      )}`}
+                    >
+                      {milestone.status}
+                    </span>
+                  </div>
                 </div>
               </div>
-            </div>
-          ))
-        )}
+            ))
+          )}
         </div>
       </div>
 
@@ -779,49 +779,49 @@ function DirectorReport({ userId, reportData, reportRef }) {
           </div>
         ) : (
           <>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
-          <div className="text-center">
-            <p className="text-2xl font-bold text-light-text-primary dark:text-dark-text-primary">
-              {taskScope.totalTasks}
-            </p>
-            <p className="text-sm text-light-text-secondary dark:text-dark-text-secondary">
-              Total Tasks
-            </p>
-          </div>
-          <div className="text-center">
-            <p className="text-2xl font-bold text-light-text-muted dark:text-dark-text-muted">
-              {taskScope.taskStatusCounts["To Do"]}
-            </p>
-            <p className="text-sm text-light-text-secondary dark:text-dark-text-secondary">
-              To Do ({taskScope.taskStatusPercentages["To Do"]}%)
-            </p>
-          </div>
-          <div className="text-center">
-            <p className="text-2xl font-bold text-info">
-              {taskScope.taskStatusCounts["In Progress"]}
-            </p>
-            <p className="text-sm text-light-text-secondary dark:text-dark-text-secondary">
-              In Progress ({taskScope.taskStatusPercentages["In Progress"]}%)
-            </p>
-          </div>
-          <div className="text-center">
-            <p className="text-2xl font-bold text-success">
-              {taskScope.taskStatusCounts["Done"]}
-            </p>
-            <p className="text-sm text-light-text-secondary dark:text-dark-text-secondary">
-              Done ({taskScope.taskStatusPercentages["Done"]}%)
-            </p>
-          </div>
-          <div className="text-center">
-            <p className="text-2xl font-bold text-danger">
-              {taskScope.taskStatusCounts["Overdue"]}
-            </p>
-            <p className="text-sm text-light-text-secondary dark:text-dark-text-secondary">
-              Overdue ({taskScope.taskStatusPercentages["Overdue"]}%)
-            </p>
-          </div>
-        </div>
-        </>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
+              <div className="text-center">
+                <p className="text-2xl font-bold text-light-text-primary dark:text-dark-text-primary">
+                  {taskScope.totalTasks}
+                </p>
+                <p className="text-sm text-light-text-secondary dark:text-dark-text-secondary">
+                  Total Tasks
+                </p>
+              </div>
+              <div className="text-center">
+                <p className="text-2xl font-bold text-light-text-muted dark:text-dark-text-muted">
+                  {taskScope.taskStatusCounts["To Do"]}
+                </p>
+                <p className="text-sm text-light-text-secondary dark:text-dark-text-secondary">
+                  To Do ({taskScope.taskStatusPercentages["To Do"]}%)
+                </p>
+              </div>
+              <div className="text-center">
+                <p className="text-2xl font-bold text-info">
+                  {taskScope.taskStatusCounts["In Progress"]}
+                </p>
+                <p className="text-sm text-light-text-secondary dark:text-dark-text-secondary">
+                  In Progress ({taskScope.taskStatusPercentages["In Progress"]}%)
+                </p>
+              </div>
+              <div className="text-center">
+                <p className="text-2xl font-bold text-success">
+                  {taskScope.taskStatusCounts["Done"]}
+                </p>
+                <p className="text-sm text-light-text-secondary dark:text-dark-text-secondary">
+                  Done ({taskScope.taskStatusPercentages["Done"]}%)
+                </p>
+              </div>
+              <div className="text-center">
+                <p className="text-2xl font-bold text-danger">
+                  {taskScope.taskStatusCounts["Overdue"]}
+                </p>
+                <p className="text-sm text-light-text-secondary dark:text-dark-text-secondary">
+                  Overdue ({taskScope.taskStatusPercentages["Overdue"]}%)
+                </p>
+              </div>
+            </div>
+          </>
         )}
       </div>
 
@@ -1142,112 +1142,112 @@ function SeniorManagerReport({ reportData, reportRef }) {
           </div>
         ) : (
           <div className="overflow-x-auto">
-          <table className="w-full department-table">
-            <thead className="border-b border-light-border dark:border-dark-border">
-              <tr>
-                <th
-                  rowSpan="2"
-                  className="text-left py-3 px-4 text-sm font-semibold text-light-text-primary dark:text-dark-text-primary"
-                >
-                  Department
-                </th>
-                <th
-                  rowSpan="2"
-                  className="text-center py-3 px-4 text-sm font-semibold text-light-text-primary dark:text-dark-text-primary"
-                >
-                  Team Size
-                </th>
-                <th
-                  colSpan="6"
-                  className="text-center py-3 px-4 text-sm font-semibold text-light-text-primary dark:text-dark-text-primary"
-                >
-                  Projects
-                </th>
-                <th
-                  colSpan="6"
-                  className="text-center py-3 px-4 text-sm font-semibold text-light-text-primary dark:text-dark-text-primary"
-                >
-                  Tasks
-                </th>
-              </tr>
-              <tr>
-                <th className="text-center py-2 px-2 text-xs font-semibold">To Do</th>
-                <th className="text-center py-2 px-2 text-xs font-semibold">In Progress</th>
-                <th className="text-center py-2 px-2 text-xs font-semibold">Done</th>
-                <th className="text-center py-2 px-2 text-xs font-semibold">Overdue</th>
-                <th className="text-center py-2 px-2 text-xs font-semibold">
-                  Completion Rate
-                </th>
-                <th className="text-center py-2 px-2 text-xs font-semibold">
-                  Overdue Rate
-                </th>
-                <th className="text-center py-2 px-2 text-xs font-semibold">To Do</th>
-                <th className="text-center py-2 px-2 text-xs font-semibold">In Progress</th>
-                <th className="text-center py-2 px-2 text-xs font-semibold">Done</th>
-                <th className="text-center py-2 px-2 text-xs font-semibold">Overdue</th>
-                <th className="text-center py-2 px-2 text-xs font-semibold">
-                  Completion Rate
-                </th>
-                <th className="text-center py-2 px-2 text-xs font-semibold">
-                  Overdue Rate
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {departmentMetrics?.map((dept) => (
-                <tr
-                  key={dept.departmentId}
-                  className="border-b border-light-border dark:border-dark-border hover:bg-light-surface dark:hover:bg-dark-surface"
-                >
-                  <td className="py-3 px-4 text-sm font-medium text-light-text-primary dark:text-dark-text-primary">
-                    {dept.departmentName}
-                  </td>
-                  <td className="py-3 px-4 text-sm text-center text-light-text-primary dark:text-dark-text-primary">
-                    {dept.teamSize}
-                  </td>
-                  {/* Projects columns */}
-                  <td className="py-3 px-2 text-sm text-center">
-                    {dept.projectStatusCounts?.["To Do"] ?? 0}
-                  </td>
-                  <td className="py-3 px-2 text-sm text-center text-info">
-                    {dept.projectStatusCounts?.["In Progress"] ?? 0}
-                  </td>
-                  <td className="py-3 px-2 text-sm text-center text-success">
-                    {dept.projectStatusCounts?.["Done"] ?? 0}
-                  </td>
-                  <td className="py-3 px-2 text-sm text-center text-danger">
-                    {dept.projectStatusCounts?.["Overdue"] ?? 0}
-                  </td>
-                  <td className="py-3 px-2 text-sm text-center font-semibold text-success">
-                    {dept.projectStatusPercentages?.["Done"] ?? 0}%
-                  </td>
-                  <td className="py-3 px-2 text-sm text-center font-semibold text-danger">
-                    {dept.projectStatusPercentages?.["Overdue"] ?? 0}%
-                  </td>
-                  {/* Tasks columns */}
-                  <td className="py-3 px-2 text-sm text-center">
-                    {dept.taskStatusCounts?.["To Do"] ?? 0}
-                  </td>
-                  <td className="py-3 px-2 text-sm text-center text-info">
-                    {dept.taskStatusCounts?.["In Progress"] ?? 0}
-                  </td>
-                  <td className="py-3 px-2 text-sm text-center text-success">
-                    {dept.taskStatusCounts?.["Done"] ?? 0}
-                  </td>
-                  <td className="py-3 px-2 text-sm text-center text-danger">
-                    {dept.taskStatusCounts?.["Overdue"] ?? 0}
-                  </td>
-                  <td className="py-3 px-2 text-sm text-center font-semibold text-success">
-                    {dept.taskStatusPercentages?.["Done"] ?? 0}%
-                  </td>
-                  <td className="py-3 px-2 text-sm text-center font-semibold text-danger">
-                    {dept.taskStatusPercentages?.["Overdue"] ?? 0}%
-                  </td>
+            <table className="w-full department-table">
+              <thead className="border-b border-light-border dark:border-dark-border">
+                <tr>
+                  <th
+                    rowSpan="2"
+                    className="text-left py-3 px-4 text-sm font-semibold text-light-text-primary dark:text-dark-text-primary"
+                  >
+                    Department
+                  </th>
+                  <th
+                    rowSpan="2"
+                    className="text-center py-3 px-4 text-sm font-semibold text-light-text-primary dark:text-dark-text-primary"
+                  >
+                    Team Size
+                  </th>
+                  <th
+                    colSpan="6"
+                    className="text-center py-3 px-4 text-sm font-semibold text-light-text-primary dark:text-dark-text-primary"
+                  >
+                    Projects
+                  </th>
+                  <th
+                    colSpan="6"
+                    className="text-center py-3 px-4 text-sm font-semibold text-light-text-primary dark:text-dark-text-primary"
+                  >
+                    Tasks
+                  </th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+                <tr>
+                  <th className="text-center py-2 px-2 text-xs font-semibold">To Do</th>
+                  <th className="text-center py-2 px-2 text-xs font-semibold">In Progress</th>
+                  <th className="text-center py-2 px-2 text-xs font-semibold">Done</th>
+                  <th className="text-center py-2 px-2 text-xs font-semibold">Overdue</th>
+                  <th className="text-center py-2 px-2 text-xs font-semibold">
+                    Completion Rate
+                  </th>
+                  <th className="text-center py-2 px-2 text-xs font-semibold">
+                    Overdue Rate
+                  </th>
+                  <th className="text-center py-2 px-2 text-xs font-semibold">To Do</th>
+                  <th className="text-center py-2 px-2 text-xs font-semibold">In Progress</th>
+                  <th className="text-center py-2 px-2 text-xs font-semibold">Done</th>
+                  <th className="text-center py-2 px-2 text-xs font-semibold">Overdue</th>
+                  <th className="text-center py-2 px-2 text-xs font-semibold">
+                    Completion Rate
+                  </th>
+                  <th className="text-center py-2 px-2 text-xs font-semibold">
+                    Overdue Rate
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {departmentMetrics?.map((dept) => (
+                  <tr
+                    key={dept.departmentId}
+                    className="border-b border-light-border dark:border-dark-border hover:bg-light-surface dark:hover:bg-dark-surface"
+                  >
+                    <td className="py-3 px-4 text-sm font-medium text-light-text-primary dark:text-dark-text-primary">
+                      {dept.departmentName}
+                    </td>
+                    <td className="py-3 px-4 text-sm text-center text-light-text-primary dark:text-dark-text-primary">
+                      {dept.teamSize}
+                    </td>
+                    {/* Projects columns */}
+                    <td className="py-3 px-2 text-sm text-center">
+                      {dept.projectStatusCounts?.["To Do"] ?? 0}
+                    </td>
+                    <td className="py-3 px-2 text-sm text-center text-info">
+                      {dept.projectStatusCounts?.["In Progress"] ?? 0}
+                    </td>
+                    <td className="py-3 px-2 text-sm text-center text-success">
+                      {dept.projectStatusCounts?.["Done"] ?? 0}
+                    </td>
+                    <td className="py-3 px-2 text-sm text-center text-danger">
+                      {dept.projectStatusCounts?.["Overdue"] ?? 0}
+                    </td>
+                    <td className="py-3 px-2 text-sm text-center font-semibold text-success">
+                      {dept.projectStatusPercentages?.["Done"] ?? 0}%
+                    </td>
+                    <td className="py-3 px-2 text-sm text-center font-semibold text-danger">
+                      {dept.projectStatusPercentages?.["Overdue"] ?? 0}%
+                    </td>
+                    {/* Tasks columns */}
+                    <td className="py-3 px-2 text-sm text-center">
+                      {dept.taskStatusCounts?.["To Do"] ?? 0}
+                    </td>
+                    <td className="py-3 px-2 text-sm text-center text-info">
+                      {dept.taskStatusCounts?.["In Progress"] ?? 0}
+                    </td>
+                    <td className="py-3 px-2 text-sm text-center text-success">
+                      {dept.taskStatusCounts?.["Done"] ?? 0}
+                    </td>
+                    <td className="py-3 px-2 text-sm text-center text-danger">
+                      {dept.taskStatusCounts?.["Overdue"] ?? 0}
+                    </td>
+                    <td className="py-3 px-2 text-sm text-center font-semibold text-success">
+                      {dept.taskStatusPercentages?.["Done"] ?? 0}%
+                    </td>
+                    <td className="py-3 px-2 text-sm text-center font-semibold text-danger">
+                      {dept.taskStatusPercentages?.["Overdue"] ?? 0}%
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
 
@@ -1265,72 +1265,72 @@ function SeniorManagerReport({ reportData, reportRef }) {
         ) : (
           <>
             <div className="overflow-x-auto">
-          <table className="w-full project-table">
-            <thead className="border-b border-light-border dark:border-dark-border">
-              <tr>
-                <th className="text-left py-3 px-4 text-sm font-semibold text-light-text-primary dark:text-dark-text-primary">
-                  Project Name
-                </th>
-                <th className="text-left py-3 px-4 text-sm font-semibold text-light-text-primary dark:text-dark-text-primary">
-                  Department
-                </th>
-                <th className="text-center py-3 px-4 text-sm font-semibold text-light-text-primary dark:text-dark-text-primary">
-                  Total Tasks
-                </th>
-                <th className="text-center py-3 px-4 text-sm font-semibold text-light-text-primary dark:text-dark-text-primary">
-                  Completed
-                </th>
-                <th className="text-center py-3 px-4 text-sm font-semibold text-light-text-primary dark:text-dark-text-primary">
-                  Overdue
-                </th>
-                <th className="text-center py-3 px-4 text-sm font-semibold text-light-text-primary dark:text-dark-text-primary">
-                  Completion Rate
-                </th>
-                <th className="text-center py-3 px-4 text-sm font-semibold text-light-text-primary dark:text-dark-text-primary">
-                  Overdue Rate
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {projectBreakdown?.slice(0, 20).map((project) => (
-                <tr
-                  key={project.projectId}
-                  className="border-b border-light-border dark:border-dark-border hover:bg-light-surface dark:hover:bg-dark-surface"
-                >
-                  <td className="py-3 px-4 text-sm font-medium text-light-text-primary dark:text-dark-text-primary">
-                    {project.projectName}
-                  </td>
-                  <td className="py-3 px-4 text-sm text-light-text-secondary dark:text-dark-text-secondary">
-                    {Array.isArray(project.departments) && project.departments.length > 0
-                      ? project.departments.join(", ")
-                      : project.departmentName || "--"}
-                  </td>
-                  <td className="py-3 px-4 text-sm text-center text-light-text-primary dark:text-dark-text-primary">
-                    {project.totalTasks}
-                  </td>
-                  <td className="py-3 px-4 text-sm text-center text-success">
-                    {project.completedTasks}
-                  </td>
-                  <td className="py-3 px-4 text-sm text-center text-danger">
-                    {project.overdueTasks}
-                  </td>
-                  <td className="py-3 px-4 text-sm text-center font-semibold text-success">
-                    {project.completionRate}%
-                  </td>
-                  <td className="py-3 px-4 text-sm text-center font-semibold text-danger">
-                    {project.overdueRate}%
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        {projectBreakdown && projectBreakdown.length > 20 && (
-          <p className="text-xs text-light-text-muted dark:text-dark-text-muted mt-4 text-center">
-            Showing top 20 projects by task volume. Total projects: {projectBreakdown.length}
-          </p>
-        )}
-        </>
+              <table className="w-full project-table">
+                <thead className="border-b border-light-border dark:border-dark-border">
+                  <tr>
+                    <th className="text-left py-3 px-4 text-sm font-semibold text-light-text-primary dark:text-dark-text-primary">
+                      Project Name
+                    </th>
+                    <th className="text-left py-3 px-4 text-sm font-semibold text-light-text-primary dark:text-dark-text-primary">
+                      Department
+                    </th>
+                    <th className="text-center py-3 px-4 text-sm font-semibold text-light-text-primary dark:text-dark-text-primary">
+                      Total Tasks
+                    </th>
+                    <th className="text-center py-3 px-4 text-sm font-semibold text-light-text-primary dark:text-dark-text-primary">
+                      Completed
+                    </th>
+                    <th className="text-center py-3 px-4 text-sm font-semibold text-light-text-primary dark:text-dark-text-primary">
+                      Overdue
+                    </th>
+                    <th className="text-center py-3 px-4 text-sm font-semibold text-light-text-primary dark:text-dark-text-primary">
+                      Completion Rate
+                    </th>
+                    <th className="text-center py-3 px-4 text-sm font-semibold text-light-text-primary dark:text-dark-text-primary">
+                      Overdue Rate
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {projectBreakdown?.slice(0, 20).map((project) => (
+                    <tr
+                      key={project.projectId}
+                      className="border-b border-light-border dark:border-dark-border hover:bg-light-surface dark:hover:bg-dark-surface"
+                    >
+                      <td className="py-3 px-4 text-sm font-medium text-light-text-primary dark:text-dark-text-primary">
+                        {project.projectName}
+                      </td>
+                      <td className="py-3 px-4 text-sm text-light-text-secondary dark:text-dark-text-secondary">
+                        {Array.isArray(project.departments) && project.departments.length > 0
+                          ? project.departments.join(", ")
+                          : project.departmentName || "--"}
+                      </td>
+                      <td className="py-3 px-4 text-sm text-center text-light-text-primary dark:text-dark-text-primary">
+                        {project.totalTasks}
+                      </td>
+                      <td className="py-3 px-4 text-sm text-center text-success">
+                        {project.completedTasks}
+                      </td>
+                      <td className="py-3 px-4 text-sm text-center text-danger">
+                        {project.overdueTasks}
+                      </td>
+                      <td className="py-3 px-4 text-sm text-center font-semibold text-success">
+                        {project.completionRate}%
+                      </td>
+                      <td className="py-3 px-4 text-sm text-center font-semibold text-danger">
+                        {project.overdueRate}%
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            {projectBreakdown && projectBreakdown.length > 20 && (
+              <p className="text-xs text-light-text-muted dark:text-dark-text-muted mt-4 text-center">
+                Showing top 20 projects by task volume. Total projects: {projectBreakdown.length}
+              </p>
+            )}
+          </>
         )}
       </div>
     </div>
@@ -1414,14 +1414,15 @@ export default function Report() {
       // Generate filename based on user role and date
       const currentDate = dayjs().format("YYYY-MM-DD");
       let filename;
-      
       if (user.role === "Senior Manager" || user.role === "HR") {
         filename = `Company-Wide Performance Report - ${currentDate}`;
       } else if (user.role === "Director") {
         const departmentName = reportData?.departmentInfo?.departmentName || "Department";
         filename = `${departmentName} Performance Report - ${currentDate}`;
+      } else if (user.role === "Manager") {
+        filename = `Manager Report - ${currentDate}`;
       } else {
-        filename = `${user.role} Report - ${currentDate}`;
+        filename = `${user.role} ${user.name}'s Report - ${currentDate}`;
       }
 
       // Simple print-based PDF export
