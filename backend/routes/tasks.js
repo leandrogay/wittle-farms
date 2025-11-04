@@ -104,20 +104,99 @@ function computeNextDeadline(currentDeadline, recurrence) {
  *   post:
  *     tags: [Tasks]
  *     summary: Create a task
+ *     description: Creates a task (optionally with attachments, recurrence, reminders, and subtasks).
  *     requestBody:
  *       required: true
  *       content:
  *         application/json:
  *           schema:
  *             type: object
- *             required: [title]
+ *             required: [title, assignedProject, createdBy]
  *             properties:
  *               title: { type: string }
+ *               description: { type: string }
+ *               notes: { type: string }
+ *               assignedProject:
+ *                 type: string
+ *                 description: Project ID (MongoDB ObjectId)
+ *               assignedTeamMembers:
+ *                 oneOf:
+ *                   - type: array
+ *                     items: { type: string, description: User ID (ObjectId) }
+ *                   - type: string
+ *                     description: CSV of user IDs
+ *               status: { type: string, example: "To Do" }
+ *               priority:
+ *                 type: integer
+ *                 description: 1 (low) … 10 (high)
+ *                 minimum: 1
+ *                 maximum: 10
+ *               deadline:
+ *                 type: string
+ *                 format: date-time
+ *               createdBy:
+ *                 type: string
+ *                 description: Creator user ID (ObjectId)
+ *               allDay: { type: boolean }
+ *               startAt: { type: string, format: date-time }
+ *               endAt: { type: string, format: date-time }
+ *               reminderOffsets:
+ *                 oneOf:
+ *                   - type: array
+ *                     items: { type: number, description: Minutes before deadline (>0) }
+ *                   - type: string
+ *                     description: JSON or CSV of minutes
+ *               recurrence:
+ *                 type: object
+ *                 description: Requires `deadline` if provided.
+ *                 properties:
+ *                   frequency: { type: string, enum: [daily, weekly, monthly] }
+ *                   interval: { type: integer, minimum: 1, default: 1 }
+ *                   ends: { type: string, enum: [never, onDate], default: never }
+ *                   until: { type: string, format: date-time, nullable: true }
+ *               parentTask:
+ *                 type: string
+ *                 nullable: true
+ *                 description: Parent task ID (ObjectId) to create a subtask
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             required: [title, assignedProject, createdBy]
+ *             properties:
+ *               title: { type: string }
+ *               description: { type: string }
+ *               notes: { type: string }
+ *               assignedProject: { type: string }
+ *               assignedTeamMembers:
+ *                 oneOf:
+ *                   - type: array
+ *                     items: { type: string }
+ *                   - type: string
+ *               status: { type: string }
+ *               priority: { type: integer, minimum: 1, maximum: 10 }
+ *               deadline: { type: string, format: date-time }
+ *               createdBy: { type: string }
+ *               allDay: { type: boolean }
+ *               startAt: { type: string, format: date-time }
+ *               endAt: { type: string, format: date-time }
+ *               reminderOffsets:
+ *                 oneOf:
+ *                   - type: array
+ *                     items: { type: number }
+ *                   - type: string
+ *               recurrence: { type: string, description: JSON string of recurrence object }
+ *               parentTask: { type: string, nullable: true }
+ *               attachments:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                   format: binary
  *     responses:
  *       201:
  *         description: Created
+ *       400:
+ *         description: Validation error (missing/invalid IDs, recurrence without deadline)
  */
-
 /**
  * CREATE Task
  * POST /api/tasks
@@ -273,11 +352,43 @@ router.post('/', upload.array('attachments'), async (req, res) => {
  *   get:
  *     tags: [Tasks]
  *     summary: List tasks
+ *     description: |
+ *       Returns tasks filtered by project, status, assignee, creator, manager, or parent/child relationships.
+ *       By default, returns only root tasks unless `includeSubtasks=true` or `parentTask` is specified.
+ *     parameters:
+ *       - in: query
+ *         name: status
+ *         schema: { type: string }
+ *       - in: query
+ *         name: assignedProject
+ *         schema: { type: string }
+ *         description: Project ID (ObjectId)
+ *       - in: query
+ *         name: assignee
+ *         schema: { type: string }
+ *         description: Team member user ID (ObjectId)
+ *       - in: query
+ *         name: createdBy
+ *         schema: { type: string }
+ *         description: Creator user ID (ObjectId)
+ *       - in: query
+ *         name: manager
+ *         schema: { type: string }
+ *         description: Manager user ID (filters tasks in projects they created)
+ *       - in: query
+ *         name: parentTask
+ *         schema: { type: string, nullable: true }
+ *         description: Task ID to filter by parent; pass `null` to get only root tasks
+ *       - in: query
+ *         name: includeSubtasks
+ *         schema: { type: string, enum: ["true", "false"] }
+ *         description: If not provided, defaults to root tasks only
  *     responses:
  *       200:
  *         description: OK
+ *       500:
+ *         description: Server error
  */
-
 /**
  * READ all tasks
  * GET /api/tasks?assignedProject=<id>&status=<status>&assignee=<userId>&createdBy=<userId>
@@ -316,6 +427,26 @@ router.get('/', async (req, res) => {
   }
 });
 
+/**
+ * @openapi
+ * /api/tasks/{id}:
+ *   get:
+ *     tags: [Tasks]
+ *     summary: Get a task by ID
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string }
+ *         description: Task ID (MongoDB ObjectId)
+ *     responses:
+ *       200:
+ *         description: OK
+ *       404:
+ *         description: Task not found
+ *       500:
+ *         description: Server error
+ */
 /** READ one task */
 router.get('/:id', async (req, res) => {
   try {
@@ -328,6 +459,101 @@ router.get('/:id', async (req, res) => {
   }
 });
 
+/**
+ * @openapi
+ * /api/tasks/{id}:
+ *   put:
+ *     tags: [Tasks]
+ *     summary: Update a task
+ *     description: |
+ *       Updates task fields (attachments supported). Automatically maintains `completedAt`
+ *       when status transitions to/from **Done**. If a recurring task is marked Done and
+ *       the rule allows, the next occurrence may be spawned automatically.
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string }
+ *         description: Task ID (ObjectId)
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               title: { type: string }
+ *               description: { type: string }
+ *               notes: { type: string }
+ *               assignedProject: { type: string }
+ *               assignedTeamMembers:
+ *                 oneOf:
+ *                   - type: array
+ *                     items: { type: string }
+ *                   - type: string
+ *               status: { type: string }
+ *               priority: { type: integer, minimum: 1, maximum: 10 }
+ *               deadline: { type: string, format: date-time, nullable: true }
+ *               createdBy: { type: string }
+ *               allDay: { type: boolean }
+ *               startAt: { type: string, format: date-time, nullable: true }
+ *               endAt: { type: string, format: date-time, nullable: true }
+ *               reminderOffsets:
+ *                 oneOf:
+ *                   - type: array
+ *                     items: { type: number }
+ *                   - type: string
+ *               recurrence:
+ *                 oneOf:
+ *                   - type: object
+ *                     properties:
+ *                       frequency: { type: string, enum: [daily, weekly, monthly] }
+ *                       interval: { type: integer, minimum: 1 }
+ *                       ends: { type: string, enum: [never, onDate] }
+ *                       until: { type: string, format: date-time, nullable: true }
+ *                   - type: string
+ *                     description: JSON string of recurrence object
+ *               parentTask: { type: string, nullable: true }
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               title: { type: string }
+ *               description: { type: string }
+ *               notes: { type: string }
+ *               assignedProject: { type: string }
+ *               assignedTeamMembers:
+ *                 oneOf:
+ *                   - type: array
+ *                     items: { type: string }
+ *                   - type: string
+ *               status: { type: string }
+ *               priority: { type: integer, minimum: 1, maximum: 10 }
+ *               deadline: { type: string, format: date-time }
+ *               createdBy: { type: string }
+ *               allDay: { type: boolean }
+ *               startAt: { type: string, format: date-time }
+ *               endAt: { type: string, format: date-time }
+ *               reminderOffsets:
+ *                 oneOf:
+ *                   - type: array
+ *                     items: { type: number }
+ *                   - type: string
+ *               recurrence: { type: string, description: JSON string }
+ *               parentTask: { type: string, nullable: true }
+ *               attachments:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                   format: binary
+ *     responses:
+ *       200:
+ *         description: Updated
+ *       400:
+ *         description: Validation error (IDs, priority, recurrence without deadline)
+ *       404:
+ *         description: Task not found
+ */
 /**
  * UPDATE Task
  * PUT /api/tasks/:id
@@ -555,6 +781,24 @@ router.put('/:id', upload.array('attachments'), async (req, res) => {
   }
 });
 
+/**
+ * @openapi
+ * /api/tasks/{id}/subtasks:
+ *   get:
+ *     tags: [Tasks]
+ *     summary: List subtasks for a task
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string }
+ *         description: Parent task ID (ObjectId)
+ *     responses:
+ *       200:
+ *         description: OK
+ *       500:
+ *         description: Server error
+ */
 /** LIST subtasks of a task */
 router.get('/:id/subtasks', async (req, res) => {
   try {
@@ -570,6 +814,42 @@ router.get('/:id/subtasks', async (req, res) => {
   }
 });
 
+
+/**
+ * @openapi
+ * /api/tasks/{id}/subtasks:
+ *   post:
+ *     tags: [Tasks]
+ *     summary: Create a subtask under a task
+ *     description: Shorthand for creating a task with `parentTask = {id}`. Supports attachments.
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string }
+ *         description: Parent task ID (ObjectId)
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: "#/components/schemas/NewTaskRequest"  # (optional; inline same as POST /api/tasks if you prefer)
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               title: { type: string }
+ *               attachments:
+ *                 type: array
+ *                 items: { type: string, format: binary }
+ *     responses:
+ *       201:
+ *         description: Created
+ *       400:
+ *         description: Validation error (missing/invalid IDs)
+ *       404:
+ *         description: Parent task not found
+ */
 /** CREATE subtasks */
 router.post('/:id/subtasks', upload.array('attachments'), async (req, res) => {
   req.body.parentTask = req.params.id;
@@ -577,6 +857,26 @@ router.post('/:id/subtasks', upload.array('attachments'), async (req, res) => {
 });
 
 
+/**
+ * @openapi
+ * /api/tasks/{id}:
+ *   delete:
+ *     tags: [Tasks]
+ *     summary: Delete a task (and cascade delete its subtasks)
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string }
+ *         description: Task ID (ObjectId)
+ *     responses:
+ *       200:
+ *         description: Task deleted successfully
+ *       404:
+ *         description: Task not found
+ *       500:
+ *         description: Server error
+ */
 /** DELETE task (cascade subtasks)*/
 router.delete('/:id', async (req, res) => {
   try {
@@ -593,6 +893,36 @@ router.delete('/:id', async (req, res) => {
   }
 });
 
+/**
+ * @openapi
+ * /api/tasks/{taskId}/attachments/{attachmentId}:
+ *   get:
+ *     tags: [Tasks]
+ *     summary: Download an attachment for a task
+ *     parameters:
+ *       - in: path
+ *         name: taskId
+ *         required: true
+ *         schema: { type: string }
+ *         description: Task ID (ObjectId)
+ *       - in: path
+ *         name: attachmentId
+ *         required: true
+ *         schema: { type: string }
+ *         description: Attachment ID (ObjectId)
+ *     responses:
+ *       200:
+ *         description: File stream
+ *         content:
+ *           application/octet-stream:
+ *             schema:
+ *               type: string
+ *               format: binary
+ *       404:
+ *         description: File not found
+ *       500:
+ *         description: Server error
+ */
 /** Download an attachment for a task */
 router.get('/:taskId/attachments/:attachmentId', async (req, res) => {
   try {
@@ -607,6 +937,19 @@ router.get('/:taskId/attachments/:attachmentId', async (req, res) => {
   }
 });
 
+/**
+ * @openapi
+ * /api/tasks/attachments/drop:
+ *   delete:
+ *     tags: [Tasks]
+ *     summary: (Dev) Delete all attachments
+ *     description: Development utility to drop all Attachment documents.
+ *     responses:
+ *       200:
+ *         description: All attachments deleted successfully
+ *       500:
+ *         description: Server error
+ */
 /** Danger: drop all attachments (dev) */
 router.delete('/attachments/drop', async (req, res) => {
   try {

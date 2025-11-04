@@ -77,7 +77,7 @@ const handleSucessfulAuth = async (res, user) => {
 /**
  * @openapi
  * tags:
- *   - name: Authentication
+ *   - name: Auth
  *     description: Authentication & session flows (email/password, OTP, refresh tokens)
  */
 
