@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from "react";
-import AuthCtx from "./AuthCore";
+import AuthCtx from "./auth-core";
 import { clearToken, getToken, scheduleLogoutWarning } from "../services/api";
 
 export default function AuthProvider({ children }) {
