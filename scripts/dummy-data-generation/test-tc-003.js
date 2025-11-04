@@ -6,10 +6,10 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 
 // Import models
-import Project from '../models/Project.js';
-import Task from '../models/Task.js';
-import User from '../models/User.js';
-import Notification from '../models/Notification.js';
+import Project from '../../backend/models/Project.js';
+import Task from '../../backend/models/Task.js';
+import User from '../../backend/models/User.js';
+import Notification from '../../backend/models/Notification.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -31,7 +31,7 @@ async function createTestTask() {
       user = await User.create({
         name: "LF-50 Test User",
         email: "littlefarms.inappreminder@gmail.com",
-        password: process.env.UNIT_TEST_GENERIC_PASSWORD,
+        password: process.env.TEST_SENIOR_MANAGER_PASSWORD,
         role: "Staff"
       });
       console.log('✅ Created user:', user.email);
@@ -67,22 +67,19 @@ async function createTestTask() {
       console.log('✅ Found existing project:', project.name);
     }
 
-    // Clean up ALL existing notifications for this user (clean slate for TC-006)
+    // Clean up ALL existing notifications for this user (clean slate for TC-003)
     const existingNotifications = await Notification.find({ userId: user._id });
     if (existingNotifications.length > 0) {
       await Notification.deleteMany({ userId: user._id });
       console.log(`🗑️  Deleted ${existingNotifications.length} existing notification(s) for clean slate`);
     }
 
-    // Calculate deadline: Set deadline to 1 day from now
-    // This allows us to create notifications that were "sent" in the past
+    // Calculate deadline: 1 hour after current time  
     const now = new Date();
-    const deadline = new Date(now.getTime() + (1 * 24 * 60 * 60 * 1000)); // 1 day from now
+    const deadline = new Date(now.getTime() + (60 * 60 * 1000)); // 1 hour from now
     
     console.log('📅 Current time:', now.toISOString());
     console.log('📅 Task deadline:', deadline.toISOString());
-
-
 
     // Delete ALL existing tasks under LF-50 functional test cases project
     const existingTasks = await Task.find({ assignedProject: project._id });
@@ -91,15 +88,15 @@ async function createTestTask() {
       await Task.deleteMany({ assignedProject: project._id });
     }
 
-    // Create the task WITHOUT specifying reminderOffsets to use defaults
+    // Create the task with single 1 hour reminder
     const taskData = {
-      title: "LF-50 TC-006",
-      description: "Test case for default reminders (7 days, 3 days, 1 day) notification functionality",
+      title: "LF-50 TC-003",
+      description: "Test case for single 1 hour reminder notification functionality",
       assignedProject: project._id,
       assignedTeamMembers: [user._id],
       createdBy: user._id,
       deadline: deadline,
-      // reminderOffsets: not specified, so will use DEFAULT_REMINDERS_MIN = [10080, 4320, 1440]
+      reminderOffsets: [60], // 60 minutes (1 hour)
       status: "To Do",
       priority: 5 // Medium priority (1-10 scale)
     };
@@ -109,31 +106,14 @@ async function createTestTask() {
     console.log('📋 Task Details:');
     console.log('   - Title:', task.title);
     console.log('   - Deadline:', task.deadline.toISOString());
-    console.log('   - ReminderOffsets:', task.reminderOffsets); // Verify defaults applied
+    console.log('   - Reminders: 1 hour (60 minute) reminder');
     console.log('   - Assigned to:', user.email);
     console.log('   - Project:', project.name);
     console.log('   - Task ID:', task._id.toString());
 
-    // Verify that default reminders were automatically applied
-    if (JSON.stringify(task.reminderOffsets) === JSON.stringify([10080, 4320, 1440])) {
-      console.log('✅ Default reminders automatically applied: [10080, 4320, 1440] (7d, 3d, 1d)');
-    } else {
-      console.log('⚠️  Warning: Expected default reminders [10080, 4320, 1440], got:', task.reminderOffsets);
-    }
-
-    // Calculate when reminder notifications will be sent
-    const reminder7Days = new Date(deadline.getTime() - (10080 * 60 * 1000)); // 7 days before deadline
-    const reminder3Days = new Date(deadline.getTime() - (4320 * 60 * 1000));  // 3 days before deadline
-    const reminder1Day = new Date(deadline.getTime() - (1440 * 60 * 1000));   // 1 day before deadline
-    
-    console.log('\n🔔 Reminder notifications will be automatically created by cron at:');
-    console.log('   - 7 days before:', reminder7Days.toISOString());
-    console.log('   - 3 days before:', reminder3Days.toISOString());
-    console.log('   - 1 day before:', reminder1Day.toISOString());
-
-    console.log('\n🎯 Test Case TC-006 Setup Complete!');
-    console.log('👉 The cron job will automatically create notifications at the scheduled times.');
-    console.log('👉 Log in as littlefarms.inappreminder@gmail.com to check for notifications as they arrive.');
+    console.log('\n🎯 Test Case TC-003 Setup Complete!');
+    console.log('⏰ The cron job will automatically create the notification when the reminder time arrives.');
+    console.log('👉 Now log in as littlefarms.inappreminder@gmail.com and check for notifications.');
 
   } catch (error) {
     console.error('❌ Error creating test task:', error.message);
