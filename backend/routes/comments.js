@@ -2,8 +2,8 @@ import { Router } from "express";
 import mongoose, { isValidObjectId } from "mongoose";
 import Comment from "../models/Comment.js";
 import Task from "../models/Task.js";
-import { createCommentNotifications, createMentionNotifications } from "../services/notificationService.js";
-import { resolveMentionUserIds } from "../services/resolveMentions.js";
+import { createCommentNotifications, createMentionNotifications } from "../services/notification-service.js";
+import { resolveMentionUserIds } from "../services/resolve-mention.js";
 
 const router = Router();
 const toLocal = (s = "") => String(s).split("@")[0]?.toLowerCase() || "";

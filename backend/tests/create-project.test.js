@@ -1,16 +1,3 @@
-/**
- * backend/tests/createProject.test.js
- *
- * API-seam tests for "Create Project" (the behavior CreateProjectForm relies on),
- * using Express + Supertest + mongodb-memory-server, mirroring your other passing suites.
- *
- * Covers:
- *  - Positive: create with full payload (lead ∈ teamMembers, valid departments, dates, etc.)
- *  - Boundary: minimal payload (no description/endDate/deadline; defaults)
- *  - Negative: missing requireds, invalid/unknown ids, invalid priority/visibility, date rules
- *  - Linkage acceptance: tasks/subtasks can be linked to a project
- */
-
 import express from "express";
 import mongoose, { Schema, model } from "mongoose";
 import request from "supertest";

@@ -1,4 +1,3 @@
-// backend/tests/mailer.test.js
 import { describe, it, beforeEach, afterEach, expect, vi } from "vitest";
 
 let mockTransport;

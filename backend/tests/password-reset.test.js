@@ -1,19 +1,3 @@
-/**
- * backend/tests/passwordReset.test.js
- * 
- * Unit/Integration tests for Password Reset & Recovery feature
- * Maps to functional test cases TC-005 through TC-012 from Excel
- * 
- * Feature: As a staff, I want to reset my password if I forget it 
- * so that I can regain secure access to my account
- * 
- * Acceptance Criteria:
- * 1. Request a password reset link via registered email
- * 2. Enforce strong password rules (min length, complexity)
- * 3. Prevent reuse of the previous password
- * 4. Show confirmation message after successful reset
- */
-
 import express from "express";
 import mongoose from "mongoose";
 import request from "supertest";

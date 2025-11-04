@@ -1,19 +1,3 @@
-/**
- * backend/tests/seniorManagerReport.test.js
- *
- * Comprehensive unit tests for the (SM/HR) Company-Wide Report Generation functionality.
- * Tests the /api/senior-manager/report endpoint with 100% coverage including:
- * - Company-wide metrics calculations (productivity trends, project scope, task scope)
- * - Department performance breakdown analysis
- * - Project breakdown with completion and overdue rates
- * - Time performance analysis across all departments
- * - Error scenarios and edge cases
- * - Database integration with in-memory MongoDB
- * 
- * Based on the JIRA user story: (SM/HR) Company-Wide Report Generation
- * Test Cases: TC-001 through TC-006 covering comprehensive company-wide reporting
- */
-
 import express from "express";
 import mongoose from "mongoose";
 import request from "supertest";

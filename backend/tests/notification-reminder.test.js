@@ -1,33 +1,3 @@
-/**
- * Unit Tests for In-App Notification Reminder Feature
- * 
- * Feature: Send Reminders of Task Deadlines via in-app notification
- * User Story: As a Staff, I want to receive reminders of task deadlines via in-app notifications,
- *             so that I don't miss important tasks.
- * 
- * Acceptance Criteria:
- * 1. Staff receives an in-app notification at the chosen reminder time(s).
- * 2. By default, staff receives an in-app notification 7 days, 3 days and 1 day before the deadline.
- * 3. If the task becomes overdue, staff receives an overdue reminder in-app notification until the task is marked complete.
- * 
- * Test Coverage:
- * - TC-001: Single reminder (1 day before deadline)
- * - TC-002: Single reminder (30 minutes before deadline)
- * - TC-003: Single reminder (1 hour before deadline)
- * - TC-004: Mark notification as read
- * - TC-005: Multiple custom reminders (1 day, 1 hour, 30 min)
- * - TC-006: Default reminders (7 days, 3 days, 1 day)
- * - TC-007: Overdue notification created when deadline passes
- * - TC-008: Overdue notification stops when task marked Done
- * - TC-009: No duplicate notifications created
- * 
- * Implementation Note:
- * - Uses mongodb-memory-server for isolated testing (no real database)
- * - Tests service layer functions directly (checkAndCreateReminders, getUnreadNotifications, markNotificationsAsRead)
- * - Time manipulation using dayjs to simulate different deadline scenarios
- * - Mock data safe to commit (in-memory only, no real user data)
- */
-
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import { MongoMemoryServer } from 'mongodb-memory-server';
 import mongoose from 'mongoose';
@@ -89,7 +59,7 @@ import {
   checkAndCreateReminders, 
   getUnreadNotifications, 
   markNotificationsAsRead 
-} from '../services/notificationService.js';
+} from '../services/notification-service.js';
 
 // Configure dayjs (same as production)
 dayjs.extend(utc);

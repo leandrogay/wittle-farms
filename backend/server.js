@@ -7,13 +7,13 @@ import cron from 'node-cron';
 import { Server as IOServer } from 'socket.io';
 
 import app from './app.js';
-import { runDailyOverdueDigest } from './jobs/dailyOverdueTaskEmails.js';
+import { runDailyOverdueDigest } from './jobs/daily-overdue-task-emails.js';
 import { 
   checkAndCreateReminders,     
   getUnreadNotifications,
   markNotificationsAsRead,
   sendPendingEmails
-} from './services/notificationService.js';
+} from './services/notification-service.js';
 
 const PORT = process.env.PORT || 3000;
 const server = http.createServer(app);

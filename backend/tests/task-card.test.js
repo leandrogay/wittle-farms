@@ -1,15 +1,3 @@
-/**
- * backend/tests/taskCard.test.js
- *
- * Integration tests that validate the "Task Card" data the Manager would see,
- * but at the API layer (Express + Supertest + mongodb-memory-server).
- *
- * Covers:
- *  - Positive: returns full task details (title, desc, notes, status, deadline, priority, project name, team members, subtasks)
- *  - Boundary: task with null/empty fields (null deadline, empty notes, no team members)
- *  - Negative: invalid ObjectId, not-found id
- */
-
 import express from "express";
 import mongoose, { Schema, model } from "mongoose";
 import request from "supertest";

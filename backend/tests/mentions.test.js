@@ -1,5 +1,3 @@
-// backend/tests/mentions.test.js
-// @vitest-environment node
 import { describe, it, expect, beforeAll, beforeEach, vi } from "vitest";
 
 /**

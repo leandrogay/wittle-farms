@@ -1,4 +1,3 @@
-// backend/routes/notifications.js
 import express from "express";
 import Project from "../models/Project.js";
 import Task from "../models/Task.js";
