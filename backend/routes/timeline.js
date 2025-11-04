@@ -29,7 +29,77 @@ const dayEndUtc = (s) => {
   return new Date(Date.UTC(y, m - 1, d, 23, 59, 59, 999));
 };
 
-
+/**
+ * @openapi
+ * /api/timeline:
+ *   get:
+ *     tags: [Timeline]
+ *     summary: Get tasks timeline for a user
+ *     description: |
+ *       Returns tasks assigned to a specific user, optionally filtered by date range.
+ *       The date filters (`from`, `to`) must be in strict `YYYY-MM-DD` format.
+ *     parameters:
+ *       - in: query
+ *         name: user
+ *         required: true
+ *         schema:
+ *           type: string
+ *           description: User ID (MongoDB ObjectId)
+ *       - in: query
+ *         name: from
+ *         required: false
+ *         schema:
+ *           type: string
+ *           pattern: "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+ *         description: Optional start date (inclusive, YYYY-MM-DD)
+ *       - in: query
+ *         name: to
+ *         required: false
+ *         schema:
+ *           type: string
+ *           pattern: "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+ *         description: Optional end date (inclusive, YYYY-MM-DD)
+ *     responses:
+ *       200:
+ *         description: Successfully returned timeline data
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 items:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id:
+ *                         type: string
+ *                       title:
+ *                         type: string
+ *                       status:
+ *                         type: string
+ *                       project:
+ *                         type: string
+ *                       createdAt:
+ *                         type: string
+ *                         format: date-time
+ *                       startAt:
+ *                         type: string
+ *                         format: date-time
+ *                       endAt:
+ *                         type: string
+ *                         format: date-time
+ *                       deadline:
+ *                         type: string
+ *                         format: date-time
+ *                       completedAt:
+ *                         type: string
+ *                         format: date-time
+ *       400:
+ *         description: Invalid parameters (user id or date format)
+ *       500:
+ *         description: Server error
+ */
 router.get("/", async (req, res) => {
   try {
     const { user: userId, from, to } = req.query;

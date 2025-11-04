@@ -1,3 +1,17 @@
+/**
+ * @openapi
+ * components:
+ *   schemas:
+ *     MentionableUser:
+ *       type: object
+ *       description: User that can be @mentioned (shape only; not a DB model)
+ *       properties:
+ *         _id:   { type: string }
+ *         name:  { type: string }
+ *         email: { type: string, format: email }
+ *         handle:{ type: string, description: "lowercased local-part or derived handle" }
+ */
+
 import { Router } from "express";
 import mongoose, { isValidObjectId } from "mongoose";
 import Comment from "../models/Comment.js";
@@ -9,6 +23,39 @@ const router = Router();
 const toLocal = (s = "") => String(s).split("@")[0]?.toLowerCase() || "";
 const escapeRx = (s = "") => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
+/**
+ * @openapi
+ * /api/tasks/{taskId}/mentionable-users:
+ *   get:
+ *     tags: [Comments]
+ *     summary: List users who can be @mentioned on a task
+ *     parameters:
+ *       - in: path
+ *         name: taskId
+ *         required: true
+ *         schema: { type: string }
+ *         description: Task ID (Mongo ObjectId)
+ *       - in: query
+ *         name: q
+ *         required: false
+ *         schema: { type: string }
+ *         description: Optional search prefix for handle or substring of name
+ *     responses:
+ *       200:
+ *         description: OK
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/MentionableUser'
+ *       400:
+ *         description: Invalid task id
+ *       404:
+ *         description: Task not found
+ *       500:
+ *         description: Failed to load users
+ */
 router.get("/:taskId/mentionable-users", async (req, res) => {
   try {
     const { taskId } = req.params;
@@ -68,6 +115,47 @@ router.get("/:taskId/mentionable-users", async (req, res) => {
   }
 });
 
+/**
+ * @openapi
+ * /api/tasks/{taskId}/comments:
+ *   get:
+ *     tags: [Comments]
+ *     summary: List comments for a task (newest first, cursor-paginated)
+ *     parameters:
+ *       - in: path
+ *         name: taskId
+ *         required: true
+ *         schema: { type: string }
+ *       - in: query
+ *         name: cursor
+ *         required: false
+ *         schema: { type: string, format: date-time }
+ *         description: Return comments created before this ISO timestamp
+ *       - in: query
+ *         name: limit
+ *         required: false
+ *         schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+ *     responses:
+ *       200:
+ *         description: OK
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 items:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Comment'
+ *                 nextCursor:
+ *                   type: string
+ *                   nullable: true
+ *                   format: date-time
+ *       400:
+ *         description: Invalid task id
+ *       500:
+ *         description: Server error
+ */
 router.get("/:taskId/comments", async (req, res) => {
   try {
     const { taskId } = req.params;
@@ -89,6 +177,33 @@ router.get("/:taskId/comments", async (req, res) => {
   }
 });
 
+/**
+ * @openapi
+ * /api/tasks/{taskId}/comments:
+ *   post:
+ *     tags: [Comments]
+ *     summary: Create a comment on a task
+ *     parameters:
+ *       - in: path
+ *         name: taskId
+ *         required: true
+ *         schema: { type: string }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/NewCommentRequest'
+ *     responses:
+ *       201:
+ *         description: Created
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Comment'
+ *       400:
+ *         description: Validation error (invalid ids, missing body, etc.)
+ */
 router.post('/:taskId/comments', async (req, res) => {
   try {
     const { taskId } = req.params;
@@ -155,6 +270,45 @@ router.post('/:taskId/comments', async (req, res) => {
   }
 });
 
+/**
+ * @openapi
+ * /api/tasks/{taskId}/comments/{commentId}:
+ *   put:
+ *     tags: [Comments]
+ *     summary: Update an existing comment
+ *     parameters:
+ *       - in: path
+ *         name: taskId
+ *         required: true
+ *         schema: { type: string }
+ *       - in: path
+ *         name: commentId
+ *         required: true
+ *         schema: { type: string }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/UpdateCommentRequest'
+ *     responses:
+ *       200:
+ *         description: Updated
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Comment'
+ *       400:
+ *         description: Invalid ids or missing body
+ *       401:
+ *         description: Not authenticated
+ *       403:
+ *         description: Not allowed to edit this comment
+ *       404:
+ *         description: Comment not found
+ *       500:
+ *         description: Server error
+ */
 router.put('/:taskId/comments/:commentId', async (req, res) => {
   try {
     const { taskId, commentId } = req.params;
@@ -206,6 +360,39 @@ router.put('/:taskId/comments/:commentId', async (req, res) => {
   }
 });
 
+/**
+ * @openapi
+ * /api/tasks/{taskId}/comments/{commentId}:
+ *   delete:
+ *     tags: [Comments]
+ *     summary: Delete a comment
+ *     parameters:
+ *       - in: path
+ *         name: taskId
+ *         required: true
+ *         schema: { type: string }
+ *       - in: path
+ *         name: commentId
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200:
+ *         description: Deleted
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message: { type: string, example: "Comment deleted" }
+ *       400:
+ *         description: Invalid ids
+ *       401:
+ *         description: Not authenticated
+ *       403:
+ *         description: Not allowed to delete this comment
+ *       404:
+ *         description: Comment not found
+ */
 router.delete('/:taskId/comments/:commentId', async (req, res) => {
   try {
     const { taskId, commentId } = req.params;
