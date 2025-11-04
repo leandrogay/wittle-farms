@@ -1,4 +1,3 @@
-// tests/routes/projects.test.js
 import request from 'supertest';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import app from '../app.js';

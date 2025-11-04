@@ -11,6 +11,113 @@ dayjs.extend(isBetween);
 const router = Router();
 
 /**
+ * @openapi
+ * /api/senior-manager/report:
+ *   get:
+ *     tags: [Senior Manager]
+ *     summary: Generate company-wide performance report
+ *     description: |
+ *       Produces a comprehensive company-wide report for Senior Managers or HR,
+ *       including metrics about departments, projects, and tasks.
+ *       The report covers:
+ *       - Time taken (average completion times)
+ *       - Department-level metrics
+ *       - Project and task status summaries
+ *       - Productivity trends
+ *       - Overdue counts and completion rates
+ *     responses:
+ *       200:
+ *         description: Successfully generated company-wide report
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 productivityTrend:
+ *                   type: string
+ *                   example: Improving
+ *                 projectCompletionRateThisMonth:
+ *                   type: number
+ *                   example: 62.5
+ *                 projectCompletionRateLastMonth:
+ *                   type: number
+ *                   example: 45.0
+ *                 companyScope:
+ *                   type: object
+ *                   properties:
+ *                     totalProjects:
+ *                       type: integer
+ *                     totalTasks:
+ *                       type: integer
+ *                     totalEmployees:
+ *                       type: integer
+ *                     totalDepartments:
+ *                       type: integer
+ *                     projectStatusCounts:
+ *                       type: object
+ *                       properties:
+ *                         To Do: { type: integer }
+ *                         In Progress: { type: integer }
+ *                         Done: { type: integer }
+ *                         Overdue: { type: integer }
+ *                     taskStatusCounts:
+ *                       type: object
+ *                       properties:
+ *                         To Do: { type: integer }
+ *                         In Progress: { type: integer }
+ *                         Done: { type: integer }
+ *                         Overdue: { type: integer }
+ *                 departmentMetrics:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       departmentId: { type: string }
+ *                       departmentName: { type: string }
+ *                       teamSize: { type: integer }
+ *                       projectStatusCounts:
+ *                         type: object
+ *                         properties:
+ *                           To Do: { type: integer }
+ *                           In Progress: { type: integer }
+ *                           Done: { type: integer }
+ *                           Overdue: { type: integer }
+ *                       taskStatusCounts:
+ *                         type: object
+ *                         properties:
+ *                           To Do: { type: integer }
+ *                           In Progress: { type: integer }
+ *                           Done: { type: integer }
+ *                           Overdue: { type: integer }
+ *                 projectBreakdown:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       projectId: { type: string }
+ *                       projectName: { type: string }
+ *                       departments:
+ *                         type: array
+ *                         items: { type: string }
+ *                       totalTasks: { type: integer }
+ *                       completedTasks: { type: integer }
+ *                       overdueTasks: { type: integer }
+ *                       completionRate: { type: number }
+ *                       overdueRate: { type: number }
+ *                 companyInfo:
+ *                   type: object
+ *                   properties:
+ *                     reportGeneratedAt:
+ *                       type: string
+ *                       format: date-time
+ *                     totalDepartments:
+ *                       type: integer
+ *                     totalEmployees:
+ *                       type: integer
+ *       500:
+ *         description: Failed to generate report
+ */
+/**
  * GET /api/senior-manager/report
  * 
  * Purpose: Generates company-wide report data for Senior Managers/HR

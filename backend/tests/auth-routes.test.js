@@ -1,4 +1,3 @@
-// tests/auth.routes.test.js
 import { vi, describe, it, expect, beforeAll, beforeEach, afterAll } from "vitest";
 import express from "express";
 import cookieParser from "cookie-parser";

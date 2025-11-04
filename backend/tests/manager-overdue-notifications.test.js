@@ -13,16 +13,6 @@ let app;
 
 const ALERTS_ENDPOINT = (managerId) => `/api/manager/${managerId}/overdue-alerts`;
 
-/**
- * Minimal in-test route:
- * Returns 200 { notifications: [{ staffName, title, daysOverdue, taskId }] }
- * Logic:
- * - Only tasks "delegated" by manager (createdBy = managerId)
- * - Overdue: deadline < now
- * - Not completed: status != "Done"
- * - Must have at least one assignee
- * - One notification PER assignee (so manager sees who to follow up with)
- */
 const mountRoute = () => {
   app.get("/api/manager/:managerId/overdue-alerts", async (req, res) => {
     try {

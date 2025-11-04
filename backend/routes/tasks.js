@@ -4,7 +4,7 @@ import multer from 'multer';
 
 import Task, { DEFAULT_REMINDERS_MIN } from '../models/Task.js';
 import Attachment from '../models/Attachment.js';
-import { createUpdateNotifications, sendPendingEmails } from '../services/notificationService.js';
+import { createUpdateNotifications, sendPendingEmails } from '../services/notification-service.js';
 
 const router = Router();
 const upload = multer({ storage: multer.memoryStorage() });

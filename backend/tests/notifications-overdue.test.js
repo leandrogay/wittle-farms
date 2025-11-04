@@ -1,4 +1,3 @@
-// backend/tests/notifications.overdue.test.js
 import { describe, it, beforeAll, afterAll, beforeEach, expect, vi } from "vitest";
 import express from "express";
 import supertest from "supertest";

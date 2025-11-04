@@ -1,4 +1,3 @@
-// backend/tests/notification-service.test.js
 import { describe, it, beforeAll, afterAll, beforeEach, expect, vi } from "vitest";
 import mongoose from "mongoose";
 import { MongoMemoryServer } from "mongodb-memory-server";
@@ -20,7 +19,7 @@ import {
   createCommentNotifications,
   createMentionNotifications,
   createUpdateNotifications,
-} from "../services/notificationService.js";
+} from "../services/notification-service.js";
 
 /* ---------------- Mock mailer ---------------- */
 const sendEmailMock = vi.fn().mockResolvedValue({ messageId: "mocked" });
@@ -66,7 +65,7 @@ beforeEach(async () => {
 /* ========================================================================== */
 /* 1) checkAndCreateReminders                                                 */
 /* ========================================================================== */
-describe("services/notificationService.js", () => {
+describe("services/notification-service.js", () => {
   it("checkAndCreateReminders: creates reminder notifications within grace period and overdue notifications, skips ineligible tasks", async () => {
     // users
     const mgr = await User.create({
@@ -688,7 +687,7 @@ describe("createMentionNotifications", () => {
 
 describe("formatTimeRemaining – boundaries (conditional if exported)", () => {
   it("60/61/119/120 minute cases", async () => {
-    const mod = await import("../services/notificationService.js");
+    const mod = await import("../services/notification-service.js");
     if (typeof mod.formatTimeRemaining !== "function") {
       // Helper not exported; considered covered via reminder tests
       expect(true).toBe(true);
@@ -702,7 +701,7 @@ describe("formatTimeRemaining – boundaries (conditional if exported)", () => {
   });
 
   it("1440/1500/2880 minute cases", async () => {
-    const mod = await import("../services/notificationService.js");
+    const mod = await import("../services/notification-service.js");
     if (typeof mod.formatTimeRemaining !== "function") {
       expect(true).toBe(true);
       return;

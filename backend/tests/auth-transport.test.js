@@ -1,4 +1,3 @@
-// tests/auth.transport.test.js
 import { describe, it, expect, vi, beforeAll, afterAll } from "vitest";
 
 /* Keep dotenv from loading files */

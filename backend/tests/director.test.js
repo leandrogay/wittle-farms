@@ -1,4 +1,3 @@
-// backend/tests/routes-test/director.test.js
 import { describe, it, beforeAll, afterAll, beforeEach, expect, vi } from "vitest";
 import express from "express";
 import supertest from "supertest";

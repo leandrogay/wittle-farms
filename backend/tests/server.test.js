@@ -77,7 +77,7 @@ vi.mock("socket.io", () => {
 
 /* --------------- Mocks: jobs & notification services ------------------ */
 const runDailyOverdueDigestMock = vi.fn().mockResolvedValue(undefined);
-vi.mock("../jobs/dailyOverdueTaskEmails.js", () => ({
+vi.mock("../jobs/daily-overdue-task-emails", () => ({
     runDailyOverdueDigest: runDailyOverdueDigestMock,
 }));
 
@@ -86,7 +86,7 @@ const getUnreadNotificationsMock = vi.fn().mockResolvedValue([{ id: "n1" }]);
 const markNotificationsAsReadMock = vi.fn().mockResolvedValue(undefined);
 const sendPendingEmailsMock = vi.fn().mockResolvedValue(undefined);
 
-vi.mock("../services/notificationService.js", () => ({
+vi.mock("../services/notification-service.js", () => ({
     checkAndCreateReminders: checkAndCreateRemindersMock,
     getUnreadNotifications: getUnreadNotificationsMock,
     markNotificationsAsRead: markNotificationsAsReadMock,

@@ -1,4 +1,3 @@
-// backend/tests/resolve-mentions.test.js
 import { describe, it, expect, vi, beforeAll, beforeEach } from "vitest";
 
 /* ----------------- Mocks ----------------- */
@@ -47,7 +46,7 @@ beforeAll(async () => {
     const taskMod = await import("../models/Task.js");
     setTask = taskMod.__setTask;
 
-    const mod = await import("../services/resolveMentions.js");
+    const mod = await import("../services/resolve-mention.js");
 
     // Prefer a full resolver that already accepts (task, text)
     resolveMentions =
@@ -95,7 +94,7 @@ beforeAll(async () => {
             .concat(mod.default && typeof mod.default === "object" ? Object.keys(mod.default) : [])
             .join(", ");
         throw new Error(
-            "services/resolveMentions.js must export a function.\n" +
+            "services/resolve-mention.js must export a function.\n" +
             "Tried: named `resolveMentions`, default function, default.resolveMentions,\n" +
             "`resolveMentionUserIds`, or default.resolveMentionUserIds.\n" +
             `Found keys: [${availableKeys}]`

@@ -5,7 +5,7 @@ import { describe, it, beforeAll, afterAll, beforeEach, expect, vi } from "vites
 import { MongoMemoryServer } from "mongodb-memory-server";
 
 // --- Mock notification service (avoid real emails) ---
-vi.mock("../../services/notificationService.js", () => ({
+vi.mock("../../services/notification-service.js", () => ({
   createUpdateNotifications: vi.fn(async ({ taskId, authorId }) => ([
     { id: "notif1", userId: "userA", taskId, authorId, message: "updated" }
   ])),

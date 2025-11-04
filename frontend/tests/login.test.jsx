@@ -1,8 +1,8 @@
 /** @vitest-environment happy-dom */
 import "@testing-library/jest-dom/vitest";
 import React from "react";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
-import { vi } from "vitest";
+import { render, screen, fireEvent, waitFor, cleanup } from "@testing-library/react";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { MemoryRouter } from "react-router-dom";
 
 /* ---------- Mock router ---------- */
@@ -17,13 +17,13 @@ vi.mock("react-router-dom", async (orig) => {
 });
 
 /* ---------- Mock API ---------- */
-vi.mock("/src/services/api", () => ({
-  loginUser: vi.fn(),
-  verifyOtp: vi.fn(),
+vi.mock("../src/services/api", () => ({
+  loginUser: vi.fn(() => Promise.resolve({})),
+  verifyOtp: vi.fn(() => Promise.resolve({ token: "abc", user: { name: "Test" } })),
 }));
 
-import { loginUser, verifyOtp } from "/src/services/api";
-import Login from "/src/pages/Login.jsx";
+import { loginUser, verifyOtp } from "../src/services/api";
+import Login from "../src/pages/Login.jsx";
 
 const renderLogin = () =>
   render(
@@ -37,6 +37,10 @@ describe("Login component", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     localStorage.clear();
+  });
+
+  afterEach(() => {
+    cleanup(); // removes duplicate DOM trees
   });
 
   it("renders email and password fields", () => {
@@ -210,8 +214,12 @@ describe("Login component", () => {
 
     await screen.findByText(/6-digit code/i);
 
-    const backButton = screen.getByRole("button", { name: /back/i });
-    fireEvent.click(backButton);
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /back/i })).toBeInTheDocument();
+    });
+    
+    fireEvent.click(screen.getByRole("button", { name: /back/i }));
+    // fireEvent.click(backButton);
 
     expect(window.location.href).toContain("/login");
   });

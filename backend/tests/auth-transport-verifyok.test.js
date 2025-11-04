@@ -1,4 +1,3 @@
-// tests/auth.transport.verifyok.test.js
 import { describe, it, expect, vi } from "vitest";
 
 describe("transporter.verify success path executes when NODE_ENV != test", () => {

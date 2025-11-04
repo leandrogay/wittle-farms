@@ -1,4 +1,3 @@
-// tests/auth.me.direct.test.js
 import { it, expect, vi } from "vitest";
 
 it("directly invokes /me handler to cover object literal return lines", async () => {

@@ -1,4 +1,3 @@
-// tests/auth.transporter.verify.test.js
 import { it, expect, vi, beforeEach } from "vitest";
 
 function setMailEnv() {

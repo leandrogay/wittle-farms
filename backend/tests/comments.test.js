@@ -1,5 +1,3 @@
-// backend/tests/comments.test.js
-// @vitest-environment node
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import request from "supertest";
 import express from "express";
@@ -165,11 +163,11 @@ async function loadApp({ withUser = true } = {}) {
 
   vi.doMock("../models/Task.js", () => ({ default: f.Task }));
   vi.doMock("../models/Comment.js", () => ({ default: f.Comment }));
-  vi.doMock("../services/notificationService.js", () => ({
+  vi.doMock("../services/notification-service.js", () => ({
     createCommentNotifications: f.services.createCommentNotifications,
     createMentionNotifications: f.services.createMentionNotifications,
   }));
-  vi.doMock("../services/resolveMentions.js", () => ({
+  vi.doMock("../services/resolve-mention.js", () => ({
     resolveMentionUserIds: f.services.resolveMentionUserIds,
   }));
 
@@ -497,11 +495,11 @@ describe("DELETE /:taskId/comments/:commentId", () => {
 
     // Other deps not used in this route, but mock minimal
     vi.doMock("../models/Comment.js", () => ({ default: {} }));
-    vi.doMock("../services/notificationService.js", () => ({
+    vi.doMock("../services/notification-service.js", () => ({
       createCommentNotifications: vi.fn(),
       createMentionNotifications: vi.fn(),
     }));
-    vi.doMock("../services/resolveMentions.js", () => ({
+    vi.doMock("../services/resolve-mention.js", () => ({
       resolveMentionUserIds: vi.fn(),
     }));
 
@@ -884,11 +882,11 @@ describe("DELETE /:taskId/comments/:commentId", () => {
 
     // Not used in this route, but keep the router import happy
     vi.doMock("../models/Comment.js", () => ({ default: {} }));
-    vi.doMock("../services/notificationService.js", () => ({
+    vi.doMock("../services/notification-service.js", () => ({
       createCommentNotifications: vi.fn(),
       createMentionNotifications: vi.fn(),
     }));
-    vi.doMock("../services/resolveMentions.js", () => ({
+    vi.doMock("../services/resolve-mention.js", () => ({
       resolveMentionUserIds: vi.fn(),
     }));
 

@@ -1,4 +1,3 @@
-// backend/routes/notifications.js
 import express from "express";
 import Project from "../models/Project.js";
 import Task from "../models/Task.js";
@@ -7,6 +6,69 @@ import { sendEmail } from "../utils/mailer.js";
 
 const router = express.Router();
 
+/**
+ * @openapi
+ * /api/notifications/overdue:
+ *   post:
+ *     tags: [Notifications]
+ *     summary: Send consolidated overdue-tasks email to a project's manager
+ *     description: |
+ *       Sends **one** consolidated email to the project's manager (`project.createdBy`)
+ *       listing all overdue tasks (including overdue subtasks) with assigned team members.
+ *     parameters:
+ *       - in: query
+ *         name: project
+ *         required: true
+ *         schema:
+ *           type: string
+ *           description: Project ID (MongoDB ObjectId)
+ *         description: The project to scan for overdue tasks
+ *     responses:
+ *       200:
+ *         description: Request processed
+ *         content:
+ *           application/json:
+ *             schema:
+ *               oneOf:
+ *                 - type: object
+ *                   properties:
+ *                     success:
+ *                       type: boolean
+ *                       example: true
+ *                     count:
+ *                       type: integer
+ *                       description: Number of overdue items included in the email
+ *                 - type: object
+ *                   properties:
+ *                     success:
+ *                       type: boolean
+ *                       example: false
+ *                     message:
+ *                       type: string
+ *                       example: No overdue items
+ *       400:
+ *         description: Missing or invalid parameters / manager email not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 error:
+ *                   type: string
+ *                   example: Missing ?project=
+ *       404:
+ *         description: Project not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 error:
+ *                   type: string
+ *                   example: Project not found
+ *       500:
+ *         description: Failed to send notification or internal error
+ */
 /**
  * POST /api/notifications/overdue?project=:projectId
  * Sends one consolidated email to the project manager (project.createdBy)

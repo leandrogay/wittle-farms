@@ -1,4 +1,3 @@
-// backend/tests/emails-reminder.test.js
 import { describe, it, beforeAll, afterAll, beforeEach, expect, vi } from "vitest";
 import { MongoMemoryServer } from "mongodb-memory-server";
 import mongoose from "mongoose";
@@ -76,7 +75,7 @@ describe("Email reminders via cron jobs (no changes to reminders.js)", () => {
 
   // ─────────────── Core Scenarios (5) ───────────────
 
-  it("✅ sends a 1-day reminder when due (offset 1440) and records a Notification", async () => {
+  it("sends a 1-day reminder when due (offset 1440) and records a Notification", async () => {
     const staff = await User.create({
       name: "Cheska",
       email: "cheska@test.com",

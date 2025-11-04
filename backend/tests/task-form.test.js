@@ -1,17 +1,3 @@
-/**
- * backend/tests/taskForm.test.js
- *
- * Integration tests that validate the behavior TaskForm relies on,
- * but at the API layer (Express + Supertest + mongodb-memory-server).
- *
- * Covers:
- *  - Create task (positive)
- *  - Create boundary case (minimal payload; nullables)
- *  - Create negative cases (invalid status/priority/ids)
- *  - Update task (positive)
- *  - Update negative cases (invalid id / not found)
- */
-
 import express from "express";
 import mongoose, { Schema, model } from "mongoose";
 import request from "supertest";

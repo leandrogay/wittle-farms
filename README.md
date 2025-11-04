@@ -1,12 +1,12 @@
 # wittle-farms
 
-wittle farms Smart Task Manager and Productivity System, helps to simplify task management and productivity tracking through the following six core features. 
+wittle farms Smart Task Manager and Productivity System, helps to simplify task management and productivity tracking through the following six core features: 
 
 1. User Authorisation and Authentication
 2. Task Management
 3. Task Grouping and Organisation
 4. Deadline and Schedule Tracking 
-5. Notificaiton System (In-app and Email)
+5. Notification System (In-app and Email)
 6. Report Generation and Exporting 
 
 ---

@@ -1,17 +1,3 @@
-/**
- * backend/tests/directorReport.test.js
- *
- * Comprehensive unit tests for the Director Report generation functionality.
- * Tests the /api/director/report endpoint with 100% coverage including:
- * - Valid and invalid department IDs
- * - Metrics calculations (time performance, project scope, task scope)
- * - Team performance analysis
- * - Overdue analysis and milestones
- * - Productivity trends
- * - Error scenarios and edge cases
- * - Database integration with in-memory MongoDB
- */
-
 import express from "express";
 import mongoose from "mongoose";
 import request from "supertest";

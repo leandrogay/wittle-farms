@@ -1,9 +1,8 @@
-// backend/tests/daily-overdue-manager.test.js
 import { describe, it, beforeAll, afterAll, beforeEach, expect, vi } from "vitest";
 import { MongoMemoryServer } from "mongodb-memory-server";
 import mongoose from "mongoose";
 
-import { runDailyOverdueDigest } from "../jobs/dailyOverdueTaskEmails.js";
+import { runDailyOverdueDigest } from "../jobs/daily-overdue-task-emails.js";
 import User from "../models/User.js";
 import Project from "../models/Project.js";
 import Task from "../models/Task.js";
