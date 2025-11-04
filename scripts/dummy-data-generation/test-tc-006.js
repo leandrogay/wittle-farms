@@ -5,11 +5,11 @@ import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
-// Import m    console.log('👉 Now log in as littlefarms.inappreminder@gmail.com and check for 3 notifications.');   console.log('👉 Now log in as littlefarms.inappreminder@gmail.com and check for 3 notifications.');dels
-import Project from '../models/Project.js';
-import Task from '../models/Task.js';
-import User from '../models/User.js';
-import Notification from '../models/Notification.js';
+// Import models
+import Project from '../../backend/models/Project.js';
+import Task from '../../backend/models/Task.js';
+import User from '../../backend/models/User.js';
+import Notification from '../../backend/models/Notification.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -67,38 +67,22 @@ async function createTestTask() {
       console.log('✅ Found existing project:', project.name);
     }
 
-    // Clean up ALL existing notifications for this user (clean slate for TC-005)
+    // Clean up ALL existing notifications for this user (clean slate for TC-006)
     const existingNotifications = await Notification.find({ userId: user._id });
     if (existingNotifications.length > 0) {
       await Notification.deleteMany({ userId: user._id });
       console.log(`🗑️  Deleted ${existingNotifications.length} existing notification(s) for clean slate`);
     }
 
-    // Calculate deadline: Set reminder times to be exactly NOW (within 1 minute)
-    // The notification system only triggers when Math.abs(now.diff(reminderTime, 'minute')) <= 1
+    // Calculate deadline: Set deadline to 1 day from now
+    // This allows us to create notifications that were "sent" in the past
     const now = new Date();
-    // Set deadline = now + 30 minutes, so 30min reminder = exactly now
-    const deadline = new Date(now.getTime() + (30 * 60 * 1000)); // 30 minutes from now
+    const deadline = new Date(now.getTime() + (1 * 24 * 60 * 60 * 1000)); // 1 day from now
     
     console.log('📅 Current time:', now.toISOString());
     console.log('📅 Task deadline:', deadline.toISOString());
 
-    // Clean up existing TC-005 notifications first
-    const existingTC005Task = await Task.findOne({ 
-      assignedProject: project._id, 
-      title: "LF-50 TC-005" 
-    });
-    
-    if (existingTC005Task) {
-      const deletedNotifs = await Notification.deleteMany({
-        userId: user._id,
-        taskId: existingTC005Task._id,
-        type: "reminder"
-      });
-      if (deletedNotifs.deletedCount > 0) {
-        console.log(`🗑️  Deleted ${deletedNotifs.deletedCount} existing TC-005 notifications`);
-      }
-    }
+
 
     // Delete ALL existing tasks under LF-50 functional test cases project
     const existingTasks = await Task.find({ assignedProject: project._id });
@@ -107,15 +91,15 @@ async function createTestTask() {
       await Task.deleteMany({ assignedProject: project._id });
     }
 
-    // Create the task with 3 custom reminders
+    // Create the task WITHOUT specifying reminderOffsets to use defaults
     const taskData = {
-      title: "LF-50 TC-005",
-      description: "Test case for multiple custom reminders (1 day, 1 hour, 30 minutes) notification functionality",
+      title: "LF-50 TC-006",
+      description: "Test case for default reminders (7 days, 3 days, 1 day) notification functionality",
       assignedProject: project._id,
       assignedTeamMembers: [user._id],
       createdBy: user._id,
       deadline: deadline,
-      reminderOffsets: [1440, 60, 30], // 1 day (1440 min), 1 hour (60 min), 30 minutes
+      // reminderOffsets: not specified, so will use DEFAULT_REMINDERS_MIN = [10080, 4320, 1440]
       status: "To Do",
       priority: 5 // Medium priority (1-10 scale)
     };
@@ -125,68 +109,31 @@ async function createTestTask() {
     console.log('📋 Task Details:');
     console.log('   - Title:', task.title);
     console.log('   - Deadline:', task.deadline.toISOString());
-    console.log('   - Reminders: 3 custom reminders (1 day, 1 hour, 30 minutes before deadline)');
+    console.log('   - ReminderOffsets:', task.reminderOffsets); // Verify defaults applied
     console.log('   - Assigned to:', user.email);
     console.log('   - Project:', project.name);
     console.log('   - Task ID:', task._id.toString());
 
-    // Calculate when reminder notifications should be sent
-    const reminder1Day = new Date(deadline.getTime() - (1440 * 60 * 1000));
-    const reminder1Hour = new Date(deadline.getTime() - (60 * 60 * 1000));
-    const reminder30Min = new Date(deadline.getTime() - (30 * 60 * 1000));
+    // Verify that default reminders were automatically applied
+    if (JSON.stringify(task.reminderOffsets) === JSON.stringify([10080, 4320, 1440])) {
+      console.log('✅ Default reminders automatically applied: [10080, 4320, 1440] (7d, 3d, 1d)');
+    } else {
+      console.log('⚠️  Warning: Expected default reminders [10080, 4320, 1440], got:', task.reminderOffsets);
+    }
+
+    // Calculate when reminder notifications will be sent
+    const reminder7Days = new Date(deadline.getTime() - (10080 * 60 * 1000)); // 7 days before deadline
+    const reminder3Days = new Date(deadline.getTime() - (4320 * 60 * 1000));  // 3 days before deadline
+    const reminder1Day = new Date(deadline.getTime() - (1440 * 60 * 1000));   // 1 day before deadline
     
-    console.log('🔔 Reminder notifications should be sent at:');
-    console.log('   - 1 day reminder:', reminder1Day.toISOString());
-    console.log('   - 1 hour reminder:', reminder1Hour.toISOString());
-    console.log('   - 30 minute reminder:', reminder30Min.toISOString());
+    console.log('\n🔔 Reminder notifications will be automatically created by cron at:');
+    console.log('   - 7 days before:', reminder7Days.toISOString());
+    console.log('   - 3 days before:', reminder3Days.toISOString());
+    console.log('   - 1 day before:', reminder1Day.toISOString());
 
-    // Create the 3 reminder notifications with realistic createdAt timestamps
-    const notifications = [
-      {
-        userId: user._id,
-        taskId: task._id,
-        type: "reminder",
-        reminderOffset: 1440, // 1 day
-        message: `Task "${task.title}" is due in 1 day.`,
-        scheduledFor: reminder1Day,
-        read: false,
-        sent: true,
-        createdAt: reminder1Day, // Set createdAt to when the reminder should have been sent
-        updatedAt: reminder1Day
-      },
-      {
-        userId: user._id,
-        taskId: task._id,
-        type: "reminder",
-        reminderOffset: 60, // 1 hour
-        message: `Task "${task.title}" is due in 1 hour.`,
-        scheduledFor: reminder1Hour,
-        read: false,
-        sent: true,
-        createdAt: reminder1Hour, // Set createdAt to when the reminder should have been sent
-        updatedAt: reminder1Hour
-      },
-      {
-        userId: user._id,
-        taskId: task._id,
-        type: "reminder",
-        reminderOffset: 30, // 30 minutes
-        message: `Task "${task.title}" is due in 30 minutes.`,
-        scheduledFor: reminder30Min,
-        read: false,
-        sent: true,
-        createdAt: reminder30Min, // Set createdAt to when the reminder should have been sent
-        updatedAt: reminder30Min
-      }
-    ];
-
-    await Notification.insertMany(notifications);
-    console.log('✅ Created 3 reminder notifications with realistic timestamps');
-
-    console.log('\n🎯 Test Case TC-005 Setup Complete!');
-    console.log('� 3 notifications have been created for the 3 reminders');
-    console.log('�👉 Now log in as littlefarms.inappreminder@gmail.com and check for 3 notifications.');
-    console.log('💡 Expected: 3 notifications should appear when notification bell is clicked');
+    console.log('\n🎯 Test Case TC-006 Setup Complete!');
+    console.log('👉 The cron job will automatically create notifications at the scheduled times.');
+    console.log('👉 Log in as littlefarms.inappreminder@gmail.com to check for notifications as they arrive.');
 
   } catch (error) {
     console.error('❌ Error creating test task:', error.message);

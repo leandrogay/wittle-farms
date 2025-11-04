@@ -6,10 +6,10 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 
 // Import models
-import Project from '../models/Project.js';
-import Task from '../models/Task.js';
-import User from '../models/User.js';
-import Notification from '../models/Notification.js';
+import Project from '../../backend/models/Project.js';
+import Task from '../../backend/models/Task.js';
+import User from '../../backend/models/User.js';
+import Notification from '../../backend/models/Notification.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -67,16 +67,16 @@ async function createTestTask() {
       console.log('✅ Found existing project:', project.name);
     }
 
-    // Clean up ALL existing notifications for this user (clean slate for TC-002)
+    // Clean up ALL existing notifications for this user (clean slate for TC-003)
     const existingNotifications = await Notification.find({ userId: user._id });
     if (existingNotifications.length > 0) {
       await Notification.deleteMany({ userId: user._id });
       console.log(`🗑️  Deleted ${existingNotifications.length} existing notification(s) for clean slate`);
     }
 
-    // Calculate deadline: 30 minutes after current time
+    // Calculate deadline: 1 hour after current time  
     const now = new Date();
-    const deadline = new Date(now.getTime() + (30 * 60 * 1000)); // 30 minutes from now
+    const deadline = new Date(now.getTime() + (60 * 60 * 1000)); // 1 hour from now
     
     console.log('📅 Current time:', now.toISOString());
     console.log('📅 Task deadline:', deadline.toISOString());
@@ -88,15 +88,15 @@ async function createTestTask() {
       await Task.deleteMany({ assignedProject: project._id });
     }
 
-    // Create the task with single 30 minute reminder
+    // Create the task with single 1 hour reminder
     const taskData = {
-      title: "LF-50 TC-002",
-      description: "Test case for single 30 minute reminder notification functionality",
+      title: "LF-50 TC-003",
+      description: "Test case for single 1 hour reminder notification functionality",
       assignedProject: project._id,
       assignedTeamMembers: [user._id],
       createdBy: user._id,
       deadline: deadline,
-      reminderOffsets: [30], // 30 minutes
+      reminderOffsets: [60], // 60 minutes (1 hour)
       status: "To Do",
       priority: 5 // Medium priority (1-10 scale)
     };
@@ -106,13 +106,13 @@ async function createTestTask() {
     console.log('📋 Task Details:');
     console.log('   - Title:', task.title);
     console.log('   - Deadline:', task.deadline.toISOString());
-    console.log('   - Reminders: 30 minute reminder');
+    console.log('   - Reminders: 1 hour (60 minute) reminder');
     console.log('   - Assigned to:', user.email);
     console.log('   - Project:', project.name);
     console.log('   - Task ID:', task._id.toString());
 
-    console.log('\n🎯 Test Case TC-002 Setup Complete!');
-    console.log('👉 The cron job will automatically create the notification when the reminder time arrives.');
+    console.log('\n🎯 Test Case TC-003 Setup Complete!');
+    console.log('⏰ The cron job will automatically create the notification when the reminder time arrives.');
     console.log('👉 Now log in as littlefarms.inappreminder@gmail.com and check for notifications.');
 
   } catch (error) {

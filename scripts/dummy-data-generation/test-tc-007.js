@@ -6,10 +6,10 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 
 // Import models
-import Project from '../models/Project.js';
-import Task from '../models/Task.js';
-import User from '../models/User.js';
-import Notification from '../models/Notification.js';
+import Project from '../../backend/models/Project.js';
+import Task from '../../backend/models/Task.js';
+import User from '../../backend/models/User.js';
+import Notification from '../../backend/models/Notification.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -67,19 +67,20 @@ async function createTestTask() {
       console.log('✅ Found existing project:', project.name);
     }
 
-    // Clean up ALL existing notifications for this user (clean slate for TC-003)
+    // Clean up ALL existing notifications for this user (clean slate for TC-007)
     const existingNotifications = await Notification.find({ userId: user._id });
     if (existingNotifications.length > 0) {
       await Notification.deleteMany({ userId: user._id });
       console.log(`🗑️  Deleted ${existingNotifications.length} existing notification(s) for clean slate`);
     }
 
-    // Calculate deadline: 1 hour after current time  
+    // Calculate deadline: Set deadline to be 5 minutes AGO (overdue)
     const now = new Date();
-    const deadline = new Date(now.getTime() + (60 * 60 * 1000)); // 1 hour from now
+    const deadline = new Date(now.getTime() - (5 * 60 * 1000)); // 5 minutes ago
     
     console.log('📅 Current time:', now.toISOString());
-    console.log('📅 Task deadline:', deadline.toISOString());
+    console.log('📅 Task deadline (OVERDUE):', deadline.toISOString());
+    console.log('⏰ Task is overdue by:', Math.floor((now - deadline) / 60000), 'minutes');
 
     // Delete ALL existing tasks under LF-50 functional test cases project
     const existingTasks = await Task.find({ assignedProject: project._id });
@@ -88,32 +89,45 @@ async function createTestTask() {
       await Task.deleteMany({ assignedProject: project._id });
     }
 
-    // Create the task with single 1 hour reminder
+    // Create the overdue task with no reminder offsets (we want to test overdue notification only)
     const taskData = {
-      title: "LF-50 TC-003",
-      description: "Test case for single 1 hour reminder notification functionality",
+      title: "LF-50 TC-007",
+      description: "Test case for overdue notification functionality - task deadline has passed",
       assignedProject: project._id,
       assignedTeamMembers: [user._id],
       createdBy: user._id,
-      deadline: deadline,
-      reminderOffsets: [60], // 60 minutes (1 hour)
-      status: "To Do",
-      priority: 5 // Medium priority (1-10 scale)
+      // NOTE: We'll set deadline after creation to avoid default reminderOffsets being applied
+      reminderOffsets: [], // No reminder offsets - we only want overdue notification
+      status: "In Progress", // Not Done yet, so overdue notification should trigger
+      priority: 8 // High priority (1-10 scale) since it's overdue
     };
 
     const task = await Task.create(taskData);
-    console.log('✅ Created task successfully!');
+    
+    // Now update the task with the deadline to avoid the pre-save middleware adding default reminders
+    task.deadline = deadline;
+    task.reminderOffsets = []; // Explicitly clear any default reminders
+    await task.save();
+    console.log('✅ Created overdue task successfully!');
     console.log('📋 Task Details:');
     console.log('   - Title:', task.title);
     console.log('   - Deadline:', task.deadline.toISOString());
-    console.log('   - Reminders: 1 hour (60 minute) reminder');
+    console.log('   - Status:', task.status);
+    console.log('   - Reminders: None (testing overdue only)');
     console.log('   - Assigned to:', user.email);
     console.log('   - Project:', project.name);
     console.log('   - Task ID:', task._id.toString());
 
-    console.log('\n🎯 Test Case TC-003 Setup Complete!');
-    console.log('⏰ The cron job will automatically create the notification when the reminder time arrives.');
-    console.log('👉 Now log in as littlefarms.inappreminder@gmail.com and check for notifications.');
+    console.log('\n🎯 Test Case TC-007 Setup Complete!');
+    console.log('🚨 TASK IS OVERDUE - deadline was 5 minutes ago');
+    console.log('👉 The cron job will automatically create an overdue notification within 1 minute.');
+    console.log('👉 Now log in as littlefarms.inappreminder@gmail.com and check for overdue notification.');
+    console.log('');
+    console.log('📝 Expected Result:');
+    console.log('   ✅ An overdue notification should appear in the notification bell');
+    console.log('   ✅ Notification message should contain "overdue" and task title');
+    console.log('   ✅ Notification should persist until task is marked "Done"');
+    console.log('   ✅ Only ONE overdue notification per task (no duplicates)');
 
   } catch (error) {
     console.error('❌ Error creating test task:', error.message);
