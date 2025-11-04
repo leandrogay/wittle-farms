@@ -482,7 +482,7 @@ describe("DELETE /:taskId/comments/:commentId", () => {
       },
     }));
 
-    // 👇 Route uses an *unimported* global `User` — stub it.
+    // Route uses an *unimported* global `User` — stub it.
     const userFind = vi.fn(() => ({
       select: vi.fn(() => ({
         lean: vi.fn(async () => ([
@@ -1060,6 +1060,326 @@ describe("DELETE /:taskId/comments/:commentId", () => {
     // mentions should be an empty array
     const saved = f.db.comments.find(c => c.body.includes("no mentions"));
     expect(saved.mentions).toEqual([]);
+  });
+
+});
+
+// Add these test cases to your comments_test.js file to achieve 100% branch coverage
+
+describe("Additional tests for 100% coverage", () => {
+  
+  // UNCOVERED BRANCH 1: Line 75 - u._id || "" when _id is falsy
+  it("mentionable-users: handles user with falsy _id (line 75 right branch)", async () => {
+    const { app, f } = await loadApp();
+    
+    // User with no _id - will trigger u._id || "" to use ""
+    f.db.tasks[0].assignedTeamMembers = [
+      { _id: null, name: "NoId", email: "noid@example.com" }, // _id is null -> || "" branch
+    ];
+    
+    const r = await request(app).get(`/api/tasks/${TASK_ID}/mentionable-users`);
+    expect(r.status).toBe(200);
+    // Should still work with empty _id
+    expect(r.body.some(u => u.handle === "noid")).toBe(true);
+  });
+
+  // UNCOVERED BRANCH 2: Line 76 - u.name || "" when name is falsy
+  it("mentionable-users: handles user with falsy name (line 76 right branch)", async () => {
+    const { app, f } = await loadApp();
+    
+    // User with null name - will trigger u.name || "" to use ""
+    f.db.tasks[0].assignedTeamMembers = [
+      { _id: makeId(24), name: null, email: "test@example.com" }, // name is null -> || "" branch
+    ];
+    
+    const r = await request(app).get(`/api/tasks/${TASK_ID}/mentionable-users`);
+    expect(r.status).toBe(200);
+    expect(r.body.some(u => u.handle === "test")).toBe(true);
+  });
+
+  // UNCOVERED BRANCH 3: Line 77 - u.email || "" when email is falsy
+  it("mentionable-users: handles user with falsy email (line 77 right branch)", async () => {
+    const { app, f } = await loadApp();
+    
+    // User with null email - will trigger u.email || "" to use ""
+    f.db.tasks[0].assignedTeamMembers = [
+      { _id: makeId(24), name: "TestUser", email: null }, // email is null -> || "" branch
+    ];
+    
+    const r = await request(app).get(`/api/tasks/${TASK_ID}/mentionable-users`);
+    expect(r.status).toBe(200);
+    // handle will be name.toLowerCase() since email is falsy
+    expect(r.body.some(u => u.handle === "testuser")).toBe(true);
+  });
+
+  // UNCOVERED BRANCH 4: Line 78 - toLocal(email) || name.toLowerCase() when email has no local part
+  it("mentionable-users: handles email with no local part (line 78 right branch)", async () => {
+    const { app, f } = await loadApp();
+    
+    // Email that results in empty string from toLocal -> will use name.toLowerCase()
+    f.db.tasks[0].assignedTeamMembers = [
+      { _id: makeId(24), name: "Fallback", email: "@example.com" }, // toLocal returns "" -> uses name
+    ];
+    
+    const r = await request(app).get(`/api/tasks/${TASK_ID}/mentionable-users`);
+    expect(r.status).toBe(200);
+    expect(r.body.some(u => u.handle === "fallback")).toBe(true);
+  });
+
+  // UNCOVERED BRANCH 5: Line 80 - name || handle when name is empty
+  it("mentionable-users: uses handle when name is empty (line 80 right branch)", async () => {
+    const { app, f } = await loadApp();
+    
+    // Empty name -> should use handle in the output
+    f.db.tasks[0].assignedTeamMembers = [
+      { _id: makeId(24), name: "", email: "handleonly@example.com" },
+    ];
+    
+    const r = await request(app).get(`/api/tasks/${TASK_ID}/mentionable-users`);
+    expect(r.status).toBe(200);
+    const user = r.body.find(u => u.handle === "handleonly");
+    expect(user.name).toBe("handleonly"); // name falls back to handle
+  });
+
+  // UNCOVERED BRANCH 6: Line 84 - task.assignedTeamMembers || [] when null/undefined
+  it("mentionable-users: handles null assignedTeamMembers (line 84 right branch)", async () => {
+    const { app, f } = await loadApp();
+    
+    // Set assignedTeamMembers to null
+    f.db.tasks[0].assignedTeamMembers = null;
+    
+    const r = await request(app).get(`/api/tasks/${TASK_ID}/mentionable-users`);
+    expect(r.status).toBe(200);
+    // Should only have createdBy user
+    expect(r.body.length).toBe(1);
+  });
+
+  // UNCOVERED BRANCH 7: Line 88 - task.assignedTeamMembers || [] in needLookup forEach
+  it("mentionable-users: handles undefined assignedTeamMembers in needLookup (line 88 right branch)", async () => {
+    const { app, f } = await loadApp();
+    
+    // Set assignedTeamMembers to undefined
+    f.db.tasks[0].assignedTeamMembers = undefined;
+    
+    const r = await request(app).get(`/api/tasks/${TASK_ID}/mentionable-users`);
+    expect(r.status).toBe(200);
+    expect(r.body.length).toBeGreaterThanOrEqual(1); // At least createdBy
+  });
+
+  // UNCOVERED BRANCH 8: Line 100 - u._id || u.handle when _id is empty
+  it("mentionable-users: uses handle as map key when _id is empty (line 100 right branch)", async () => {
+    const { app, f } = await loadApp();
+    
+    // This will create a user with empty _id string, forcing the map key to use handle
+    f.db.tasks[0].assignedTeamMembers = [
+      { _id: "", name: "KeyTest", email: "keytest@example.com" },
+    ];
+    
+    const r = await request(app).get(`/api/tasks/${TASK_ID}/mentionable-users`);
+    expect(r.status).toBe(200);
+    expect(r.body.some(u => u.handle === "keytest")).toBe(true);
+  });
+
+  // UNCOVERED BRANCH 9: Line 105 - req.query.q || "" when q is undefined
+  it("mentionable-users: handles missing query param (line 105 right branch)", async () => {
+    const { app, f } = await loadApp();
+    
+    // Don't pass q parameter - already covered by existing test, but explicitly verify
+    const r = await request(app).get(`/api/tasks/${TASK_ID}/mentionable-users`);
+    expect(r.status).toBe(200);
+    expect(r.body.length).toBeGreaterThan(0);
+  });
+
+  // UNCOVERED BRANCH 10: Line 170 - Number(limit) || 20 when limit is NaN or falsy
+  it("GET comments: uses default limit when limit is invalid (line 170 right branch)", async () => {
+    const { app, f } = await loadApp();
+    
+    // Seed 25 comments
+    for (let i = 0; i < 25; i++) {
+      f.db.comments.push({
+        _id: makeId(24),
+        task: TASK_ID,
+        author: VALID_OID,
+        body: `comment${i}`,
+        createdAt: new Date(),
+      });
+    }
+    
+    // Pass invalid limit
+    const r = await request(app).get(`/api/tasks/${TASK_ID}/comments?limit=invalid`);
+    expect(r.status).toBe(200);
+    expect(r.body.items.length).toBe(20); // Should use default
+  });
+
+  // UNCOVERED BRANCH 11: Line 223 - !author (left side) when author is null
+  it("POST comment: rejects when author is null (line 223 left branch)", async () => {
+    const { app } = await loadApp();
+    
+    const r = await request(app)
+      .post(`/api/tasks/${TASK_ID}/comments`)
+      .send({ author: null, body: "test" });
+    
+    expect(r.status).toBe(400);
+    expect(r.body.error).toContain("author");
+  });
+
+  // UNCOVERED BRANCH 12: Line 226 - !body (left side) when body is null
+  it("POST comment: rejects when body is null (line 226 left branch)", async () => {
+    const { app } = await loadApp();
+    
+    const r = await request(app)
+      .post(`/api/tasks/${TASK_ID}/comments`)
+      .send({ author: VALID_OID, body: null });
+    
+    expect(r.status).toBe(400);
+    expect(r.body.error).toContain("body");
+  });
+
+  // UNCOVERED BRANCH 13: Line 235 - clientKey || undefined when clientKey is falsy
+  it("POST comment: handles missing clientKey (line 235 right branch)", async () => {
+    const { app, f } = await loadApp();
+    
+    const r = await request(app)
+      .post(`/api/tasks/${TASK_ID}/comments`)
+      .send({ author: VALID_OID, body: "no client key" }); // clientKey not provided
+    
+    expect(r.status).toBe(201);
+    const saved = f.db.comments.find(c => c.body === "no client key");
+    expect(saved.clientKey).toBeUndefined();
+  });
+
+  // UNCOVERED BRANCH 14: Line 320 - !body (left side) in PUT when body is null
+  it("PUT comment: rejects when body is null (line 320 left branch)", async () => {
+    const { app, f } = await loadApp();
+    
+    f.db.comments.push({
+      _id: VALID_OID,
+      task: TASK_ID,
+      author: VALID_OID,
+      body: "original",
+      createdAt: new Date(),
+    });
+    f.attachInstanceMethods();
+    
+    const r = await request(app)
+      .put(`/api/tasks/${TASK_ID}/comments/${VALID_OID}`)
+      .send({ body: null, author: VALID_OID });
+    
+    expect(r.status).toBe(400);
+    expect(r.body.error).toContain("body");
+  });
+
+  // UNCOVERED BRANCH 15: Line 325 - !userId (left side) when both are falsy
+  it("PUT comment: rejects when userId is null (line 325 left branch)", async () => {
+    const { app, f } = await loadApp({ withUser: false });
+    
+    f.db.comments.push({
+      _id: VALID_OID,
+      task: TASK_ID,
+      author: VALID_OID,
+      body: "test",
+      createdAt: new Date(),
+    });
+    f.attachInstanceMethods();
+    
+    const r = await request(app)
+      .put(`/api/tasks/${TASK_ID}/comments/${VALID_OID}`)
+      .send({ body: "updated", author: null }); // author is null, req.user is absent
+    
+    expect(r.status).toBe(401);
+    expect(r.body.error).toContain("authenticated");
+  });
+
+  // UNCOVERED BRANCH 16: Line 405 (similar pattern in DELETE)
+  it("DELETE comment: rejects when userId is null (similar to line 325)", async () => {
+    const { app, f } = await loadApp({ withUser: false });
+    
+    f.db.comments.push({
+      _id: VALID_OID,
+      task: TASK_ID,
+      author: VALID_OID,
+      body: "test",
+      createdAt: new Date(),
+    });
+    f.attachInstanceMethods();
+    
+    const r = await request(app)
+      .delete(`/api/tasks/${TASK_ID}/comments/${VALID_OID}`)
+      .send({ author: null });
+    
+    expect(r.status).toBe(401);
+    expect(r.body.error).toContain("authenticated");
+  });
+
+  it("POST comment: explicitly verifies single mention gets wrapped in array (line 215)", async () => {
+    const { app, f } = await loadApp();
+    
+    // Explicitly mock to return a single non-array value
+    const singleId = VALID_OID; // or any valid ObjectId string
+    f.services.resolveMentionUserIds.mockImplementationOnce(async () => {
+      // Return a single string, NOT an array
+      return singleId;
+    });
+    
+    const response = await request(app)
+      .post(`/api/tasks/${TASK_ID}/comments`)
+      .send({ 
+        author: VALID_OID, 
+        body: "single mention test" 
+      });
+    
+    expect(response.status).toBe(201);
+    
+    // CRITICAL: Assert that the transformation happened
+    // Find the comment that was just created
+    const createdComment = f.db.comments[f.db.comments.length - 1];
+    
+    // Verify mentions was wrapped in an array
+    expect(createdComment.mentions).toBeDefined();
+    expect(Array.isArray(createdComment.mentions)).toBe(true);
+    expect(createdComment.mentions.length).toBe(1);
+    expect(createdComment.mentions[0]).toBe(singleId);
+    
+    // Also verify the populated response has it
+    expect(response.body.mentions).toBeDefined();
+  });
+
+  it("POST comment: works when io is null (optional chaining line 263, 265)", async () => {
+    const { app, f } = await loadApp();
+    
+    // Set io to null to test the short-circuit branch
+    app.set('io', null);
+    
+    const r = await request(app)
+      .post(`/api/tasks/${TASK_ID}/comments`)
+      .send({ author: VALID_OID, body: "no io" });
+    
+    expect(r.status).toBe(201);
+  });
+
+  it("DELETE comment: works when io is null (optional chaining line 420)", async () => {
+    const { app, f } = await loadApp();
+    
+    const commentRec = {
+      _id: VALID_OID,
+      task: TASK_ID,
+      author: VALID_OID,
+      body: "delete me",
+      createdAt: new Date(),
+      deleteOne: vi.fn(async () => {
+        const idx = f.db.comments.findIndex(x => String(x._id) === String(VALID_OID));
+        if (idx >= 0) f.db.comments.splice(idx, 1);
+      })
+    };
+    f.db.comments.push(commentRec);
+    
+    app.set('io', null);
+    
+    const r = await request(app)
+      .delete(`/api/tasks/${TASK_ID}/comments/${VALID_OID}`)
+      .send({ author: VALID_OID });
+    
+    expect(r.status).toBe(200);
   });
 
 });
