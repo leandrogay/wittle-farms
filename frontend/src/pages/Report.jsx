@@ -148,7 +148,7 @@ function StaffReport({ userId, reportData, reportRef }) {
   }, [tasks]);
 
   return (
-    <div ref={reportRef} className="space-y-6 p-6 bg-light-bg dark:bg-dark-bg">
+    <div ref={reportRef} className="rounded-2xl space-y-6 p-6 bg-light-bg dark:bg-dark-bg">
       {/* Header */}
       <div className="text-center border-b border-light-border dark:border-dark-border pb-4">
         <h1 className="text-3xl font-bold text-light-text-primary dark:text-dark-text-primary">
