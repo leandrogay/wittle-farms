@@ -398,7 +398,7 @@ const TaskCard = ({ task, onTaskUpdated, onTaskDeleted, currentUser }) => {
         <button
           type="button"
           onClick={() => setShowComments((v) => !v)}
-          className="rounded-xl border px-3 py-2 text-sm font-semibold bg-light-bg dark:bg-dark-bg text-light-text-primary dark:text-dark-text-primary ring-1 ring-light-border dark:ring-dark-border hover:opacity-90"
+          className={BTN_PRIMARY_CLS}
           aria-expanded={showComments}
         >
           {showComments ? "Hide comments" : "Show comments"}
