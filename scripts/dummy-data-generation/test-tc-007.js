@@ -31,7 +31,7 @@ async function createTestTask() {
       user = await User.create({
         name: "LF-50 Test User",
         email: "littlefarms.inappreminder@gmail.com",
-        password: process.env.UNIT_TEST_GENERIC_PASSWORD,
+        password: process.env.TEST_SENIOR_MANAGER_PASSWORD,
         role: "Staff"
       });
       console.log('✅ Created user:', user.email);
