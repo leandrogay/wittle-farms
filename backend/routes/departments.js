@@ -3,7 +3,40 @@ import Department from '../models/Department.js';
 
 const router = express.Router();
 
-// CREATE - Add a new department
+/**
+ * @openapi
+ * tags:
+ *   - name: Departments
+ *     description: Manage departments
+ */
+
+/**
+ * @openapi
+ * /api/departments:
+ *   post:
+ *     summary: Create a department
+ *     description: Add a new department.
+ *     tags: [Departments]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/DepartmentCreate'
+ *     responses:
+ *       201:
+ *         description: Department created
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Department'
+ *       400:
+ *         description: Validation error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
 router.post('/', async (req, res) => {
   try {
     const { name, description } = req.body;
@@ -15,7 +48,29 @@ router.post('/', async (req, res) => {
   }
 });
 
-// READ ALL - Get all departments
+/**
+ * @openapi
+ * /api/departments:
+ *   get:
+ *     summary: List departments
+ *     description: Get all departments, newest first.
+ *     tags: [Departments]
+ *     responses:
+ *       200:
+ *         description: A list of departments
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/Department'
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
 router.get('/', async (req, res) => {
   try {
     const departments = await Department.find().sort({ createdAt: -1 });
@@ -25,7 +80,40 @@ router.get('/', async (req, res) => {
   }
 });
 
-// READ ONE - Get department by ID
+/**
+ * @openapi
+ * /api/departments/{id}:
+ *   get:
+ *     summary: Get a department
+ *     description: Get a single department by its ID.
+ *     tags: [Departments]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         description: Department MongoDB ObjectId
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Department found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Department'
+ *       404:
+ *         description: Department not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
 router.get('/:id', async (req, res) => {
   try {
     const department = await Department.findById(req.params.id);
@@ -38,7 +126,46 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-// UPDATE - Update department by ID
+/**
+ * @openapi
+ * /api/departments/{id}:
+ *   put:
+ *     summary: Update a department
+ *     description: Update a department by its ID.
+ *     tags: [Departments]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         description: Department MongoDB ObjectId
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/DepartmentUpdate'
+ *     responses:
+ *       200:
+ *         description: Department updated
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Department'
+ *       400:
+ *         description: Validation error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       404:
+ *         description: Department not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
 router.put('/:id', async (req, res) => {
   try {
     const { name, description } = req.body;
@@ -58,7 +185,44 @@ router.put('/:id', async (req, res) => {
   }
 });
 
-// DELETE - Remove department by ID
+/**
+ * @openapi
+ * /api/departments/{id}:
+ *   delete:
+ *     summary: Delete a department
+ *     description: Remove a department by its ID.
+ *     tags: [Departments]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         description: Department MongoDB ObjectId
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Department deleted
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: Department deleted successfully
+ *       404:
+ *         description: Department not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
 router.delete('/:id', async (req, res) => {
   try {
     const department = await Department.findByIdAndDelete(req.params.id);

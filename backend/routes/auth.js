@@ -55,7 +55,7 @@ const sendRefreshToken = (res, token) => {
     httpOnly: true, 
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'strict',
-    maxAge: 7 * 24 * 60 * 60 * 1000, // max age of 7 days for refresh token 
+    maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
   });
 };
 
@@ -74,6 +74,59 @@ const handleSucessfulAuth = async (res, user) => {
   });
 };
 
+/**
+ * @openapi
+ * tags:
+ *   - name: Auth
+ *     description: Authentication & session flows (email/password, OTP, refresh tokens)
+ */
+
+/**
+ * @openapi
+ * /api/auth/register:
+ *   post:
+ *     summary: Register a new user
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/AuthRegisterRequest'
+ *           examples:
+ *             default:
+ *               value:
+ *                 name: Jane Doe
+ *                 email: jane@example.com
+ *                 password: S3cureP@ssw0rd
+ *                 role: user
+ *     responses:
+ *       200:
+ *         description: Registration successful; returns an access token and sets refresh token cookie
+ *         headers:
+ *           Set-Cookie:
+ *             description: HttpOnly refreshToken cookie
+ *             schema: { type: string }
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/AuthSuccessResponse'
+ *       400:
+ *         description: Missing or invalid fields
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/Error' }
+ *       409:
+ *         description: Email already in use
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/Error' }
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/Error' }
+ */
 router.post("/register", async (req, res) => {
   try {
     const { name, email, password, role } = req.body;
@@ -82,7 +135,7 @@ router.post("/register", async (req, res) => {
     }
     const user = new User({ name, email, password, role });
     await user.save();
-    return await handleSucessfulAuth(res, user); // login user after successful registration 
+    return await handleSucessfulAuth(res, user);
   } catch (err) {
     console.error("REGISTER error:", err);
     if (err?.code === 11000) return res.status(409).json({ message: "Email already in use" });
@@ -94,6 +147,49 @@ router.post("/register", async (req, res) => {
   }
 });
 
+/**
+ * @openapi
+ * /api/auth/login:
+ *   post:
+ *     summary: Start login (email + password), sends OTP by email if password is valid
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema: { $ref: '#/components/schemas/AuthLoginRequest' }
+ *     responses:
+ *       200:
+ *         description: OTP has been sent to the user's email
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/Message' }
+ *       401:
+ *         description: Invalid email or password
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/Error' }
+ *       403:
+ *         description: Account locked (too many attempts)
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/AuthLockedResponse' }
+ *       400:
+ *         description: Missing fields
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/Error' }
+ *       502:
+ *         description: Failed to send OTP email
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/Error' }
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/Error' }
+ */
 router.post("/login", async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -154,6 +250,39 @@ router.post("/login", async (req, res) => {
   }
 });
 
+/**
+ * @openapi
+ * /api/auth/verify-otp:
+ *   post:
+ *     summary: Verify OTP and complete login
+ *     description: Accepts a one-time password sent via email. In development, a DEV_OTP_CODE bypass is supported (configurable).
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema: { $ref: '#/components/schemas/VerifyOtpRequest' }
+ *     responses:
+ *       200:
+ *         description: Successful auth; returns an access token and sets refresh token cookie
+ *         headers:
+ *           Set-Cookie:
+ *             description: HttpOnly refreshToken cookie
+ *             schema: { type: string }
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/AuthSuccessResponse' }
+ *       400:
+ *         description: Invalid or expired OTP / no active OTP session
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/Error' }
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/Error' }
+ */
 router.post("/verify-otp", async (req, res) => {
   try {
     const { email, otp } = req.body;
@@ -170,8 +299,6 @@ router.post("/verify-otp", async (req, res) => {
       (!envIsProd || ALLOW_DEV_OTP_IN_PROD);
 
     if (devBypassAllowed) {
-      // Optional: only allow bypass if there is an active OTP flow (prevents blind logins).
-      // If you want unconditional bypass for testing, remove this guard.
       if (!user.otpExpires || user.otpExpires < new Date()) {
         return res.status(400).json({ message: "No active login session to bypass OTP" });
       }
@@ -195,6 +322,35 @@ router.post("/verify-otp", async (req, res) => {
   }
 });
 
+/**
+ * @openapi
+ * /api/auth/refresh:
+ *   post:
+ *     summary: Rotate and return a new access token (uses HttpOnly refreshToken cookie)
+ *     tags: [Auth]
+ *     security:
+ *       - cookieAuth: []   # describes the refreshToken cookie
+ *     responses:
+ *       200:
+ *         description: Returns a new access token and rotates the refresh cookie
+ *         headers:
+ *           Set-Cookie:
+ *             description: New HttpOnly refreshToken cookie
+ *             schema: { type: string }
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/RefreshResponse' }
+ *       401:
+ *         description: No refresh token provided
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/Error' }
+ *       403:
+ *         description: Invalid or expired refresh token
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/Error' }
+ */
 router.post("/refresh", async(req, res) => {
   const token = req.cookies.refreshToken;
   if(!token) return res.status(401).json({ message: "No refresh token provided" });
@@ -207,11 +363,10 @@ router.post("/refresh", async(req, res) => {
       return res.status(403).json({ message: "Invalid refresh token" });
     }
 
-    // to rotate tokens
     const newAccessToken = signAccessToken(user);
     const newRefreshToken = signRefreshToken(user);
 
-    user.refreshToken = newRefreshToken; // update db with new refresh token
+    user.refreshToken = newRefreshToken;
     await user.save({ validateBeforeSave: false });
 
     sendRefreshToken(res, newRefreshToken);
@@ -223,6 +378,19 @@ router.post("/refresh", async(req, res) => {
   }
 });
 
+/**
+ * @openapi
+ * /api/auth/logout:
+ *   post:
+ *     summary: Logout and clear refresh token
+ *     tags: [Auth]
+ *     responses:
+ *       200:
+ *         description: Logged out successfully; refresh cookie cleared
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/Message' }
+ */
 router.post("/logout", async (req, res) => {
   const token = req.cookies.refreshToken;
   if (token) {
@@ -239,13 +407,40 @@ router.post("/logout", async (req, res) => {
   }
   res.clearCookie('refreshToken');
   res.json({ message: "Logged out successfully"})
-})
+});
 
 // =====================
 // Forgot / Reset Password
 // =====================
 
-// POST /api/auth/forgot-password
+/**
+ * @openapi
+ * /api/auth/forgot-password:
+ *   post:
+ *     summary: Send a password reset link to email
+ *     description: Always returns 200 to avoid account enumeration. Check `X-Email-Exists` response header for internal UI hints.
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema: { $ref: '#/components/schemas/ForgotPasswordRequest' }
+ *     responses:
+ *       200:
+ *         description: If the email is registered, a reset link was sent.
+ *         headers:
+ *           X-Email-Exists:
+ *             description: Internal hint whether the email exists ("true"/"false")
+ *             schema: { type: string, enum: ["true","false"] }
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/Message' }
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/Error' }
+ */
 router.post("/forgot-password", async (req, res) => {
   try {
     const { email } = req.body || {};
@@ -255,27 +450,22 @@ router.post("/forgot-password", async (req, res) => {
     const exposeHeader = () => {
       res.setHeader("Access-Control-Expose-Headers","X-Email-Exists");
     };
-    // Always respond the same to avoid account enumeration
     if (!user) {
       exposeHeader();
       res.setHeader("X-Email-Exists", "false");
       return res.json({ message: "If this email is registered, a reset link was sent." });
     };
 
-    // Generate token & expiry
     const token = crypto.randomBytes(32).toString("hex");
-    const expires = new Date(Date.now() + 15 * 60 * 1000); // 15 mins
+    const expires = new Date(Date.now() + 15 * 60 * 1000);
 
-    // Save on user (make sure your schema has these fields)
     user.resetToken = token;
     user.resetTokenExpires = expires;
     await user.save({ validateBeforeSave: false });
 
-    // Compose link
     const frontend = process.env.FRONTEND_URL || "http://localhost:5173";
     const link = `${frontend}/reset-password?token=${token}`;
 
-    // Send email (or just log while developing)
     try {
       await transporter.sendMail({
         from: { name: "Little Farms", address: process.env.EMAIL_USER },
@@ -284,13 +474,11 @@ router.post("/forgot-password", async (req, res) => {
         html: `<p>Click to reset your password:</p>
               <p><a href="${link}">${link}</a></p>
               <p>This link expires in 15 minutes.</p>`,
-        // Optional: prevent replies going to a monitored inbox
         replyTo: "no-reply@wittlefarms.com",
       });
       console.log("[ForgotPassword] Sent link:", link);
     } catch (mailErr) {
       console.error("EMAIL SEND ERROR:", mailErr);
-      // Still return 200 so we don't leak deliverability info
     }
 
     exposeHeader();
@@ -302,7 +490,34 @@ router.post("/forgot-password", async (req, res) => {
   }
 });
 
-// POST /api/auth/reset-password
+/**
+ * @openapi
+ * /api/auth/reset-password:
+ *   post:
+ *     summary: Reset password using token
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema: { $ref: '#/components/schemas/ResetPasswordRequest' }
+ *     responses:
+ *       200:
+ *         description: Password updated
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/Message' }
+ *       400:
+ *         description: Invalid/expired token or password reuse detected
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/Error' }
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/Error' }
+ */
 router.post("/reset-password", async (req, res) => {
   try {
     const { token, password } = req.body || {};
@@ -310,28 +525,18 @@ router.post("/reset-password", async (req, res) => {
       return res.status(400).json({ message: "Token and password required" });
     }
 
-    // const user = await User.findOne({
-    //   resetToken: token,
-    //   resetTokenExpires: { $gt: new Date() }, // not expired
-    // });
-    // if (!user) return res.status(400).json({ message: "Invalid or expired token" });
-
-    // Find by token first
     const user = await User.findOne({ resetToken: token });
     if (!user) {
       return res.status(400).json({ message: "Invalid or expired token" });
     }
-    // Now check expiry explicitly
     if (!user.resetTokenExpires || user.resetTokenExpires < new Date()) {
       return res.status(400).json({ message: "Reset link expired, please request again" });
     }
 
-    // 1) Disallow same as current
     if (await bcrypt.compare(password, user.password || "")) {
       return res.status(400).json({ message: "Cannot reuse previous password" });
     }
 
-    // 2) Disallow same as any of last N (default 5)
     const PASSWORD_HISTORY_LIMIT = 5;
     for (const oldHash of user.passwordHistory || []) {
       if (await bcrypt.compare(password, oldHash)) {
@@ -339,16 +544,11 @@ router.post("/reset-password", async (req, res) => {
       }
     }
 
-    // 3) Rotate: move current → history, cap at N
     const oldHash = user.password;
     if (oldHash) {
-      user.passwordHistory = [
-        oldHash,
-        ...(user.passwordHistory || []),
-      ].slice(0, PASSWORD_HISTORY_LIMIT);
+      user.passwordHistory = [ oldHash, ...(user.passwordHistory || []) ].slice(0, PASSWORD_HISTORY_LIMIT);
     }
 
-    // Update password; your User model's pre-save hook should hash it
     user.password = password;
     user.resetToken = undefined;
     user.resetTokenExpires = undefined;
@@ -361,7 +561,39 @@ router.post("/reset-password", async (req, res) => {
   }
 });
 
-// GET /api/auth/check-reset-token?token=...
+/**
+ * @openapi
+ * /api/auth/check-reset-token:
+ *   get:
+ *     summary: Validate a reset-password token
+ *     tags: [Auth]
+ *     parameters:
+ *       - in: query
+ *         name: token
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200:
+ *         description: Token is valid
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/CheckResetTokenResponse' }
+ *       400:
+ *         description: Invalid or expired token
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/Error' }
+ *       410:
+ *         description: Token expired (gone)
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/Error' }
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/Error' }
+ */
 router.get("/check-reset-token", async (req, res) => {
   try {
     const { token } = req.query || {};
@@ -379,7 +611,6 @@ router.get("/check-reset-token", async (req, res) => {
       console.error(`[check-reset-token] Token expired for user: ${user.email}, expires: ${user.resetTokenExpires}`);
       return res.status(410).json({ message: "Reset link expired, please request again" });
     }
-    // still valid
     return res.json({ ok: true });
   } catch (e) {
     console.error("[check-reset-token] Internal error:", e);
@@ -387,6 +618,9 @@ router.get("/check-reset-token", async (req, res) => {
   }
 });
 
+/**
+ * Middleware (not an endpoint).
+ */
 export function verifyAuth(req, res, next) {
   const h = req.header("Authorization") || "";
   const token = h.startsWith("Bearer ") ? h.slice(7) : null;
@@ -401,7 +635,36 @@ export function verifyAuth(req, res, next) {
   }
 }
 
-// Get the full current user (DB-backed)
+/**
+ * @openapi
+ * /api/auth/me:
+ *   get:
+ *     summary: Get current user profile
+ *     tags: [Auth]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Current user details
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/MeResponse' }
+ *       401:
+ *         description: Missing or invalid access token
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/Error' }
+ *       404:
+ *         description: User not found
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/Error' }
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/Error' }
+ */
 router.get("/me", verifyAuth, async (req, res) => {
   try {
     const user = await User.findById(req.userId)
@@ -426,6 +689,26 @@ router.get("/me", verifyAuth, async (req, res) => {
   }
 });
 
+/**
+ * @openapi
+ * /api/auth/session:
+ *   get:
+ *     summary: Get session info (from access token)
+ *     tags: [Auth]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Session information
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/SessionResponse' }
+ *       401:
+ *         description: Missing or invalid access token
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/Error' }
+ */
 router.get("/session", verifyAuth, (req, res) => {
   return res.json({
     session: {
@@ -435,5 +718,119 @@ router.get("/session", verifyAuth, (req, res) => {
   });
 });
 
-
 export default router;
+
+/**
+ * @openapi
+ * components:
+ *   schemas:
+ *     Message:
+ *       type: object
+ *       properties:
+ *         message: { type: string, example: "OK" }
+ *
+ *     Error:
+ *       type: object
+ *       properties:
+ *         message: { type: string, example: "Invalid or expired token" }
+ *         details:
+ *           type: array
+ *           items: { type: string }
+ *
+ *     UserPublic:
+ *       type: object
+ *       properties:
+ *         id: { type: string, example: "665f7f8a5e1c9c0f1a2b3c4d" }
+ *         name: { type: string, example: "Jane Doe" }
+ *         email: { type: string, example: "jane@example.com" }
+ *         role: { type: string, example: "user" }
+ *         createdAt: { type: string, format: date-time }
+ *         updatedAt: { type: string, format: date-time }
+ *
+ *     AuthRegisterRequest:
+ *       type: object
+ *       required: [name, email, password]
+ *       properties:
+ *         name: { type: string }
+ *         email: { type: string, format: email }
+ *         password: { type: string, format: password }
+ *         role: { type: string, example: "user" }
+ *
+ *     AuthLoginRequest:
+ *       type: object
+ *       required: [email, password]
+ *       properties:
+ *         email: { type: string, format: email }
+ *         password: { type: string, format: password }
+ *
+ *     VerifyOtpRequest:
+ *       type: object
+ *       required: [email, otp]
+ *       properties:
+ *         email: { type: string, format: email }
+ *         otp:
+ *           type: string
+ *           description: 6-digit OTP sent to email
+ *           example: "123456"
+ *
+ *     AuthSuccessResponse:
+ *       type: object
+ *       properties:
+ *         accessToken: { type: string, description: "JWT access token (Bearer)" }
+ *         user:
+ *           $ref: '#/components/schemas/UserPublic'
+ *
+ *     RefreshResponse:
+ *       type: object
+ *       properties:
+ *         accessToken: { type: string }
+ *
+ *     ForgotPasswordRequest:
+ *       type: object
+ *       required: [email]
+ *       properties:
+ *         email: { type: string, format: email }
+ *
+ *     ResetPasswordRequest:
+ *       type: object
+ *       required: [token, password]
+ *       properties:
+ *         token: { type: string }
+ *         password: { type: string, format: password }
+ *
+ *     CheckResetTokenResponse:
+ *       type: object
+ *       properties:
+ *         ok: { type: boolean, example: true }
+ *
+ *     AuthLockedResponse:
+ *       type: object
+ *       properties:
+ *         message: { type: string, example: "Too many failed attempts. Account locked for 15 minutes." }
+ *         unlockTime: { type: string, format: date-time }
+ *
+ *     MeResponse:
+ *       type: object
+ *       properties:
+ *         user:
+ *           $ref: '#/components/schemas/UserPublic'
+ *
+ *     SessionResponse:
+ *       type: object
+ *       properties:
+ *         session:
+ *           type: object
+ *           properties:
+ *             userId: { type: string }
+ *             role: { type: string }
+ *
+ *   securitySchemes:
+ *     bearerAuth:
+ *       type: http
+ *       scheme: bearer
+ *       bearerFormat: JWT
+ *     cookieAuth:
+ *       type: apiKey
+ *       in: cookie
+ *       name: refreshToken
+ */
