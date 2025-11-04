@@ -13,7 +13,7 @@ const router = Router();
 router.use(cookieParser());
 const JWT_SECRET = process.env.JWT_SECRET ?? "dev_secret_change_me";
 const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET ?? "dev_refresh_secret_change_me";
-const JWT_EXPIRES_IN = "30m"; // access token 
+const JWT_EXPIRES_IN = "5m"; // access token 
 const JWT_REFRESH_EXPIRES_IN = "7d"; // refresh token 
 const DEV_OTP_CODE = process.env.DEV_OTP_CODE || null;
 const ALLOW_DEV_OTP_IN_PROD = String(process.env.ALLOW_DEV_OTP_IN_PROD).toLowerCase() === "true";

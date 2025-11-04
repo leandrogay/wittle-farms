@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import AuthCtx from "./AuthCore";
-import { clearToken, getToken, scheduleLogoutWarning, refreshAccessToken } from "../services/api";
+import { clearToken, getToken, scheduleLogoutWarning } from "../services/api";
 
 export default function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
@@ -71,44 +71,13 @@ export default function AuthProvider({ children }) {
     clearToken(); 
   }, [clearTimers]);
 
-  async function handleStayLoggedIn() {
-    try {
-      await refreshAccessToken();
-      const fresh = getToken();
-      setShowWarn(false);
-      armTimersForToken(fresh);
-    } catch {
-      logout();
-    }
-  }
 
   return (
     <AuthCtx.Provider value={{ user, loading, login, logout }}>
       {children}
-      {showWarn && (
-        <div className="fixed bottom-4 right-4 max-w-sm rounded-xl bg-yellow-100 shadow p-4 text-yellow-900">
-          <div className="font-medium mb-2">You’ll be logged out soon</div>
-          <p className="text-sm mb-3">
-            Your session will expire in about <b>2 minutes</b>.
-          </p>
-          <div className="flex gap-2">
-            <button
-              onClick={handleStayLoggedIn}
-              className="px-3 py-1.5 rounded-md bg-yellow-600 text-white"
-            >
-              Stay logged in
-            </button>
-            <button
-              onClick={logout}
-              className="px-3 py-1.5 rounded-md border border-yellow-700 text-yellow-800"
-            >
-              Log out now
-            </button>
-          </div>
-        </div>
-      )}
     </AuthCtx.Provider>
   );
 }
 
 export { AuthCtx };
+
