@@ -1,11 +1,11 @@
 // tests/routes/projects.test.js
 import request from 'supertest';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import app from '../../app.js';
-import Project from '../../models/Project.js';
+import app from '../app.js';
+import Project from '../models/Project.js';
 
 // ---- Mock the Project model ----
-vi.mock('../../models/Project.js', () => {
+vi.mock('../models/Project.js', () => {
   return {
     default: {
       create: vi.fn(),

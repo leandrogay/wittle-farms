@@ -1,11 +1,11 @@
 import request from 'supertest';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import app from '../../app.js';
-import User from '../../models/User.js';
+import app from '../app.js';
+import User from '../models/User.js';
 import express from "express";
 
 // Mock the User model
-vi.mock('../../models/User.js', () => {
+vi.mock('../models/User.js', () => {
   return {
     default: {
       create: vi.fn(),
@@ -432,11 +432,11 @@ async function loadRouter() {
   vi.resetModules();
 
   const mock = makeUsersMock();
-  vi.doMock("../../models/User.js", () => ({
+  vi.doMock("../models/User.js", () => ({
     default: mock.fns,
   }));
 
-  const router = (await import("../../routes/users.js")).default;
+  const router = (await import("../routes/users.js")).default;
 
   // Minimal app + error handler so next(err) returns JSON
   const app = express();
@@ -549,14 +549,14 @@ describe("users router", () => {
   it("GET / returns 500 when the model throws (covers error path)", async () => {
     vi.resetModules();
     // Force find() to throw
-    vi.doMock("../../models/User.js", () => ({
+    vi.doMock("../models/User.js", () => ({
       default: {
         find: vi.fn(() => {
           throw new Error("DB read failed");
         }),
       },
     }));
-    const router = (await import("../../routes/users.js")).default;
+    const router = (await import("../routes/users.js")).default;
     const app = express();
     app.use(express.json());
     app.use("/api/users", router);

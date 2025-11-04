@@ -1,10 +1,10 @@
 import request from 'supertest';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import app from '../../app.js';
-import Department from '../../models/Department.js';
+import app from '../app.js';
+import Department from '../models/Department.js';
 
 // ---- Mock the Department model (constructor + statics) ----
-vi.mock('../../models/Department.js', () => {
+vi.mock('../models/Department.js', () => {
   // We'll export a callable constructor function and attach static methods to it.
   const DeptConstructor = vi.fn();
   // Attach the mongoose-like static methods we need
