@@ -1,84 +1,124 @@
-# wittle-farms
+# Smart Task Manager and Productivity System (G1T5)
 
-wittle farms Smart Task Manager and Productivity System, helps to simplify task management and productivity tracking through the following six core features: 
+This document serves as the README providing an overview of Little Farm’s Smart Task Manager and Productivity System, including its purpose, core capabilities, and instructions for running the application. It serves as a reference for developers, maintainers, and contributors who interact with the system.
 
-1. User Authorisation and Authentication
-2. Task Management
-3. Task Grouping and Organisation
-4. Deadline and Schedule Tracking 
-5. Notification System (In-app and Email)
-6. Report Generation and Exporting 
+**GitHub Link:** https://github.com/leandrogay/wittle-farms
+
+---
+
+## About the Project
+
+The Smart Task Manager and Productivity Systems aim to streamline personal and team productivity by offering an integrated platform for task creation, organisation, tracking, and report generation. Designed with usability and efficiency in mind, the system consolidates essential productivity functions into a single application.
+
+It incorporates six core feature pillars:
+
+- **User Authorisation and Authentication** – Ensures secure access and personalised sessions.  
+- **Task Management** – Enables users to create, update, manage, and complete tasks efficiently.  
+- **Task Grouping and Organisation** – Supports categorisation through projects, status, deadlines, and prioritisation to keep workflow structured.  
+- **Deadlines and Schedule Tracking** – Provides visibility into due dates, progress, and upcoming deadlines.  
+- **Notification System (In-App & Email)** – Sends reminders and updates to keep users aware of important deadlines or events.  
+- **Report Generation and Exporting** – Produces summaries and insights to support reflection, planning, and accountability.
 
 ---
 
 ## Tech Stack
 
 ### Frontend
-- React + Vite - Used for building responsive user interfaces.
-- JavaScript - Handles client-side logic and interactions.
+- **React + Vite** – Powers a fast, responsive, and modern user interface.  
+- **JavaScript** – Handles client-side logic, state changes, and real-time interactions.
 
 ### Backend
-- Node.js - Core language used to build backend logic and APIs.
-- Express - Used to manage server-side routing. 
-- Mongoose - Used for database calls 
-
+- **Node.js** – Forms the core server runtime environment for backend logic and APIs.  
+- **Express** – Manages API routing and server-side functionality.  
+- **Mongoose** – Provides a robust ODM layer for database operations.
 
 ### Database
-- MongoDB
+- **MongoDB** – NoSQL flexible data storage for JSON-like documents.
 
 ---
 
-## Running the Application 
+## Pre-Requisites
+
+Before running the application, ensure that the following software is installed on your system.
+
+### Secrets.env
+The application requires some environment variables to be set from the `secrets.env` file provided in the drive.  
+Please ensure that the `secrets.env` file is placed in the `/backend/config/` directory.
+
+### Node.js
+The application requires Node.js to run both the frontend and backend.
+
+Node.js provides the runtime environment necessary to execute JavaScript outside the browser and to manage project dependencies.
+
+- **Recommended Version:** Node.js 22+  
+- **Download Link:** https://nodejs.org  
+- **Verify Installation:**
+  ```
+  node -v
+  npm -v
+  ```
+
+---
+
+## Running the Application
 
 ### Serving the Frontend
-1. Open your terminal and navigate to the `frontend` directory:
-   ```bash
-   cd frontend
-   ```
-2. Install dependencies: 
-   ```bash
-   npm install
-   ```
-3. Serve the frontend:
-   ```bash
-   npm run dev
-   ```
+Open your terminal and navigate to the frontend directory:
+```
+cd frontend
+```
 
----
+Install dependencies:
+```
+npm install
+```
+
+Serve the frontend:
+```
+npm run dev
+```
 
 ### Serving the Backend
-1. Open your terminal and navigate to the `backend` directory:
-   ```bash
-   cd backend
-   ```
-2. Install dependencies: 
-   ```bash
-   npm install
-   ```
-3. Serve the backend:
-   ```bash
-   npm run dev
-   ```
+Open your terminal and navigate to the backend directory:
+```
+cd backend
+```
 
-### Running Backend Test
-1. Open your terminal and navigate to the `backend` directory:
-   ```bash
-   cd backend
-   ```
-2. Run the test: 
-   ```bash
-   npx vitest run --coverage --config ./config/vitest.config.js
-   ```
+Install dependencies:
+```
+npm install
+```
+
+Serve the backend:
+```
+npm run dev
+```
 
 ---
 
-## Acknowledgements
-### Contributors (G1T5)
-- Leandro Gay 
-- Sunkari Saraswati Neeharika
-- Jamie Tan Jia Hui 
-- Muhammad Imran Ashry Bin Azhari
-- Tan Kwang Wei
+## Running Backend Tests
 
-### Contact
-Project Link: https://github.com/leandrogay/wittle-farms
+Open your terminal and navigate to the backend directory:
+```
+cd backend
+```
+
+Install dependencies:
+```
+npm install
+```
+
+Run the tests:
+```
+npx vitest run --coverage --config ./config/vitest.config.js
+```
+
+---
+
+## Contributors (G1T5)
+
+- Leandro Gay  
+- Sunkari Saraswati Neeharika  
+- Tan Kwang Wei  
+- Jamie Tan Jia Hui  
+- Muhammad Imran Ashry Bin Azhari
