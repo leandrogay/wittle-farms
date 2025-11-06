@@ -6,7 +6,6 @@ import { DeleteTaskButton } from "./DeleteTaskButton";
 import { TaskComments } from "./TaskComments";
 import { updateTask, createTask, getSubtasks } from "../../services/api.js";
 
-
 const BTN_PRIMARY_CLS =
   "px-5 py-2 bg-brand-primary/90 text-white rounded-lg shadow hover:bg-brand-primary transition-colors font-medium";
 const PRIORITY = { LOW: "Low", MEDIUM: "Medium", HIGH: "High" };
@@ -51,6 +50,31 @@ const FieldRow = ({ label, children }) => (
 );
 
 const STATUS_OPTIONS = ["To Do", "In Progress", "Done"];
+
+/* ------------------------------
+   NEW: Small helpers for files
+--------------------------------*/
+function formatBytes(bytes) {
+  if (!Number.isFinite(bytes)) return "—";
+  const k = 1024;
+  if (bytes < k) return `${bytes} B`;
+  const units = ["KB", "MB", "GB", "TB"];
+  let i = -1;
+  do {
+    bytes /= k;
+    i++;
+  } while (bytes >= k && i < units.length - 1);
+  return `${bytes.toFixed(bytes >= 100 ? 0 : bytes >= 10 ? 1 : 2)} ${units[i]}`;
+}
+function buildAttachmentUrl(taskId, attachmentId) {
+  // Matches your Express route: GET /api/tasks/:taskId/attachments/:attachmentId
+  return `/api/tasks/${taskId}/attachments/${attachmentId}`;
+}
+function canPreview(mimetype) {
+  if (!mimetype) return false;
+  return mimetype.startsWith("image/") || mimetype === "application/pdf";
+}
+
 const TaskCard = ({ task, onTaskUpdated, onTaskDeleted, currentUser }) => {
   const priorityValue = Number(task?.priority);
   const priorityBucket = _getPriorityBucket(priorityValue);
@@ -67,9 +91,9 @@ const TaskCard = ({ task, onTaskUpdated, onTaskDeleted, currentUser }) => {
   // Normalize reminder offsets from API
   const rawOffsets = Array.isArray(task?.reminderOffsets)
     ? task.reminderOffsets
-      .map(Number)
-      .filter((n) => Number.isFinite(n) && n > 0)
-      .sort((a, b) => b - a)
+        .map(Number)
+        .filter((n) => Number.isFinite(n) && n > 0)
+        .sort((a, b) => b - a)
     : [];
 
   // If there IS a deadline and no custom reminders, show defaults (7/3/1)
@@ -91,6 +115,7 @@ const TaskCard = ({ task, onTaskUpdated, onTaskDeleted, currentUser }) => {
   const [creatingSub, setCreatingSub] = useState(false);
   const [editingSub, setEditingSub] = useState(null);
   const [pendingSub, setPendingSub] = useState(new Set());
+  const [previewAttachment, setPreviewAttachment] = useState(null);
 
   useEffect(() => {
     if (!isRoot || !task?._id) return;
@@ -104,7 +129,6 @@ const TaskCard = ({ task, onTaskUpdated, onTaskDeleted, currentUser }) => {
       }
     })();
   }, [isRoot, task?._id]);
-
 
   async function handleStatusChange(e) {
     const next = e.target.value;
@@ -161,7 +185,6 @@ const TaskCard = ({ task, onTaskUpdated, onTaskDeleted, currentUser }) => {
       });
     }
   }
-
 
   return (
     <article className={`rounded-2xl border p-6 shadow-sm bg-light-bg dark:bg-dark-bg ${isOverdue ? "border-danger ring-2 ring-danger/20" : "border-light-border dark:border-dark-border"}`}>
@@ -264,6 +287,48 @@ const TaskCard = ({ task, onTaskUpdated, onTaskDeleted, currentUser }) => {
             <li className="py-1 text-light-text-muted dark:text-dark-text-muted">—</li>
           )}
         </ul>
+      </div>
+
+      {/* ----------------------------------------
+          NEW: Attachments section
+      ----------------------------------------- */}
+      <div className="mt-5 rounded-xl bg-light-surface dark:bg-dark-surface ring-1 ring-light-border dark:ring-dark-border">
+        <div className="px-4 py-2 text-sm font-semibold text-light-text-primary dark:text-dark-text-primary">Attachments</div>
+        <div className="px-4 pb-3">
+          {Array.isArray(task?.attachments) && task.attachments.length > 0 ? (
+            <ul className="divide-y divide-light-border/60 dark:divide-dark-border/60">
+              {task.attachments.map((att) => {
+                const url = buildAttachmentUrl(task?._id, att?._id);
+                const showPreview = canPreview(att?.mimetype);
+                return (
+                  <li key={att?._id} className="flex items-center justify-between gap-3 py-3">
+                    <div className="min-w-0">
+                      <p className="truncate font-medium text-light-text-primary dark:text-dark-text-primary">
+                        {att?.filename || "Unnamed file"}
+                      </p>
+                      <p className="text-xs text-light-text-muted dark:text-dark-text-muted">
+                        {att?.mimetype || "application/octet-stream"} • {formatBytes(att?.size)}{att?.uploadedBy?.name ? ` • Uploaded by ${att.uploadedBy.name}` : ""}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <a
+                        href={url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="px-3 py-1.5 text-sm font-semibold rounded-lg bg-brand-primary/90 text-white hover:opacity-95"
+                        download
+                      >
+                        Download
+                      </a>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          ) : (
+            <p className="text-light-text-muted dark:text-dark-text-muted">— No attachments</p>
+          )}
+        </div>
       </div>
 
       {/* Meta */}
@@ -392,6 +457,53 @@ const TaskCard = ({ task, onTaskUpdated, onTaskDeleted, currentUser }) => {
         </div>
       )}
 
+      {/* NEW: Attachment preview modal */}
+      {previewAttachment && (
+        <div
+          className="fixed inset-0 z-[95] grid place-items-center bg-black/60 dark:bg-black/70 backdrop-blur-sm"
+          onMouseDown={(e) => e.target === e.currentTarget && setPreviewAttachment(null)}
+          role="dialog"
+          aria-modal="true"
+        >
+          <div className="w-[min(92vw,900px)] rounded-2xl bg-light-bg dark:bg-dark-bg shadow-2xl p-4 border border-light-border dark:border-dark-border max-h-[92vh] overflow-hidden">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-lg font-bold truncate">{previewAttachment.filename || "Preview"}</h3>
+              <button onClick={() => setPreviewAttachment(null)} className="text-2xl font-bold">×</button>
+            </div>
+            <div className="rounded-lg ring-1 ring-light-border dark:ring-dark-border overflow-auto max-h-[80vh] bg-white dark:bg-black">
+              {previewAttachment.mimetype?.startsWith("image/") ? (
+                <img
+                  src={buildAttachmentUrl(task?._id, previewAttachment?._id)}
+                  alt={previewAttachment.filename || "image"}
+                  className="max-w-full h-auto block mx-auto"
+                />
+              ) : previewAttachment.mimetype === "application/pdf" ? (
+                <iframe
+                  title={previewAttachment.filename || "PDF preview"}
+                  src={buildAttachmentUrl(task?._id, previewAttachment?._id)}
+                  className="w-full h-[80vh]"
+                />
+              ) : (
+                <div className="p-6 text-center text-sm text-light-text-muted dark:text-dark-text-muted">
+                  Preview not supported for this file type.<br />
+                  Use “Download” to open it locally.
+                </div>
+              )}
+            </div>
+            <div className="mt-3 flex justify-end">
+              <a
+                href={buildAttachmentUrl(task?._id, previewAttachment?._id)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={BTN_PRIMARY_CLS}
+                download
+              >
+                Download
+              </a>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Actions */}
       <div className="mt-4 flex flex-wrap gap-3 justify-end">
