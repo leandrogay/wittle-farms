@@ -2,7 +2,7 @@
 import mongoose from "mongoose";
 import bcrypt from "bcryptjs";
 import dotenv from "dotenv";
-import User from "../models/User.js";  // must include .js for ESM
+import User from "../../backend/models/User.js";  // must include .js for ESM
 
 dotenv.config({ path: "./config/secrets.env" });
 
